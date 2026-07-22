@@ -13,7 +13,7 @@ $compiler = Join-Path $frameworkRoot 'csc.exe'
 $workDirectory = Join-Path $projectRoot 'work'
 $distDirectory = Join-Path $projectRoot 'dist'
 $appOutput = Join-Path $workDirectory 'MajesticBoost.exe'
-$setupOutput = Join-Path $workDirectory 'MajesticBoost-Setup-1.4.0.exe'
+$setupOutput = Join-Path $workDirectory 'MajesticBoost-Setup-1.4.1.exe'
 
 if (-not (Test-Path -LiteralPath $compiler)) {
     throw ".NET Framework C# compiler not found: $compiler"
@@ -70,9 +70,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Copy-Item -LiteralPath $appOutput -Destination (Join-Path $distDirectory 'MajesticBoost.exe') -Force
-Copy-Item -LiteralPath $setupOutput -Destination (Join-Path $distDirectory 'MajesticBoost-Setup-1.4.0.exe') -Force
+Copy-Item -LiteralPath $setupOutput -Destination (Join-Path $distDirectory 'MajesticBoost-Setup-1.4.1.exe') -Force
 
 Get-FileHash -Algorithm SHA256 -LiteralPath @(
     (Join-Path $distDirectory 'MajesticBoost.exe'),
-    (Join-Path $distDirectory 'MajesticBoost-Setup-1.4.0.exe')
+    (Join-Path $distDirectory 'MajesticBoost-Setup-1.4.1.exe')
 ) | Format-Table -AutoSize

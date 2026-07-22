@@ -16,8 +16,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Installer for Majestic Boost")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.4.0.0")]
-[assembly: AssemblyFileVersion("1.4.0.0")]
+[assembly: AssemblyVersion("1.4.1.0")]
+[assembly: AssemblyFileVersion("1.4.1.0")]
 
 namespace MajesticBoostSetup
 {
@@ -100,7 +100,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.4.0";
+        public const string ProductVersion = "1.4.1";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);
@@ -428,6 +428,27 @@ namespace MajesticBoostSetup
             }
         }
 
+        private static void ReplaceFileWithoutRetainedBackup(string source, string destination)
+        {
+            string discardBackup = destination + ".replace-backup-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                File.Replace(source, destination, discardBackup, true);
+            }
+            finally
+            {
+                try
+                {
+                    DeleteIfExists(discardBackup);
+                }
+                catch
+                {
+                    // A disposable copy of the failed destination must not make
+                    // restoring the known-good installation report failure.
+                }
+            }
+        }
+
         private static bool RestoreCommittedFile(string destination, string backup, bool destinationExisted)
         {
             try
@@ -436,7 +457,7 @@ namespace MajesticBoostSetup
                 {
                     if (File.Exists(destination))
                     {
-                        File.Replace(backup, destination, null, true);
+                        ReplaceFileWithoutRetainedBackup(backup, destination);
                     }
                     else
                     {

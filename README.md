@@ -27,7 +27,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 Результат появится в `dist`:
 
 - `MajesticBoost.exe` — переносимая версия;
-- `MajesticBoost-Setup-1.4.0.exe` — установщик.
+- `MajesticBoost-Setup-1.4.1.exe` — установщик.
 
 ## Выпуск обновления
 

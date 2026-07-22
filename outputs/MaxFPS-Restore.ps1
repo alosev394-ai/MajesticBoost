@@ -110,6 +110,23 @@ function Set-ObjectProperty {
     }
 }
 
+function Replace-FileWithoutRetainedBackup {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+    $discardBackup = '{0}.{1}.replace-backup' -f $Destination, [Guid]::NewGuid().ToString('N')
+    try {
+        # Windows PowerShell 5.1 coerces $null to an empty string for this
+        # overload, which makes File.Replace fail with "path is not legal".
+        # A real unique backup path keeps the replace atomic on .NET Framework.
+        [IO.File]::Replace($Source, $Destination, $discardBackup, $true)
+    }
+    finally {
+        Remove-Item -LiteralPath $discardBackup -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Write-TextAtomic {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -123,7 +140,7 @@ function Write-TextAtomic {
     try {
         [IO.File]::WriteAllText($temporaryPath, $Text, $utf8NoBom)
         if (Test-Path -LiteralPath $Path) {
-            [IO.File]::Replace($temporaryPath, $Path, $null, $true)
+            Replace-FileWithoutRetainedBackup -Source $temporaryPath -Destination $Path
         }
         else {
             [IO.File]::Move($temporaryPath, $Path)
@@ -732,7 +749,7 @@ function Restore-FileAtomic {
         if ((Get-FileSha256 -Path $temporary) -ne $ExpectedHash) {
             throw "Prepared restore hash mismatch for $Original"
         }
-        [IO.File]::Replace($temporary, $Original, $null, $true)
+        Replace-FileWithoutRetainedBackup -Source $temporary -Destination $Original
     }
     finally {
         Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue

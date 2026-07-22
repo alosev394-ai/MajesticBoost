@@ -1560,6 +1560,22 @@ namespace MajesticBoost
                 .Replace("\n", "\\n");
         }
 
+        private static void ReplaceFileWithoutRetainedBackup(
+            string sourcePath,
+            string destinationPath)
+        {
+            string discardBackupPath = destinationPath +
+                ".replace-backup-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                File.Replace(sourcePath, destinationPath, discardBackupPath, true);
+            }
+            finally
+            {
+                TryDeleteFile(discardBackupPath);
+            }
+        }
+
         private static void WriteUtf8Atomically(string path, string text)
         {
             string directory = Path.GetDirectoryName(path);
@@ -1574,7 +1590,7 @@ namespace MajesticBoost
             {
                 if (File.Exists(path))
                 {
-                    File.Replace(temporaryPath, path, null);
+                    ReplaceFileWithoutRetainedBackup(temporaryPath, path);
                 }
                 else
                 {

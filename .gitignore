@@ -1,0 +1,16 @@
+work/
+dist/
+
+outputs/*.exe
+outputs/*.log
+outputs/*.result.json
+outputs/__pycache__/
+outputs/*.pyc
+
+*.user
+*.suo
+*.pdb
+*.dpapi
+*.pfx
+*.pem
+*.key

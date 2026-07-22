@@ -4,6 +4,8 @@ dist/
 outputs/*.exe
 outputs/*.log
 outputs/*.result.json
+outputs/Defender-Full-Scan.*
+outputs/steelseries_config.py
 outputs/__pycache__/
 outputs/*.pyc
 

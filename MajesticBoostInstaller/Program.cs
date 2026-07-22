@@ -16,8 +16,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Installer for Majestic Boost")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.3.0.0")]
-[assembly: AssemblyFileVersion("1.3.0.0")]
+[assembly: AssemblyVersion("1.4.0.0")]
+[assembly: AssemblyFileVersion("1.4.0.0")]
 
 namespace MajesticBoostSetup
 {
@@ -33,6 +33,8 @@ namespace MajesticBoostSetup
             bool quiet = false;
             bool silentInstall = false;
             bool launchAfterInstall = false;
+            bool updateUi = false;
+            bool demoUpdateUi = false;
             foreach (string argument in args)
             {
                 if (string.Equals(argument, "/uninstall", StringComparison.OrdinalIgnoreCase) ||
@@ -51,6 +53,17 @@ namespace MajesticBoostSetup
                 {
                     launchAfterInstall = true;
                 }
+                else if (string.Equals(argument, "/updateui", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(argument, "-updateui", StringComparison.OrdinalIgnoreCase))
+                {
+                    updateUi = true;
+                }
+                else if (string.Equals(argument, "/demo-updateui", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(argument, "-demo-updateui", StringComparison.OrdinalIgnoreCase))
+                {
+                    updateUi = true;
+                    demoUpdateUi = true;
+                }
             }
 
             if (uninstall)
@@ -59,7 +72,7 @@ namespace MajesticBoostSetup
                 return;
             }
 
-            if (silentInstall)
+            if (silentInstall && !updateUi)
             {
                 try
                 {
@@ -80,14 +93,14 @@ namespace MajesticBoostSetup
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.ApplicationExit += delegate { MajesticFontProvider.Dispose(); };
-            Application.Run(new InstallerForm());
+            Application.Run(updateUi ? (Form)new UpdateProgressForm(demoUpdateUi) : new InstallerForm());
         }
     }
 
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.3.0";
+        public const string ProductVersion = "1.4.0";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);
@@ -102,16 +115,20 @@ namespace MajesticBoostSetup
         private const string AppPathsRegistryPath =
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\MajesticBoost.exe";
 
-        public static void Install(bool createDesktopShortcut)
+        public static void Install(bool createDesktopShortcut, Action<int, string> progress = null)
         {
+            ReportProgress(progress, 0, "Подготовка обновления");
             Directory.CreateDirectory(InstallDirectory);
+            ReportProgress(progress, 5, "Подготовка папки установки");
             StopInstalledApplication();
+            ReportProgress(progress, 10, "Остановка запущенной версии");
 
-            InstallPayloadsAtomically();
+            InstallPayloadsAtomically(progress);
             if (!string.Equals(Application.ExecutablePath, UninstallerExe, StringComparison.OrdinalIgnoreCase))
             {
                 File.Copy(Application.ExecutablePath, UninstallerExe, true);
             }
+            ReportProgress(progress, 76, "Обновление компонентов удаления");
 
             string startMenuDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
@@ -122,6 +139,7 @@ namespace MajesticBoostSetup
                 InstalledExe,
                 InstallDirectory,
                 "Animated Majestic MAX FPS launcher.");
+            ReportProgress(progress, 82, "Обновление ярлыков");
 
             if (createDesktopShortcut)
             {
@@ -137,6 +155,7 @@ namespace MajesticBoostSetup
                     Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
                     ProductName + ".lnk"));
             }
+            ReportProgress(progress, 87, "Сохранение параметров установки");
 
             using (RegistryKey baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
             using (RegistryKey uninstall = baseKey.CreateSubKey(UninstallRegistryPath))
@@ -153,6 +172,7 @@ namespace MajesticBoostSetup
                 uninstall.SetValue("EstimatedSize", CalculateEstimatedSizeKb(), RegistryValueKind.DWord);
                 uninstall.SetValue("InstallDate", DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture), RegistryValueKind.String);
             }
+            ReportProgress(progress, 94, "Регистрация новой версии");
 
             using (RegistryKey baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
             using (RegistryKey appPath = baseKey.CreateSubKey(AppPathsRegistryPath))
@@ -160,6 +180,7 @@ namespace MajesticBoostSetup
                 appPath.SetValue(string.Empty, InstalledExe, RegistryValueKind.String);
                 appPath.SetValue("Path", InstallDirectory, RegistryValueKind.String);
             }
+            ReportProgress(progress, 100, "Обновление установлено");
         }
 
         public static void Uninstall(bool quiet)
@@ -254,7 +275,7 @@ namespace MajesticBoostSetup
             }
         }
 
-        private static void InstallPayloadsAtomically()
+        private static void InstallPayloadsAtomically(Action<int, string> progress = null)
         {
             string token = Guid.NewGuid().ToString("N");
             string appStage = Path.Combine(InstallDirectory, ".MajesticBoost-" + token + ".stage");
@@ -281,27 +302,40 @@ namespace MajesticBoostSetup
 
             try
             {
+                ReportProgress(progress, 12, "Распаковка файлов программы");
                 ExtractResource("MajesticBoost.Payload.exe", appStage);
+                ReportProgress(progress, 17, "Распаковка игровых настроек");
                 ExtractResource("MajesticBoost.GameBoost.ps1", gameBoostStage);
+                ReportProgress(progress, 21, "Распаковка профиля производительности");
                 ExtractResource("MajesticBoost.MaxFPSApply.ps1", maxFpsApplyStage);
+                ReportProgress(progress, 25, "Распаковка компонентов восстановления");
                 ExtractResource("MajesticBoost.MaxFPSRestore.ps1", maxFpsRestoreStage);
 
                 // Do not alter the existing installation until every payload is ready.
+                ReportProgress(progress, 30, "Проверка файлов программы");
                 ValidateStagedPayload(appStage, true);
+                ReportProgress(progress, 35, "Проверка игровых настроек");
                 ValidateStagedPayload(gameBoostStage, false);
+                ReportProgress(progress, 40, "Проверка профиля производительности");
                 ValidateStagedPayload(maxFpsApplyStage, false);
+                ReportProgress(progress, 44, "Проверка компонентов восстановления");
                 ValidateStagedPayload(maxFpsRestoreStage, false);
 
                 // Publish dependency scripts first and the application itself last.
+                ReportProgress(progress, 49, "Установка игровых настроек");
                 CommitStagedFile(gameBoostStage, InstalledGameBoostScript, gameBoostBackup, gameBoostExisted);
                 gameBoostCommitted = true;
+                ReportProgress(progress, 55, "Установка профиля производительности");
                 CommitStagedFile(maxFpsApplyStage, InstalledMaxFpsApplyScript, maxFpsApplyBackup, maxFpsApplyExisted);
                 maxFpsApplyCommitted = true;
+                ReportProgress(progress, 61, "Установка компонентов восстановления");
                 CommitStagedFile(maxFpsRestoreStage, InstalledMaxFpsRestoreScript, maxFpsRestoreBackup, maxFpsRestoreExisted);
                 maxFpsRestoreCommitted = true;
+                ReportProgress(progress, 68, "Установка новой версии программы");
                 CommitStagedFile(appStage, InstalledExe, appBackup, appExisted);
                 appCommitted = true;
                 installationSucceeded = true;
+                ReportProgress(progress, 72, "Файлы программы обновлены");
             }
             catch
             {
@@ -539,6 +573,23 @@ namespace MajesticBoostSetup
                 }
             }
             return (int)Math.Max(1, total / 1024);
+        }
+
+        private static void ReportProgress(Action<int, string> progress, int percent, string stage)
+        {
+            if (progress == null)
+            {
+                return;
+            }
+
+            try
+            {
+                progress(Math.Max(0, Math.Min(100, percent)), stage ?? string.Empty);
+            }
+            catch
+            {
+                // A closed or unavailable progress surface must not corrupt installation.
+            }
         }
 
         private static string Quote(string value)
@@ -1215,6 +1266,523 @@ namespace MajesticBoostSetup
                 thumbPosition = targetThumbPosition;
                 currentTrackColor = targetTrackColor;
             }
+        }
+    }
+
+    internal sealed class UpdateProgressForm : Form
+    {
+        private const int ProgressTrackWidth = 480;
+        private readonly Color background = Color.FromArgb(22, 22, 22);
+        private readonly Color accent = Color.FromArgb(232, 28, 90);
+        private readonly Color muted = Color.FromArgb(142, 142, 142);
+        private readonly bool demoMode;
+        private readonly Timer progressAnimationTimer;
+        private readonly Timer demoTimer;
+        private MajesticCloseButton closeButton;
+        private MajesticActionButton actionButton;
+        private Label headlineLabel;
+        private Label descriptionLabel;
+        private Label percentLabel;
+        private Label phaseLabel;
+        private Label detailLabel;
+        private Panel progressFill;
+        private int displayedProgress;
+        private int targetProgress;
+        private int demoMilestoneIndex;
+        private bool installing;
+        private bool successPending;
+        private bool successShown;
+
+        private static readonly int[] DemoPercentages =
+        {
+            0, 5, 10, 17, 25, 35, 44, 55, 68, 76, 87, 94, 100
+        };
+
+        private static readonly string[] DemoStages =
+        {
+            "Подготовка обновления",
+            "Подготовка папки установки",
+            "Остановка запущенной версии",
+            "Распаковка файлов программы",
+            "Распаковка компонентов обновления",
+            "Проверка файлов программы",
+            "Проверка компонентов обновления",
+            "Установка профиля производительности",
+            "Установка новой версии программы",
+            "Обновление компонентов удаления",
+            "Сохранение параметров установки",
+            "Регистрация новой версии",
+            "Обновление установлено"
+        };
+
+        public UpdateProgressForm(bool demoMode)
+        {
+            this.demoMode = demoMode;
+            Text = "Majestic Boost Update";
+            ClientSize = new Size(560, 345);
+            StartPosition = FormStartPosition.CenterScreen;
+            FormBorderStyle = FormBorderStyle.None;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            BackColor = background;
+            ForeColor = Color.White;
+            Font = CreateUiFont(9F, FontStyle.Regular);
+            DoubleBuffered = true;
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+
+            progressAnimationTimer = new Timer();
+            progressAnimationTimer.Interval = 15;
+            progressAnimationTimer.Tick += ProgressAnimationTick;
+
+            demoTimer = new Timer();
+            demoTimer.Interval = 360;
+            demoTimer.Tick += DemoTimerTick;
+
+            BuildInterface();
+            Resize += delegate { ApplyRoundedRegion(); };
+            Shown += UpdateProgressFormShown;
+            MouseDown += DragWindow;
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                const int CsDropShadow = 0x00020000;
+                CreateParams parameters = base.CreateParams;
+                parameters.ClassStyle |= CsDropShadow;
+                return parameters;
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (GraphicsPath path = MakeRoundedRectangle(
+                new Rectangle(0, 0, ClientSize.Width - 1, ClientSize.Height - 1), 11))
+            using (var pen = new Pen(Color.FromArgb(56, 56, 56), 1F))
+            {
+                e.Graphics.DrawPath(pen, path);
+            }
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (installing)
+            {
+                e.Cancel = true;
+                return;
+            }
+            base.OnFormClosing(e);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                progressAnimationTimer.Stop();
+                progressAnimationTimer.Dispose();
+                demoTimer.Stop();
+                demoTimer.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        private void BuildInterface()
+        {
+            closeButton = new MajesticCloseButton();
+            closeButton.Location = new Point(530, 0);
+            closeButton.Size = new Size(30, 30);
+            closeButton.AccessibleName = "Закрыть обновление";
+            closeButton.AccessibleDescription = "Закрывает окно обновления Majestic Boost";
+            closeButton.TabIndex = 1;
+            closeButton.Click += delegate
+            {
+                if (!installing)
+                {
+                    Close();
+                }
+            };
+            Controls.Add(closeButton);
+
+            var iconBox = new PictureBox();
+            iconBox.Location = new Point(40, 32);
+            iconBox.Size = new Size(50, 50);
+            iconBox.SizeMode = PictureBoxSizeMode.Zoom;
+            iconBox.Image = Icon == null ? null : Icon.ToBitmap();
+            iconBox.MouseDown += DragWindow;
+            Controls.Add(iconBox);
+
+            var title = MakeLabel("MAJESTIC BOOST", 22F, FontStyle.Bold, Color.White);
+            title.Location = new Point(105, 31);
+            title.AutoSize = true;
+            title.MouseDown += DragWindow;
+            Controls.Add(title);
+
+            var version = MakeLabel("UPDATE  •  v" + InstallerEngine.ProductVersion, 8.5F, FontStyle.Bold, accent);
+            version.Location = new Point(108, 66);
+            version.AutoSize = true;
+            version.MouseDown += DragWindow;
+            Controls.Add(version);
+
+            headlineLabel = MakeLabel("УСТАНОВКА ОБНОВЛЕНИЯ", 16F, FontStyle.Bold, Color.White);
+            headlineLabel.Location = new Point(40, 112);
+            headlineLabel.AutoSize = true;
+            Controls.Add(headlineLabel);
+
+            descriptionLabel = MakeLabel(
+                "Majestic Boost обновляется до версии " + InstallerEngine.ProductVersion,
+                10F,
+                FontStyle.Regular,
+                muted);
+            descriptionLabel.Location = new Point(42, 146);
+            descriptionLabel.AutoSize = true;
+            Controls.Add(descriptionLabel);
+
+            percentLabel = MakeLabel("0%", 24F, FontStyle.Bold, accent);
+            percentLabel.Location = new Point(39, 181);
+            percentLabel.Size = new Size(120, 42);
+            percentLabel.TextAlign = ContentAlignment.MiddleLeft;
+            percentLabel.AccessibleName = "Прогресс обновления: 0 процентов";
+            Controls.Add(percentLabel);
+
+            phaseLabel = MakeLabel("Подготовка обновления", 10F, FontStyle.Bold, Color.FromArgb(220, 220, 220));
+            phaseLabel.Location = new Point(162, 190);
+            phaseLabel.Size = new Size(356, 28);
+            phaseLabel.TextAlign = ContentAlignment.MiddleLeft;
+            phaseLabel.AutoEllipsis = true;
+            Controls.Add(phaseLabel);
+
+            var progressTrack = new Panel();
+            progressTrack.Location = new Point(40, 231);
+            progressTrack.Size = new Size(ProgressTrackWidth, 6);
+            progressTrack.BackColor = Color.FromArgb(48, 48, 48);
+            Controls.Add(progressTrack);
+
+            progressFill = new Panel();
+            progressFill.Location = new Point(0, 0);
+            progressFill.Size = new Size(0, 6);
+            progressFill.BackColor = accent;
+            progressTrack.Controls.Add(progressFill);
+
+            detailLabel = MakeLabel(
+                "Не закрывайте установщик до завершения обновления.",
+                9F,
+                FontStyle.Regular,
+                muted);
+            detailLabel.Location = new Point(42, 252);
+            detailLabel.Size = new Size(478, 34);
+            detailLabel.AutoEllipsis = true;
+            Controls.Add(detailLabel);
+
+            actionButton = new MajesticActionButton();
+            actionButton.Text = "ПРОДОЛЖИТЬ";
+            actionButton.Location = new Point(350, 288);
+            actionButton.Size = new Size(170, 42);
+            actionButton.ForeColor = Color.White;
+            actionButton.Font = CreateUiFont(10F, FontStyle.Bold);
+            actionButton.AccessibleName = "Продолжить после обновления";
+            actionButton.AccessibleDescription = "Запускает обновлённую версию Majestic Boost";
+            actionButton.TabIndex = 0;
+            actionButton.Visible = false;
+            actionButton.Click += ActionButtonClick;
+            Controls.Add(actionButton);
+
+            AcceptButton = actionButton;
+            CancelButton = closeButton;
+        }
+
+        private void UpdateProgressFormShown(object sender, EventArgs e)
+        {
+            ApplyRoundedRegion();
+            BeginInvoke(new Action(StartInstallation));
+        }
+
+        private void StartInstallation()
+        {
+            if (installing)
+            {
+                return;
+            }
+
+            installing = true;
+            successPending = false;
+            successShown = false;
+            displayedProgress = 0;
+            targetProgress = 0;
+            progressFill.Width = 0;
+            percentLabel.Text = "0%";
+            percentLabel.AccessibleName = "Прогресс обновления: 0 процентов";
+            headlineLabel.Text = "УСТАНОВКА ОБНОВЛЕНИЯ";
+            headlineLabel.ForeColor = Color.White;
+            descriptionLabel.Text = "Majestic Boost обновляется до версии " + InstallerEngine.ProductVersion;
+            phaseLabel.Text = "Подготовка обновления";
+            phaseLabel.ForeColor = Color.FromArgb(220, 220, 220);
+            detailLabel.Text = "Не закрывайте установщик до завершения обновления.";
+            detailLabel.ForeColor = muted;
+            actionButton.Visible = false;
+            actionButton.Enabled = false;
+            closeButton.Enabled = false;
+            progressAnimationTimer.Start();
+
+            if (demoMode)
+            {
+                demoMilestoneIndex = 0;
+                demoTimer.Start();
+                return;
+            }
+
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    string desktopShortcut = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                        InstallerEngine.ProductName + ".lnk");
+                    bool preserveDesktopShortcut = File.Exists(desktopShortcut);
+                    InstallerEngine.Install(preserveDesktopShortcut, ReportProgressFromWorker);
+                    PostToUi(InstallationCompleted);
+                }
+                catch (Exception exception)
+                {
+                    PostToUi(delegate { InstallationFailed(exception); });
+                }
+            });
+        }
+
+        private void ReportProgressFromWorker(int percent, string stage)
+        {
+            PostToUi(delegate { SetProgressTarget(percent, stage); });
+        }
+
+        private void PostToUi(Action action)
+        {
+            if (action == null || IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            try
+            {
+                if (InvokeRequired)
+                {
+                    BeginInvoke(action);
+                }
+                else
+                {
+                    action();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // The window was disposed while a background operation was finishing.
+            }
+            catch (InvalidOperationException)
+            {
+                // The window was closed while a background operation was finishing.
+            }
+        }
+
+        private void SetProgressTarget(int percent, string stage)
+        {
+            int normalized = Math.Max(0, Math.Min(100, percent));
+            targetProgress = Math.Max(targetProgress, normalized);
+            if (!string.IsNullOrWhiteSpace(stage))
+            {
+                phaseLabel.Text = stage;
+            }
+            progressAnimationTimer.Start();
+        }
+
+        private void InstallationCompleted()
+        {
+            SetProgressTarget(100, "Обновление установлено");
+            successPending = true;
+        }
+
+        private void InstallationFailed(Exception exception)
+        {
+            installing = false;
+            successPending = false;
+            demoTimer.Stop();
+            headlineLabel.Text = "НЕ УДАЛОСЬ ОБНОВИТЬ";
+            headlineLabel.ForeColor = Color.FromArgb(255, 102, 122);
+            descriptionLabel.Text = "Повторите установку обновления.";
+            phaseLabel.Text = "Ошибка установки";
+            phaseLabel.ForeColor = Color.FromArgb(255, 102, 122);
+            detailLabel.Text = FriendlyError(exception);
+            detailLabel.ForeColor = Color.FromArgb(205, 205, 205);
+            actionButton.Text = "ПОВТОРИТЬ";
+            actionButton.AccessibleName = "Повторить обновление Majestic Boost";
+            actionButton.AccessibleDescription = "Повторно запускает установку обновления";
+            actionButton.Visible = true;
+            actionButton.Enabled = true;
+            closeButton.Enabled = true;
+            actionButton.Focus();
+        }
+
+        private void ProgressAnimationTick(object sender, EventArgs e)
+        {
+            if (displayedProgress < targetProgress)
+            {
+                int difference = targetProgress - displayedProgress;
+                displayedProgress += Math.Min(3, Math.Max(1, (difference + 11) / 12));
+                if (displayedProgress > targetProgress)
+                {
+                    displayedProgress = targetProgress;
+                }
+                percentLabel.Text = displayedProgress.ToString(CultureInfo.InvariantCulture) + "%";
+                percentLabel.AccessibleName = "Прогресс обновления: " +
+                    displayedProgress.ToString(CultureInfo.InvariantCulture) + " процентов";
+                progressFill.Width = (int)Math.Round(
+                    ProgressTrackWidth * (displayedProgress / 100D),
+                    MidpointRounding.AwayFromZero);
+            }
+
+            if (successPending && displayedProgress >= 100)
+            {
+                successPending = false;
+                ShowSuccess();
+            }
+            else if (displayedProgress >= targetProgress)
+            {
+                progressAnimationTimer.Stop();
+            }
+        }
+
+        private void DemoTimerTick(object sender, EventArgs e)
+        {
+            if (demoMilestoneIndex >= DemoPercentages.Length)
+            {
+                demoTimer.Stop();
+                successPending = true;
+                progressAnimationTimer.Start();
+                return;
+            }
+
+            SetProgressTarget(
+                DemoPercentages[demoMilestoneIndex],
+                DemoStages[demoMilestoneIndex]);
+            demoMilestoneIndex++;
+        }
+
+        private void ShowSuccess()
+        {
+            if (successShown)
+            {
+                return;
+            }
+
+            successShown = true;
+            installing = false;
+            headlineLabel.Text = "ПРОГРАММА УСПЕШНО ОБНОВЛЕНА";
+            headlineLabel.ForeColor = Color.White;
+            descriptionLabel.Text = "Версия " + InstallerEngine.ProductVersion + " готова к запуску.";
+            phaseLabel.Text = "Обновление завершено";
+            phaseLabel.ForeColor = accent;
+            detailLabel.Text = "Нажмите «Продолжить», чтобы открыть Majestic Boost.";
+            detailLabel.ForeColor = muted;
+            actionButton.Text = "ПРОДОЛЖИТЬ";
+            actionButton.AccessibleName = "Продолжить после обновления";
+            actionButton.AccessibleDescription = demoMode
+                ? "Закрывает демонстрацию обновления"
+                : "Запускает обновлённую версию Majestic Boost";
+            actionButton.Visible = true;
+            actionButton.Enabled = true;
+            closeButton.Enabled = true;
+            actionButton.Focus();
+        }
+
+        private void ActionButtonClick(object sender, EventArgs e)
+        {
+            if (!successShown)
+            {
+                StartInstallation();
+                return;
+            }
+
+            if (demoMode)
+            {
+                Close();
+                return;
+            }
+
+            try
+            {
+                InstallerEngine.LaunchInstalledApplication();
+                Close();
+            }
+            catch (Exception exception)
+            {
+                detailLabel.Text = "Не удалось запустить программу: " + FriendlyError(exception);
+                detailLabel.ForeColor = Color.FromArgb(255, 102, 122);
+                actionButton.Enabled = true;
+                actionButton.Focus();
+            }
+        }
+
+        private static string FriendlyError(Exception exception)
+        {
+            if (exception == null || string.IsNullOrWhiteSpace(exception.Message))
+            {
+                return "Неизвестная ошибка. Нажмите «Повторить».";
+            }
+
+            string message = exception.Message.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return message.Length <= 150 ? message : message.Substring(0, 147) + "...";
+        }
+
+        private Label MakeLabel(string text, float size, FontStyle style, Color color)
+        {
+            var label = new Label();
+            label.Text = text;
+            label.Font = CreateUiFont(size, style);
+            label.ForeColor = color;
+            label.BackColor = Color.Transparent;
+            return label;
+        }
+
+        private Font CreateUiFont(float size, FontStyle style)
+        {
+            return demoMode
+                ? new Font("Segoe UI", size, style, GraphicsUnit.Point)
+                : MajesticFontProvider.Create(size, style);
+        }
+
+        private void ApplyRoundedRegion()
+        {
+            using (GraphicsPath path = MakeRoundedRectangle(new Rectangle(0, 0, Width, Height), 11))
+            {
+                Region oldRegion = Region;
+                Region = new Region(path);
+                if (oldRegion != null)
+                {
+                    oldRegion.Dispose();
+                }
+            }
+        }
+
+        private static GraphicsPath MakeRoundedRectangle(Rectangle rectangle, int radius)
+        {
+            int diameter = radius * 2;
+            var path = new GraphicsPath();
+            path.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180, 90);
+            path.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270, 90);
+            path.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        private void DragWindow(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || installing)
+            {
+                return;
+            }
+            NativeMethods.ReleaseCapture();
+            NativeMethods.SendMessage(Handle, 0xA1, new IntPtr(0x2), IntPtr.Zero);
         }
     }
 

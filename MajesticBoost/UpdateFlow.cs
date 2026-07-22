@@ -16,7 +16,6 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 
 namespace MajesticBoost
 {
@@ -48,6 +47,20 @@ namespace MajesticBoost
             Required,
             Downloading,
             Retry
+        }
+
+        private enum UpdateProgressStage
+        {
+            Downloading,
+            Verifying,
+            Launching
+        }
+
+        private struct UpdateProgressInfo
+        {
+            public UpdateProgressStage Stage;
+            public long DownloadedBytes;
+            public long TotalBytes;
         }
 
         private sealed class UpdateManifest
@@ -423,9 +436,6 @@ namespace MajesticBoost
         private const int DownloadTotalTimeoutMilliseconds = 120000;
 
         private static readonly Color BackgroundColor = Color.FromRgb(22, 22, 22);
-        private static readonly Color CardColor = Color.FromRgb(25, 25, 25);
-        private static readonly Color PanelColor = Color.FromRgb(29, 29, 29);
-        private static readonly Color BorderColor = Color.FromRgb(56, 56, 56);
         private static readonly Color TextColor = Color.FromRgb(244, 244, 244);
         private static readonly Color MutedColor = Color.FromRgb(142, 142, 142);
         private static readonly Color AccentColor = Color.FromRgb(232, 28, 90);
@@ -443,6 +453,10 @@ namespace MajesticBoost
         private UpdateManifest availableUpdate;
         private Task<bool> checkTask;
         private Button preferredFocusButton;
+        private Border progressFill;
+        private TextBlock progressPercentText;
+        private TextBlock progressStageText;
+        private TextBlock progressBytesText;
         private bool allowOwnerClose;
         private bool checkCompleted;
 
@@ -480,18 +494,9 @@ namespace MajesticBoost
                 Height = 410,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Background = new SolidColorBrush(CardColor),
-                BorderBrush = new SolidColorBrush(BorderColor),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(24),
-                Effect = new DropShadowEffect
-                {
-                    BlurRadius = 28,
-                    ShadowDepth = 0,
-                    Opacity = 0.55,
-                    Color = Colors.Black
-                }
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(24)
             };
             Children.Add(card);
 
@@ -596,7 +601,7 @@ namespace MajesticBoost
                         (currentDemoVersion.Major + 1).ToString(CultureInfo.InvariantCulture) +
                         ".0.0.exe",
                     Sha256 = new string('0', 64),
-                    Size = 1
+                    Size = 24L * 1024L * 1024L
                 };
                 ShowUpdateRequired(GetCurrentVersion(), availableUpdate.Version);
                 RaiseUpdateRequired(GetCurrentVersion(), availableUpdate.Version);
@@ -833,15 +838,16 @@ namespace MajesticBoost
             ShowDownloading(availableUpdate.Version);
             if (demoMode)
             {
-                await Task.Delay(850);
-                ShowRetry("Демо-режим: сеть и запуск установщика отключены. Интерфейс повторной попытки работает безопасно.");
+                await RunDemoUpdateProgressAsync(availableUpdate);
                 return;
             }
 
             try
             {
                 UpdateManifest update = availableUpdate;
-                await Task.Run(delegate { DownloadValidateAndLaunch(update); });
+                IProgress<UpdateProgressInfo> progress =
+                    new Progress<UpdateProgressInfo>(UpdateProgressDisplay);
+                await Task.Run(delegate { DownloadValidateAndLaunch(update, progress); });
                 Log("Verified installer was handed to the elevated setup process.");
                 allowOwnerClose = true;
                 EventHandler closeHandler = RequestApplicationClose;
@@ -873,7 +879,42 @@ namespace MajesticBoost
             }
         }
 
-        private static void DownloadValidateAndLaunch(UpdateManifest update)
+        private async Task RunDemoUpdateProgressAsync(UpdateManifest update)
+        {
+            const int step = 2;
+            for (int percent = 0; percent <= 100; percent += step)
+            {
+                long downloaded = update.Size * percent / 100L;
+                UpdateProgressDisplay(new UpdateProgressInfo
+                {
+                    Stage = UpdateProgressStage.Downloading,
+                    DownloadedBytes = downloaded,
+                    TotalBytes = update.Size
+                });
+                await Task.Delay(24);
+            }
+
+            UpdateProgressDisplay(new UpdateProgressInfo
+            {
+                Stage = UpdateProgressStage.Verifying,
+                DownloadedBytes = update.Size,
+                TotalBytes = update.Size
+            });
+            await Task.Delay(650);
+
+            UpdateProgressDisplay(new UpdateProgressInfo
+            {
+                Stage = UpdateProgressStage.Launching,
+                DownloadedBytes = update.Size,
+                TotalBytes = update.Size
+            });
+            await Task.Delay(500);
+            ShowDemoHandoff();
+        }
+
+        private static void DownloadValidateAndLaunch(
+            UpdateManifest update,
+            IProgress<UpdateProgressInfo> progress)
         {
             string directory = CreateUniqueDownloadDirectory();
             string fileName = "MajesticBoost-Setup-" + update.Version + ".exe";
@@ -890,13 +931,24 @@ namespace MajesticBoost
                     65536,
                     FileOptions.SequentialScan);
 
-                DownloadInstallerIntoHeldFile(update, heldInstaller);
+                DownloadInstallerIntoHeldFile(update, heldInstaller, progress);
+                ReportUpdateProgress(
+                    progress,
+                    UpdateProgressStage.Verifying,
+                    update.Size,
+                    update.Size);
                 ValidateHeldInstaller(update, installerPath, heldInstaller);
+
+                ReportUpdateProgress(
+                    progress,
+                    UpdateProgressStage.Launching,
+                    update.Size,
+                    update.Size);
 
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = installerPath,
-                    Arguments = "/silent /launch",
+                    Arguments = "/updateui",
                     WorkingDirectory = directory,
                     UseShellExecute = true,
                     Verb = "runas",
@@ -922,10 +974,15 @@ namespace MajesticBoost
             }
         }
 
-        private static void DownloadInstallerIntoHeldFile(UpdateManifest update, FileStream destination)
+        private static void DownloadInstallerIntoHeldFile(
+            UpdateManifest update,
+            FileStream destination,
+            IProgress<UpdateProgressInfo> progress)
         {
             HttpWebRequest request = CreateRequest(update.InstallerUrl, DownloadReadTimeoutMilliseconds);
             var stopwatch = Stopwatch.StartNew();
+            int lastReportedPercent = -1;
+            ReportUpdateProgress(progress, UpdateProgressStage.Downloading, 0, update.Size);
             using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
             {
                 ValidateResponse(response, InstallerMaximumBytes, update.Size, update.InstallerUrl);
@@ -951,6 +1008,16 @@ namespace MajesticBoost
                             throw new InvalidDataException("Installer exceeds the declared size.");
                         }
                         destination.Write(buffer, 0, read);
+                        int percent = (int)(total * 100L / update.Size);
+                        if (percent != lastReportedPercent)
+                        {
+                            lastReportedPercent = percent;
+                            ReportUpdateProgress(
+                                progress,
+                                UpdateProgressStage.Downloading,
+                                total,
+                                update.Size);
+                        }
                     }
                     if (total != update.Size)
                     {
@@ -959,6 +1026,29 @@ namespace MajesticBoost
                 }
             }
             destination.Flush(true);
+            ReportUpdateProgress(
+                progress,
+                UpdateProgressStage.Downloading,
+                update.Size,
+                update.Size);
+        }
+
+        private static void ReportUpdateProgress(
+            IProgress<UpdateProgressInfo> progress,
+            UpdateProgressStage stage,
+            long downloadedBytes,
+            long totalBytes)
+        {
+            if (progress == null)
+            {
+                return;
+            }
+            progress.Report(new UpdateProgressInfo
+            {
+                Stage = stage,
+                DownloadedBytes = downloadedBytes,
+                TotalBytes = totalBytes
+            });
         }
 
         private static void ValidateHeldInstaller(
@@ -1182,14 +1272,12 @@ namespace MajesticBoost
         {
             state = UpdateState.Downloading;
             Visibility = Visibility.Visible;
-            BuildWorkingScreen(
-                "ЗАГРУЖАЕМ ОБНОВЛЕНИЕ",
-                "Версия " + version + " будет проверена перед запуском.",
-                "Не закрывайте приложение.");
+            BuildDownloadProgressScreen(version);
         }
 
         private void BuildWorkingScreen(string title, string subtitle, string status)
         {
+            ResetProgressReferences();
             cardContent.Children.Clear();
             cardContent.RowDefinitions.Clear();
             cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
@@ -1249,10 +1337,157 @@ namespace MajesticBoost
             Focus();
         }
 
+        private void BuildDownloadProgressScreen(SemanticVersion version)
+        {
+            ResetProgressReferences();
+            cardContent.Children.Clear();
+            cardContent.RowDefinitions.Clear();
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            StackPanel header = BuildHeader(
+                "ЗАГРУЖАЕМ ОБНОВЛЕНИЕ",
+                "Версия " + version + " будет проверена перед запуском.");
+            Grid.SetRow(header, 0);
+            cardContent.Children.Add(header);
+
+            var body = new StackPanel
+            {
+                Width = 300,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            progressPercentText = MakeText(
+                "0%",
+                30,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold);
+            progressPercentText.TextAlignment = TextAlignment.Center;
+            AutomationProperties.SetName(progressPercentText, "Загружено 0 процентов");
+            body.Children.Add(progressPercentText);
+
+            progressStageText = MakeText(
+                "Скачиваем установщик...",
+                11.5,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold);
+            progressStageText.TextAlignment = TextAlignment.Center;
+            progressStageText.Margin = new Thickness(0, 7, 0, 16);
+            body.Children.Add(progressStageText);
+
+            var track = new Border
+            {
+                Width = 300,
+                Height = 5,
+                CornerRadius = new CornerRadius(2.5),
+                Background = new SolidColorBrush(Color.FromRgb(42, 42, 42)),
+                ClipToBounds = true,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            progressFill = new Border
+            {
+                Width = 0,
+                Height = 5,
+                CornerRadius = new CornerRadius(2.5),
+                Background = new SolidColorBrush(AccentColor),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            track.Child = progressFill;
+            AutomationProperties.SetName(track, "Прогресс загрузки обновления");
+            body.Children.Add(track);
+
+            progressBytesText = MakeText(
+                "0 Б из " + FormatBytes(availableUpdate == null ? 0 : availableUpdate.Size),
+                10.5,
+                MutedColor,
+                regularFont,
+                FontWeights.Normal);
+            progressBytesText.TextAlignment = TextAlignment.Center;
+            progressBytesText.Margin = new Thickness(0, 13, 0, 0);
+            body.Children.Add(progressBytesText);
+
+            Grid.SetRow(body, 1);
+            cardContent.Children.Add(body);
+            preferredFocusButton = null;
+            Focus();
+        }
+
+        private void UpdateProgressDisplay(UpdateProgressInfo progress)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action<UpdateProgressInfo>(UpdateProgressDisplay), progress);
+                return;
+            }
+            if (state != UpdateState.Downloading || progressFill == null ||
+                progressPercentText == null || progressStageText == null ||
+                progressBytesText == null)
+            {
+                return;
+            }
+
+            long total = progress.TotalBytes <= 0 ? 1 : progress.TotalBytes;
+            long downloaded = Math.Max(0, Math.Min(progress.DownloadedBytes, total));
+            int percent = (int)(downloaded * 100L / total);
+            if (progress.Stage != UpdateProgressStage.Downloading)
+            {
+                downloaded = total;
+                percent = 100;
+            }
+
+            progressFill.Width = 300.0 * percent / 100.0;
+            progressPercentText.Text = percent.ToString(CultureInfo.InvariantCulture) + "%";
+            AutomationProperties.SetName(
+                progressPercentText,
+                "Загружено " + percent.ToString(CultureInfo.InvariantCulture) + " процентов");
+
+            if (progress.Stage == UpdateProgressStage.Verifying)
+            {
+                progressStageText.Text = "Проверяем целостность и версию...";
+                progressBytesText.Text = "Загрузка завершена";
+            }
+            else if (progress.Stage == UpdateProgressStage.Launching)
+            {
+                progressStageText.Text = "Открываем установщик...";
+                progressBytesText.Text = "Подтвердите запрос Windows";
+            }
+            else
+            {
+                progressStageText.Text = "Скачиваем установщик...";
+                progressBytesText.Text = FormatBytes(downloaded) + " из " + FormatBytes(total);
+            }
+            AutomationProperties.SetName(progressStageText, progressStageText.Text);
+        }
+
+        private void ResetProgressReferences()
+        {
+            progressFill = null;
+            progressPercentText = null;
+            progressStageText = null;
+            progressBytesText = null;
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            if (bytes >= 1024L * 1024L)
+            {
+                return (bytes / (1024.0 * 1024.0)).ToString("0.0", CultureInfo.CurrentCulture) + " МБ";
+            }
+            if (bytes >= 1024L)
+            {
+                return (bytes / 1024.0).ToString("0.0", CultureInfo.CurrentCulture) + " КБ";
+            }
+            return bytes.ToString(CultureInfo.CurrentCulture) + " Б";
+        }
+
         private void ShowUpdateRequired(SemanticVersion currentVersion, SemanticVersion newVersion)
         {
             state = UpdateState.Required;
             Visibility = Visibility.Visible;
+            ResetProgressReferences();
             cardContent.Children.Clear();
             cardContent.RowDefinitions.Clear();
             cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
@@ -1270,12 +1505,6 @@ namespace MajesticBoost
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 14)
             };
-            var versionPanel = new Border
-            {
-                Background = new SolidColorBrush(PanelColor),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(16, 14, 16, 14)
-            };
             var versionText = MakeText(
                 "v. " + currentVersion + "   →   v. " + newVersion,
                 16,
@@ -1283,8 +1512,8 @@ namespace MajesticBoost
                 semiboldFont,
                 FontWeights.Bold);
             versionText.TextAlignment = TextAlignment.Center;
-            versionPanel.Child = versionText;
-            body.Children.Add(versionPanel);
+            versionText.Margin = new Thickness(0, 14, 0, 0);
+            body.Children.Add(versionText);
 
             TextBlock description = MakeText(
                 "Программа скачает установщик с официального GitHub-репозитория, проверит размер, версию и SHA-256, затем запросит права администратора.",
@@ -1319,6 +1548,7 @@ namespace MajesticBoost
         {
             state = UpdateState.Retry;
             Visibility = Visibility.Visible;
+            ResetProgressReferences();
             cardContent.Children.Clear();
             cardContent.RowDefinitions.Clear();
             cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
@@ -1331,13 +1561,6 @@ namespace MajesticBoost
             Grid.SetRow(header, 0);
             cardContent.Children.Add(header);
 
-            var messagePanel = new Border
-            {
-                Background = new SolidColorBrush(PanelColor),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(16),
-                VerticalAlignment = VerticalAlignment.Center
-            };
             TextBlock messageText = MakeText(
                 message,
                 11.5,
@@ -1345,9 +1568,10 @@ namespace MajesticBoost
                 regularFont,
                 FontWeights.Normal);
             messageText.TextAlignment = TextAlignment.Center;
-            messagePanel.Child = messageText;
-            Grid.SetRow(messagePanel, 1);
-            cardContent.Children.Add(messagePanel);
+            messageText.VerticalAlignment = VerticalAlignment.Center;
+            messageText.Margin = new Thickness(12, 0, 12, 0);
+            Grid.SetRow(messageText, 1);
+            cardContent.Children.Add(messageText);
 
             StackPanel buttons = BuildButtonRow();
             Button retryButton = MakeActionButton("ПОВТОРИТЬ", true);
@@ -1355,6 +1579,48 @@ namespace MajesticBoost
             retryButton.IsDefault = true;
             retryButton.Click += ContinueButtonClick;
             AutomationProperties.SetName(retryButton, "Повторить загрузку обязательного обновления");
+            buttons.Children.Add(retryButton);
+            preferredFocusButton = retryButton;
+            Grid.SetRow(buttons, 2);
+            cardContent.Children.Add(buttons);
+            FocusPreferredButton();
+        }
+
+        private void ShowDemoHandoff()
+        {
+            state = UpdateState.Retry;
+            Visibility = Visibility.Visible;
+            ResetProgressReferences();
+            cardContent.Children.Clear();
+            cardContent.RowDefinitions.Clear();
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(50) });
+
+            StackPanel header = BuildHeader(
+                "ОБНОВЛЕНИЕ ГОТОВО",
+                "Проверенный установщик передаётся отдельному окну обновления.");
+            Grid.SetRow(header, 0);
+            cardContent.Children.Add(header);
+
+            TextBlock messageText = MakeText(
+                "Демо завершено безопасно: сеть, UAC и запуск установщика отключены.",
+                11.5,
+                AccentColor,
+                semiboldFont,
+                FontWeights.Bold);
+            messageText.TextAlignment = TextAlignment.Center;
+            messageText.VerticalAlignment = VerticalAlignment.Center;
+            messageText.Margin = new Thickness(12, 0, 12, 0);
+            Grid.SetRow(messageText, 1);
+            cardContent.Children.Add(messageText);
+
+            StackPanel buttons = BuildButtonRow();
+            Button retryButton = MakeActionButton("ПОВТОРИТЬ ДЕМО", true);
+            retryButton.Width = 170;
+            retryButton.IsDefault = true;
+            retryButton.Click += ContinueButtonClick;
+            AutomationProperties.SetName(retryButton, "Повторить демонстрацию обновления");
             buttons.Children.Add(retryButton);
             preferredFocusButton = retryButton;
             Grid.SetRow(buttons, 2);
@@ -1543,6 +1809,7 @@ namespace MajesticBoost
             state = UpdateState.Hidden;
             allowOwnerClose = true;
             preferredFocusButton = null;
+            ResetProgressReferences();
             Visibility = Visibility.Collapsed;
         }
 

@@ -15,7 +15,6 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 
 namespace MajesticBoost
 {
@@ -47,9 +46,6 @@ namespace MajesticBoost
         }
 
         private static readonly Color BackgroundColor = Color.FromRgb(22, 22, 22);
-        private static readonly Color CardColor = Color.FromRgb(25, 25, 25);
-        private static readonly Color PanelColor = Color.FromRgb(29, 29, 29);
-        private static readonly Color BorderColor = Color.FromRgb(56, 56, 56);
         private static readonly Color TextColor = Color.FromRgb(244, 244, 244);
         private static readonly Color MutedColor = Color.FromRgb(142, 142, 142);
         private static readonly Color AccentColor = Color.FromRgb(232, 28, 90);
@@ -107,18 +103,10 @@ namespace MajesticBoost
                 Height = 410,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Background = new SolidColorBrush(CardColor),
-                BorderBrush = new SolidColorBrush(BorderColor),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(24),
-                Effect = new DropShadowEffect
-                {
-                    BlurRadius = 28,
-                    ShadowDepth = 0,
-                    Opacity = 0.55,
-                    Color = Colors.Black
-                }
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                CornerRadius = new CornerRadius(0),
+                Padding = new Thickness(24)
             };
             Children.Add(card);
 
@@ -344,20 +332,14 @@ namespace MajesticBoost
             body.Children.Add(MakeConsentBullet("остановит Wallpaper Engine и SPUser, отключит обновление VirtualPad;"));
             body.Children.Add(MakeConsentBullet("усилит Defender: PUA, облако, безопасную отправку образцов и проверку съёмных носителей."));
 
-            var safetyPanel = new Border
-            {
-                Background = new SolidColorBrush(PanelColor),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(10, 6, 10, 6),
-                Margin = new Thickness(0, 7, 0, 0)
-            };
-            safetyPanel.Child = MakeText(
+            var safetyText = MakeText(
                 "Меняются только отличающиеся значения. Резервная копия позволяет безопасно вернуть изменения.",
                 9.4,
                 MutedColor,
                 regularFont,
                 FontWeights.Normal);
-            body.Children.Add(safetyPanel);
+            safetyText.Margin = new Thickness(0, 10, 0, 0);
+            body.Children.Add(safetyText);
 
             if (!string.IsNullOrWhiteSpace(notice))
             {
@@ -539,7 +521,7 @@ namespace MajesticBoost
                 CornerRadius = new CornerRadius(29),
                 BorderBrush = new SolidColorBrush(AccentColor),
                 BorderThickness = new Thickness(1),
-                Background = new SolidColorBrush(PanelColor),
+                Background = Brushes.Transparent,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 16)
             };
@@ -643,7 +625,7 @@ namespace MajesticBoost
                 CornerRadius = new CornerRadius(29),
                 BorderBrush = new SolidColorBrush(AccentColor),
                 BorderThickness = new Thickness(1),
-                Background = new SolidColorBrush(PanelColor),
+                Background = Brushes.Transparent,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 15)
             };
@@ -915,18 +897,12 @@ namespace MajesticBoost
             Grid.SetRow(header, 0);
             cardContent.Children.Add(header);
 
-            var body = new Border
-            {
-                Background = new SolidColorBrush(PanelColor),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(16),
-                VerticalAlignment = VerticalAlignment.Center
-            };
             var messageText = MakeText(message, 11.5, TextColor, regularFont, FontWeights.Normal);
             messageText.TextAlignment = TextAlignment.Center;
-            body.Child = messageText;
-            Grid.SetRow(body, 1);
-            cardContent.Children.Add(body);
+            messageText.VerticalAlignment = VerticalAlignment.Center;
+            messageText.Margin = new Thickness(16, 0, 16, 0);
+            Grid.SetRow(messageText, 1);
+            cardContent.Children.Add(messageText);
 
             var buttons = BuildButtonRow();
             if (canRetryRestore)

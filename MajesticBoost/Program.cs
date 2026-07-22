@@ -6,6 +6,8 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -22,8 +24,8 @@ using System.Windows.Threading;
 [assembly: AssemblyDescription("Animated Max FPS launcher for Majestic")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.4.1.0")]
-[assembly: AssemblyFileVersion("1.4.1.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyFileVersion("1.5.0.0")]
 
 namespace MajesticBoost
 {
@@ -64,26 +66,32 @@ namespace MajesticBoost
         private TranslateTransform floatTranslation;
         private readonly List<FrameworkElement> stars = new List<FrameworkElement>();
         private DispatcherTimer readinessTimer;
+        private DispatcherTimer activeBoostTimer;
         private Process boostProcess;
         private string readinessSignalPath;
         private DateTime readinessDeadline;
+        private int activeMaintenanceGeneration;
+        private int activeMaintenancePending;
+        private readonly object activeMaintenanceSync = new object();
         private bool animationRunning;
         private bool departureFinished;
         private bool boostReady;
         private bool boostActive;
         private bool preferencesLoaded;
+        private readonly bool demoMode;
         private readonly string[] launchArguments;
 
         public BoostWindow(string[] args)
         {
             launchArguments = args ?? new string[0];
+            demoMode = HasLaunchArgument(launchArguments, "--demo");
             Title = "Majestic Boost — Boost производительности";
             Width = 460;
-            Height = 480;
+            Height = 534;
             MinWidth = 460;
-            MinHeight = 480;
+            MinHeight = 534;
             MaxWidth = 460;
-            MaxHeight = 480;
+            MaxHeight = 534;
             WindowStyle = WindowStyle.None;
             ResizeMode = ResizeMode.NoResize;
             AllowsTransparency = true;
@@ -197,7 +205,7 @@ namespace MajesticBoost
             controls.HorizontalAlignment = HorizontalAlignment.Right;
             controls.VerticalAlignment = VerticalAlignment.Top;
 
-            var version = MakeText(GetMajesticLauncherVersion(), 11.5, "#FF8B8B8B", FontWeights.Bold);
+            var version = MakeText(GetApplicationVersion(), 11.5, "#FF8B8B8B", FontWeights.Bold);
             version.FontFamily = LoadMajesticSemiboldFontFamily();
             version.LayoutTransform = new ScaleTransform(0.95, 1);
             version.RenderTransform = new TranslateTransform(0, 2);
@@ -288,7 +296,8 @@ namespace MajesticBoost
             var panel = new StackPanel();
             panel.Width = 300;
             panel.HorizontalAlignment = HorizontalAlignment.Center;
-            panel.VerticalAlignment = VerticalAlignment.Center;
+            panel.VerticalAlignment = VerticalAlignment.Top;
+            panel.Margin = new Thickness(0, 7, 0, 0);
 
             keepDiscordToggle = BuildPreferenceToggle("НЕ ЗАКРЫВАТЬ DISCORD");
             keepEpicToggle = BuildPreferenceToggle("НЕ ЗАКРЫВАТЬ EPIC GAMES");
@@ -379,6 +388,10 @@ namespace MajesticBoost
             if (preferencesLoaded)
             {
                 SaveBoostPreferences();
+                if (boostActive)
+                {
+                    RefreshActiveBoostMaintenance();
+                }
             }
         }
 
@@ -663,15 +676,29 @@ namespace MajesticBoost
 
         private void BoostButtonClick(object sender, RoutedEventArgs e)
         {
-            if (animationRunning || boostActive)
+            ToggleBoost();
+        }
+
+        private void ToggleBoost()
+        {
+            if (animationRunning)
             {
                 return;
             }
-            StartBoost();
+
+            if (boostActive)
+            {
+                StartBoostDeactivation();
+            }
+            else
+            {
+                StartBoost();
+            }
         }
 
         private void StartBoost()
         {
+            StopActiveBoostMaintenance();
             animationRunning = true;
             departureFinished = false;
             boostReady = false;
@@ -693,21 +720,17 @@ namespace MajesticBoost
 
         private bool LaunchBoostScript()
         {
-            string[] arguments = Environment.GetCommandLineArgs();
-            foreach (string argument in arguments)
+            if (demoMode)
             {
-                if (string.Equals(argument, "--demo", StringComparison.OrdinalIgnoreCase))
+                var demoTimer = new DispatcherTimer();
+                demoTimer.Interval = TimeSpan.FromMilliseconds(950);
+                demoTimer.Tick += delegate
                 {
-                    var demoTimer = new DispatcherTimer();
-                    demoTimer.Interval = TimeSpan.FromMilliseconds(950);
-                    demoTimer.Tick += delegate
-                    {
-                        demoTimer.Stop();
-                        MarkBoostReady();
-                    };
-                    demoTimer.Start();
-                    return true;
-                }
+                    demoTimer.Stop();
+                    MarkBoostReady();
+                };
+                demoTimer.Start();
+                return true;
             }
 
             try
@@ -757,6 +780,7 @@ namespace MajesticBoost
                 startInfo.UseShellExecute = false;
                 startInfo.CreateNoWindow = true;
                 startInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                StopBoostProcess();
                 boostProcess = Process.Start(startInfo);
 
                 readinessDeadline = DateTime.Now.AddSeconds(20);
@@ -768,6 +792,7 @@ namespace MajesticBoost
             }
             catch
             {
+                StopBoostProcess();
                 return false;
             }
         }
@@ -782,7 +807,12 @@ namespace MajesticBoost
                 return;
             }
 
-            bool processFailed = boostProcess != null && boostProcess.HasExited && boostProcess.ExitCode != 0;
+            bool processFailed = false;
+            try
+            {
+                processFailed = boostProcess != null && boostProcess.HasExited && boostProcess.ExitCode != 0;
+            }
+            catch (InvalidOperationException) { }
             if (processFailed || DateTime.Now >= readinessDeadline)
             {
                 readinessTimer.Stop();
@@ -849,11 +879,12 @@ namespace MajesticBoost
                 flightTranslation.X = 0;
                 flightTranslation.Y = 0;
                 rocket.Opacity = 1;
-                rocketScale.ScaleX = 1;
-                rocketScale.ScaleY = 1;
+                SetRocketScaleImmediately(boostButton.IsMouseOver ? 1.08 : 1);
                 boostActive = true;
                 animationRunning = false;
                 boostButton.IsEnabled = true;
+                SetBoostAutomationState(true);
+                StartActiveBoostMaintenance();
                 StartRocketFloat();
             };
             flightTranslation.BeginAnimation(TranslateTransform.XProperty, x);
@@ -868,6 +899,8 @@ namespace MajesticBoost
                 readinessTimer.Stop();
             }
             TryDeleteReadinessSignal();
+            StopActiveBoostMaintenance();
+            StopBoostProcess();
             boostReady = false;
             departureFinished = false;
             flightTranslation.BeginAnimation(TranslateTransform.XProperty, null);
@@ -883,6 +916,75 @@ namespace MajesticBoost
             caption.Foreground = BrushFrom("#FFFF667A");
             animationRunning = false;
             boostButton.IsEnabled = true;
+        }
+
+        private void StartBoostDeactivation()
+        {
+            animationRunning = true;
+            boostButton.IsEnabled = false;
+            boostActive = false;
+            StopActiveBoostMaintenance();
+            StopBoostProcess();
+            StopRocketFloat();
+            caption.Text = "ОТКЛЮЧАЮ BOOST...";
+            caption.Foreground = BrushFrom("#FFFF8BAF");
+            flameLayer.Opacity = 1;
+            AnimateRocketColor(true, 100);
+            AnimateRocketScale(1.08, 100);
+
+            var duration = TimeSpan.FromMilliseconds(620);
+            var x = MakeEaseAnimation(0, 152, duration, EasingMode.EaseIn);
+            var y = MakeEaseAnimation(0, -108, duration, EasingMode.EaseIn);
+            var opacity = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(560));
+            opacity.BeginTime = TimeSpan.FromMilliseconds(60);
+            opacity.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn };
+            x.Completed += delegate { PlayDeactivationReturn(); };
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, x);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, y);
+            rocket.BeginAnimation(UIElement.OpacityProperty, opacity);
+        }
+
+        private void PlayDeactivationReturn()
+        {
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+            rocket.BeginAnimation(UIElement.OpacityProperty, null);
+            flightTranslation.X = -152;
+            flightTranslation.Y = 104;
+            rocket.Opacity = 0;
+            flameLayer.Opacity = 0;
+            SetRocketColorImmediately(false);
+            StopStarfield();
+
+            var duration = TimeSpan.FromMilliseconds(760);
+            var x = MakeEaseAnimation(-152, 0, duration, EasingMode.EaseOut);
+            var y = MakeEaseAnimation(104, 0, duration, EasingMode.EaseOut);
+            var opacity = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(470));
+            opacity.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            x.Completed += delegate
+            {
+                flightTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+                flightTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+                rocket.BeginAnimation(UIElement.OpacityProperty, null);
+                flightTranslation.X = 0;
+                flightTranslation.Y = 0;
+                rocket.Opacity = 1;
+                boostActive = false;
+                boostReady = false;
+                departureFinished = false;
+                animationRunning = false;
+                boostButton.IsEnabled = true;
+                caption.Text = "НАЖМИ, ЧТОБЫ АКТИВИРОВАТЬ";
+                caption.Foreground = BrushFrom("#FF8E8E8E");
+                SetBoostAutomationState(false);
+
+                bool isHovered = boostButton.IsMouseOver;
+                SetRocketScaleImmediately(isHovered ? 1.08 : 1);
+                AnimateRocketColor(isHovered, 180);
+            };
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, x);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, y);
+            rocket.BeginAnimation(UIElement.OpacityProperty, opacity);
         }
 
         private void StartStarfield()
@@ -910,6 +1012,27 @@ namespace MajesticBoost
             }
         }
 
+        private void StopStarfield()
+        {
+            var disappear = new DoubleAnimation(0, TimeSpan.FromMilliseconds(220));
+            disappear.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            disappear.Completed += delegate
+            {
+                starField.BeginAnimation(UIElement.OpacityProperty, null);
+                starField.Opacity = 0;
+                foreach (FrameworkElement star in stars)
+                {
+                    var transforms = (TransformGroup)star.RenderTransform;
+                    var translation = (TranslateTransform)transforms.Children[1];
+                    translation.BeginAnimation(TranslateTransform.XProperty, null);
+                    translation.BeginAnimation(TranslateTransform.YProperty, null);
+                    translation.X = 0;
+                    translation.Y = 0;
+                }
+            };
+            starField.BeginAnimation(UIElement.OpacityProperty, disappear);
+        }
+
         private void StartRocketFloat()
         {
             var y = new DoubleAnimation(-3.5, 3.5, TimeSpan.FromMilliseconds(1250));
@@ -922,6 +1045,327 @@ namespace MajesticBoost
             x.EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut };
             floatTranslation.BeginAnimation(TranslateTransform.YProperty, y);
             floatTranslation.BeginAnimation(TranslateTransform.XProperty, x);
+        }
+
+        private void StopRocketFloat()
+        {
+            floatTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+            floatTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+            floatTranslation.X = 0;
+            floatTranslation.Y = 0;
+        }
+
+        private void SetRocketColorImmediately(bool colorized)
+        {
+            colorRocketLayer.BeginAnimation(UIElement.OpacityProperty, null);
+            grayRocketLayer.BeginAnimation(UIElement.OpacityProperty, null);
+            colorRocketLayer.Opacity = colorized ? 1 : 0;
+            grayRocketLayer.Opacity = colorized ? 0 : 1;
+        }
+
+        private void SetRocketScaleImmediately(double scale)
+        {
+            rocketScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            rocketScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            rocketScale.ScaleX = scale;
+            rocketScale.ScaleY = scale;
+        }
+
+        private void StartActiveBoostMaintenance()
+        {
+            AdvanceActiveMaintenanceGeneration();
+            if (activeBoostTimer == null)
+            {
+                activeBoostTimer = new DispatcherTimer();
+                activeBoostTimer.Interval = TimeSpan.FromSeconds(30);
+                activeBoostTimer.Tick += delegate { QueueActiveBoostMaintenance(); };
+            }
+            activeBoostTimer.Start();
+            QueueActiveBoostMaintenance();
+        }
+
+        private void RefreshActiveBoostMaintenance()
+        {
+            AdvanceActiveMaintenanceGeneration();
+            QueueActiveBoostMaintenance();
+        }
+
+        private void StopActiveBoostMaintenance()
+        {
+            if (activeBoostTimer != null)
+            {
+                activeBoostTimer.Stop();
+            }
+            lock (activeMaintenanceSync)
+            {
+                Interlocked.Increment(ref activeMaintenanceGeneration);
+                TryDeleteActiveBoostDemoSignal();
+            }
+        }
+
+        private void QueueActiveBoostMaintenance()
+        {
+            if (!boostActive || animationRunning)
+            {
+                return;
+            }
+            if (Interlocked.CompareExchange(ref activeMaintenancePending, 1, 0) != 0)
+            {
+                return;
+            }
+
+            int generation = ReadActiveMaintenanceGeneration();
+            bool closeDiscord = keepDiscordToggle == null || keepDiscordToggle.IsChecked != true;
+            bool closeEpic = keepEpicToggle == null || keepEpicToggle.IsChecked != true;
+            bool closeSteam = keepSteamToggle == null || keepSteamToggle.IsChecked != true;
+            Task.Run(delegate
+            {
+                try
+                {
+                    RunActiveBoostMaintenance(generation, closeDiscord, closeEpic, closeSteam);
+                }
+                catch (Exception ex)
+                {
+                    AppendActiveBoostLog("Active maintenance error: " + ex.Message);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref activeMaintenancePending, 0);
+                    if (generation != ReadActiveMaintenanceGeneration())
+                    {
+                        try
+                        {
+                            Dispatcher.BeginInvoke(new Action(delegate
+                            {
+                                if (boostActive && !animationRunning)
+                                {
+                                    QueueActiveBoostMaintenance();
+                                }
+                            }));
+                        }
+                        catch (InvalidOperationException) { }
+                        catch (TaskCanceledException) { }
+                    }
+                }
+            });
+        }
+
+        private void RunActiveBoostMaintenance(
+            int generation,
+            bool closeDiscord,
+            bool closeEpic,
+            bool closeSteam)
+        {
+            if (!IsActiveMaintenanceGeneration(generation))
+            {
+                return;
+            }
+
+            if (demoMode)
+            {
+                lock (activeMaintenanceSync)
+                {
+                    if (IsActiveMaintenanceGeneration(generation))
+                    {
+                        File.WriteAllText(
+                            GetActiveBoostDemoSignalPath(),
+                            DateTime.UtcNow.ToString("o"),
+                            new UTF8Encoding(false));
+                    }
+                }
+                return;
+            }
+
+            var processesToStop = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "SteelSeriesMoments",
+                "NVIDIA Overlay",
+                "nvsphelper64",
+                "wallpaper32",
+                "wallpaper64",
+                "WidgetService",
+                "Widgets",
+                "CrossDeviceService"
+            };
+            if (closeDiscord)
+            {
+                processesToStop.Add("Discord");
+            }
+            if (closeEpic)
+            {
+                processesToStop.Add("EpicGamesLauncher");
+                processesToStop.Add("EpicWebHelper");
+                processesToStop.Add("EpicOnlineServicesUserHelper");
+            }
+            if (closeSteam)
+            {
+                processesToStop.Add("steam");
+                processesToStop.Add("steamwebhelper");
+                processesToStop.Add("GameOverlayUI");
+            }
+
+            foreach (string processName in processesToStop)
+            {
+                if (!IsActiveMaintenanceGeneration(generation))
+                {
+                    return;
+                }
+                Process[] processes;
+                try
+                {
+                    processes = Process.GetProcessesByName(processName);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (Process process in processes)
+                {
+                    try
+                    {
+                        bool stopped = false;
+                        int processId = 0;
+                        string actualName = null;
+                        lock (activeMaintenanceSync)
+                        {
+                            if (!IsActiveMaintenanceGeneration(generation))
+                            {
+                                continue;
+                            }
+                            processId = process.Id;
+                            actualName = process.ProcessName;
+                            process.Kill();
+                            stopped = true;
+                        }
+                        if (stopped)
+                        {
+                            AppendActiveBoostLog(
+                                "Stopped " + actualName + " (PID " + processId + ") during active Boost.");
+                        }
+                    }
+                    catch { }
+                    finally
+                    {
+                        process.Dispose();
+                    }
+                }
+            }
+
+            foreach (string gameName in new[] { "GTA5", "GTA5_Enhanced" })
+            {
+                if (!IsActiveMaintenanceGeneration(generation))
+                {
+                    return;
+                }
+                Process[] games;
+                try
+                {
+                    games = Process.GetProcessesByName(gameName);
+                }
+                catch
+                {
+                    continue;
+                }
+                foreach (Process game in games)
+                {
+                    try
+                    {
+                        bool priorityChanged = false;
+                        string priorityMessage = null;
+                        lock (activeMaintenanceSync)
+                        {
+                            if (!IsActiveMaintenanceGeneration(generation))
+                            {
+                                continue;
+                            }
+                            if (game.PriorityClass != ProcessPriorityClass.High)
+                            {
+                                game.PriorityClass = ProcessPriorityClass.High;
+                                priorityMessage =
+                                    "Set " + game.ProcessName + " (PID " + game.Id +
+                                    ") priority to High during active Boost.";
+                                priorityChanged = true;
+                            }
+                        }
+                        if (priorityChanged)
+                        {
+                            AppendActiveBoostLog(priorityMessage);
+                        }
+                    }
+                    catch { }
+                    finally
+                    {
+                        game.Dispose();
+                    }
+                }
+            }
+        }
+
+        private int ReadActiveMaintenanceGeneration()
+        {
+            return Interlocked.CompareExchange(ref activeMaintenanceGeneration, 0, 0);
+        }
+
+        private int AdvanceActiveMaintenanceGeneration()
+        {
+            lock (activeMaintenanceSync)
+            {
+                return Interlocked.Increment(ref activeMaintenanceGeneration);
+            }
+        }
+
+        private bool IsActiveMaintenanceGeneration(int generation)
+        {
+            return generation == ReadActiveMaintenanceGeneration();
+        }
+
+        private static void AppendActiveBoostLog(string message)
+        {
+            try
+            {
+                string directory = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost");
+                Directory.CreateDirectory(directory);
+                File.AppendAllText(
+                    System.IO.Path.Combine(directory, "Game-Boost.last.log"),
+                    "[" + DateTime.Now.ToString("o") + "] " + message + Environment.NewLine,
+                    new UTF8Encoding(false));
+            }
+            catch { }
+        }
+
+        private static string GetActiveBoostDemoSignalPath()
+        {
+            return System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(),
+                "MajesticBoost-demo-monitor-" + Process.GetCurrentProcess().Id + ".flag");
+        }
+
+        private static void TryDeleteActiveBoostDemoSignal()
+        {
+            try
+            {
+                string path = GetActiveBoostDemoSignalPath();
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch { }
+        }
+
+        private void SetBoostAutomationState(bool active)
+        {
+            AutomationProperties.SetName(
+                boostButton,
+                active ? "Отключить Boost производительности" : "Активировать Boost производительности");
+            AutomationProperties.SetHelpText(
+                boostButton,
+                active
+                    ? "Останавливает активный контроль фоновых процессов. Применённые системные изменения не откатываются."
+                    : "Отключает лишние фоновые процессы, поддерживает приоритет игры и запускает Majestic.");
         }
 
         private void AnimateRocketColor(bool colorized, int milliseconds)
@@ -986,10 +1430,7 @@ namespace MajesticBoost
                 {
                     return;
                 }
-                if (!animationRunning && !boostActive)
-                {
-                    StartBoost();
-                }
+                ToggleBoost();
                 e.Handled = true;
             }
         }
@@ -1047,11 +1488,14 @@ namespace MajesticBoost
 
         private void WindowClosed(object sender, EventArgs e)
         {
+            boostActive = false;
             if (readinessTimer != null)
             {
                 readinessTimer.Stop();
             }
+            StopActiveBoostMaintenance();
             TryDeleteReadinessSignal();
+            StopBoostProcess();
         }
 
         private void TryDeleteReadinessSignal()
@@ -1064,6 +1508,41 @@ namespace MajesticBoost
                 }
             }
             catch { }
+        }
+
+        private void StopBoostProcess()
+        {
+            Process process = boostProcess;
+            boostProcess = null;
+            if (process == null)
+            {
+                return;
+            }
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    process.WaitForExit(1000);
+                }
+            }
+            catch { }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        private static bool HasLaunchArgument(string[] arguments, string expected)
+        {
+            foreach (string argument in arguments ?? new string[0])
+            {
+                if (string.Equals(argument, expected, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static Button MakeWindowButton(string accessibleName, bool isClose)
@@ -1268,34 +1747,14 @@ namespace MajesticBoost
             return new FontFamily("Segoe UI Semibold");
         }
 
-        private static string GetMajesticLauncherVersion()
+        private static string GetApplicationVersion()
         {
-            try
-            {
-                string launcherPath = System.IO.Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "MajesticLauncher",
-                    "Majestic Launcher.exe");
-                if (File.Exists(launcherPath))
-                {
-                    FileVersionInfo info = FileVersionInfo.GetVersionInfo(launcherPath);
-                    Version version;
-                    if (Version.TryParse(info.FileVersion, out version))
-                    {
-                        return string.Format(
-                            "v. {0}.{1}.{2}",
-                            version.Major,
-                            version.Minor,
-                            Math.Max(0, version.Build));
-                    }
-                }
-            }
-            catch
-            {
-                // Fallback stays available if the launcher is being updated.
-            }
-
-            return "v. 1.2.0";
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+            return string.Format(
+                "v. {0}.{1}.{2}",
+                version.Major,
+                version.Minor,
+                Math.Max(0, version.Build));
         }
 
         private static void ExtractMajesticFonts(string destinationDirectory)

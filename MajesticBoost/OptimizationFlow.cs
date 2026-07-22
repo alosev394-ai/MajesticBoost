@@ -86,10 +86,8 @@ namespace MajesticBoost
             pendingMarkerPath = Path.Combine(stateDirectory, "optimization-pending.json");
             completedMarkerPath = Path.Combine(stateDirectory, "optimization-completed-v1.marker");
 
-            Width = 424;
-            Height = 444;
-            HorizontalAlignment = HorizontalAlignment.Center;
-            VerticalAlignment = VerticalAlignment.Center;
+            HorizontalAlignment = HorizontalAlignment.Stretch;
+            VerticalAlignment = VerticalAlignment.Stretch;
             Background = new SolidColorBrush(BackgroundColor);
             Visibility = Visibility.Collapsed;
             Focusable = true;

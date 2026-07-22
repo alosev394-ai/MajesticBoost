@@ -477,10 +477,8 @@ namespace MajesticBoost
             semiboldFont = boldFont ?? regularFont;
             demoMode = HasArgument("--demo-update");
 
-            Width = 424;
-            Height = 444;
-            HorizontalAlignment = HorizontalAlignment.Center;
-            VerticalAlignment = VerticalAlignment.Center;
+            HorizontalAlignment = HorizontalAlignment.Stretch;
+            VerticalAlignment = VerticalAlignment.Stretch;
             Background = new SolidColorBrush(BackgroundColor);
             Visibility = Visibility.Collapsed;
             Focusable = true;

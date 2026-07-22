@@ -35,14 +35,35 @@ if ($CloseDiscord) { $processesToStop += 'Discord' }
 if ($CloseEpic) { $processesToStop += @('EpicGamesLauncher', 'EpicWebHelper', 'EpicOnlineServicesUserHelper') }
 if ($CloseSteam) { $processesToStop += @('steam', 'steamwebhelper', 'GameOverlayUI') }
 if ($StopProxy) { $processesToStop += @('Happ', 'happd', 'xray') }
+$processesToStop = @($processesToStop | Select-Object -Unique)
 
-foreach ($processName in $processesToStop | Select-Object -Unique) {
-    $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
-    foreach ($process in $processes) {
-        "Stopping $($process.Name) (PID $($process.Id))." | Add-Content -LiteralPath $logPath -Encoding UTF8
-        $process | Stop-Process -Force -ErrorAction SilentlyContinue
+function Stop-BoostBackgroundProcesses {
+    foreach ($processName in $processesToStop) {
+        $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
+        foreach ($process in $processes) {
+            "Stopping $($process.Name) (PID $($process.Id))." | Add-Content -LiteralPath $logPath -Encoding UTF8
+            $process | Stop-Process -Force -ErrorAction SilentlyContinue
+        }
     }
 }
+
+function Set-BoostGamePriority {
+    $games = Get-Process -Name 'GTA5', 'GTA5_Enhanced' -ErrorAction SilentlyContinue
+    foreach ($game in $games) {
+        try {
+            if ($game.PriorityClass -ne 'High') {
+                $game.PriorityClass = 'High'
+                "Set $($game.Name) PID $($game.Id) priority to High." | Add-Content -LiteralPath $logPath -Encoding UTF8
+            }
+        }
+        catch {
+            "Could not change game priority: $($_.Exception.Message)" | Add-Content -LiteralPath $logPath -Encoding UTF8
+        }
+    }
+    return @($games).Count
+}
+
+Stop-BoostBackgroundProcesses
 
 Get-CimInstance Win32_Process -Filter "Name='nvcontainer.exe'" |
     Where-Object { $_.CommandLine -match '\\plugins\\SPUser' } |
@@ -82,22 +103,8 @@ if ($ReadySignalPath) {
     }
 }
 
-$deadline = (Get-Date).AddMinutes(5)
-$game = $null
-while ((Get-Date) -lt $deadline -and -not $game) {
-    $game = Get-Process -Name 'GTA5', 'GTA5_Enhanced' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $game) { Start-Sleep -Seconds 2 }
-}
-
-if ($game) {
-    try {
-        $game.PriorityClass = 'High'
-        "Set $($game.Name) PID $($game.Id) priority to High." | Add-Content -LiteralPath $logPath -Encoding UTF8
-    }
-    catch {
-        "Could not change game priority: $($_.Exception.Message)" | Add-Content -LiteralPath $logPath -Encoding UTF8
-    }
-}
-else {
-    'GTA process was not detected within five minutes.' | Add-Content -LiteralPath $logPath -Encoding UTF8
+$gameCount = Set-BoostGamePriority
+if ($gameCount -eq 0) {
+    'GTA is not running yet; the active application monitor will apply High priority when it starts.' |
+        Add-Content -LiteralPath $logPath -Encoding UTF8
 }

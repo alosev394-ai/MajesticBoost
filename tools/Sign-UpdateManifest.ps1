@@ -7,6 +7,9 @@ param(
     [string]$SignaturePath,
 
     [Parameter(Mandatory = $false)]
+    [switch]$AllowLegacyChannel,
+
+    [Parameter(Mandatory = $false)]
     [string]$PrivateKeyPath = (Join-Path $env:LOCALAPPDATA 'MajesticBoostSigning\manifest-private-v1.dpapi')
 )
 
@@ -17,10 +20,14 @@ Add-Type -AssemblyName System.Security
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $scriptDirectory
 if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
-    $ManifestPath = Join-Path $projectRoot 'update.json'
+    $ManifestPath = Join-Path $projectRoot 'update-v2.json'
 }
 if ([string]::IsNullOrWhiteSpace($SignaturePath)) {
-    $SignaturePath = Join-Path $projectRoot 'update.json.sig'
+    $SignaturePath = Join-Path $projectRoot 'update-v2.json.sig'
+}
+
+if ((Split-Path -Leaf $ManifestPath) -ieq 'update.json' -and -not $AllowLegacyChannel) {
+    throw 'The legacy update.json channel is frozen. Use update-v2.json, or pass -AllowLegacyChannel only for an intentional emergency repair.'
 }
 
 if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {

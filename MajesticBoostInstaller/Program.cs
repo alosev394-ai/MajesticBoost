@@ -16,19 +16,75 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Installer for Majestic Boost")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.5.0.0")]
-[assembly: AssemblyFileVersion("1.5.0.0")]
+[assembly: AssemblyVersion("1.5.1.0")]
+[assembly: AssemblyFileVersion("1.5.1.0")]
 
 namespace MajesticBoostSetup
 {
     internal static class Program
     {
+        private const string SetupMutexName = @"Global\CodexGamingOptimization.MajesticBoost.Setup";
+
         [STAThread]
         private static void Main(string[] args)
         {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            bool scheduleCleanup = false;
+
+            try
+            {
+                using (var setupMutex = new System.Threading.Mutex(false, SetupMutexName))
+                {
+                    bool ownsMutex = false;
+                    try
+                    {
+                        try
+                        {
+                            ownsMutex = setupMutex.WaitOne(0, false);
+                        }
+                        catch (System.Threading.AbandonedMutexException)
+                        {
+                            ownsMutex = true;
+                        }
+
+                        if (!ownsMutex)
+                        {
+                            MessageBox.Show(
+                                "–£—Å—Ç–∞–Ω–æ–≤–∫–∞ –∏–ª–∏ —É–¥–∞–ª–µ–Ω–∏–µ Majestic Boost —É–∂–µ –≤—ã–ø–æ–ª–Ω—è–µ—Ç—Å—è. –î–æ–∂–¥–∏—Ç–µ—Å—å –∑–∞–≤–µ—Ä—à–µ–Ω–∏—è –æ—Ç–∫—Ä—ã—Ç–æ–≥–æ —É—Å—Ç–∞–Ω–æ–≤—â–∏–∫–∞.",
+                                "Majestic Boost Setup",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
+                            Environment.ExitCode = 2;
+                            return;
+                        }
+
+                        scheduleCleanup = true;
+                        Run(args);
+                    }
+                    finally
+                    {
+                        if (ownsMutex)
+                        {
+                            setupMutex.ReleaseMutex();
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                if (scheduleCleanup)
+                {
+                    InstallerEngine.ScheduleUpdateSourceCleanupIfNeeded();
+                }
+            }
+        }
+
+        private static void Run(string[] args)
+        {
             bool uninstall = string.Equals(
-                Path.GetFileNameWithoutExtension(Application.ExecutablePath),
-                "Uninstall",
+                Path.GetFullPath(Application.ExecutablePath),
+                Path.GetFullPath(InstallerEngine.UninstallerExe),
                 StringComparison.OrdinalIgnoreCase);
             bool quiet = false;
             bool silentInstall = false;
@@ -76,7 +132,7 @@ namespace MajesticBoostSetup
             {
                 try
                 {
-                    InstallerEngine.Install(true);
+                    InstallerEngine.Install(InstallerEngine.GetDesktopShortcutPreference());
                     if (launchAfterInstall)
                     {
                         InstallerEngine.LaunchInstalledApplication();
@@ -90,8 +146,6 @@ namespace MajesticBoostSetup
                 return;
             }
 
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
             Application.ApplicationExit += delegate { MajesticFontProvider.Dispose(); };
             Application.Run(updateUi ? (Form)new UpdateProgressForm(demoUpdateUi) : new InstallerForm());
         }
@@ -100,7 +154,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.5.0";
+        public const string ProductVersion = "1.5.1";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);
@@ -118,16 +172,11 @@ namespace MajesticBoostSetup
         public static void Install(bool createDesktopShortcut, Action<int, string> progress = null)
         {
             ReportProgress(progress, 0, "–ü–æ–¥–≥–æ—Ç–æ–≤–∫–∞ –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è");
+            EnsureInstallIsNotDowngrade();
             Directory.CreateDirectory(InstallDirectory);
             ReportProgress(progress, 5, "–ü–æ–¥–≥–æ—Ç–æ–≤–∫–∞ –ø–∞–ø–∫–∏ —É—Å—Ç–∞–Ω–æ–≤–∫–∏");
-            StopInstalledApplication();
-            ReportProgress(progress, 10, "–û—Å—Ç–∞–Ω–æ–≤–∫–∞ –∑–∞–ø—É—â–µ–Ω–Ω–æ–π –≤–µ—Ä—Å–∏–∏");
 
             InstallPayloadsAtomically(progress);
-            if (!string.Equals(Application.ExecutablePath, UninstallerExe, StringComparison.OrdinalIgnoreCase))
-            {
-                File.Copy(Application.ExecutablePath, UninstallerExe, true);
-            }
             ReportProgress(progress, 76, "–û–±–Ω–æ–≤–ª–µ–Ω–∏–µ –∫–æ–º–ø–æ–Ω–µ–Ω—Ç–æ–≤ —É–¥–∞–ª–µ–Ω–∏—è");
 
             string startMenuDirectory = Path.Combine(
@@ -183,1888 +232,123 @@ namespace MajesticBoostSetup
             ReportProgress(progress, 100, "–û–±–Ω–æ–≤–ª–µ–Ω–∏–µ —É—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–æ");
         }
 
+        public static bool GetDesktopShortcutPreference()
+        {
+            if (!File.Exists(InstalledExe))
+            {
+                return true;
+            }
+
+            string shortcutPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                ProductName + ".lnk");
+            return File.Exists(shortcutPath);
+        }
+
+        public static void ScheduleUpdateSourceCleanupIfNeeded()
+        {
+            try
+            {
+                string executablePath = Path.GetFullPath(Application.ExecutablePath);
+                string directoryPath = Path.GetFullPath(Path.GetDirectoryName(executablePath));
+                string tempRoot = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar);
+                string parentPath = Path.GetFullPath(Path.GetDirectoryName(directoryPath))
+                    .TrimEnd(Path.DirectorySeparatorChar);
+                string directoryName = Path.GetFileName(directoryPath);
+                string executableName = Path.GetFileName(executablePath);
+                if (!string.Equals(parentPath, tempRoot, StringComparison.OrdinalIgnoreCase) ||
+                    !Regex.IsMatch(directoryName, @"^MajesticBoost\.Update\.[0-9a-f]{32}$", RegexOptions.IgnoreCase) ||
+                    !Regex.IsMatch(executableName, @"^MajesticBoost-Setup-[0-9]+\.[0-9]+\.[0-9]+\.exe$", RegexOptions.IgnoreCase))
+                {
+                    return;
+                }
+
+                DirectoryInfo directory = new DirectoryInfo(directoryPath);
+                if (!directory.Exists || (directory.Attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    return;
+                }
+
+                int processId = Process.GetCurrentProcess().Id;
+                string encodedExecutable = Convert.ToBase64String(Encoding.UTF8.GetBytes(executablePath));
+                string encodedDirectory = Convert.ToBase64String(Encoding.UTF8.GetBytes(directoryPath));
+                string cleanupCommand =
+                    "$ErrorActionPreference='SilentlyContinue';" +
+                    "Wait-Process -Id " + processId.ToString(CultureInfo.InvariantCulture) +
+                    " -ErrorAction SilentlyContinue;" +
+                    "$e=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + encodedExecutable + "'));" +
+                    "$d=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + encodedDirectory + "'));" +
+                    "$t=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar);" +
+                    "$p=[IO.Path]::GetFullPath([IO.Path]::GetDirectoryName($d)).TrimEnd([IO.Path]::DirectorySeparatorChar);" +
+                    "if($p -ieq $t -and [IO.Path]::GetFileName($d) -match '^MajesticBoost\\.Update\\.[0-9a-f]{32}$'){" +
+                    "$i=Get-Item -LiteralPath $d -Force -ErrorAction SilentlyContinue;" +
+                    "if($i -and -not ($i.Attributes -band [IO.FileAttributes]::ReparsePoint)){" +
+                    "[IO.File]::Delete($e);" +
+                    "if([IO.Directory]::Exists($d) -and [IO.Directory]::GetFileSystemEntries($d).Length -eq 0){[IO.Directory]::Delete($d,$false)}" +
+                    "}}";
+                string encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(cleanupCommand));
+                var cleanupInfo = new ProcessStartInfo
+                {
+                    FileName = Path.Combine(
+                        Environment.SystemDirectory,
+                        @"WindowsPowerShell\v1.0\powershell.exe"),
+                    Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + encodedCommand,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                Process cleanupProcess = Process.Start(cleanupInfo);
+                if (cleanupProcess != null)
+                {
+                    cleanupProcess.Dispose();
+                }
+            }
+            catch
+            {
+                // A stale temporary setup is harmless and can be removed later.
+            }
+        }
+
         public static void Uninstall(bool quiet)
         {
             if (!quiet)
             {
                 DialogResult result = MessageBox.Show(
-                    "–£–¥–∞–ª–∏—Ç—å Majestic Boost –∏ –≤—Å–µ —É—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–Ω—ã–µ —Ñ–∞–π–ª—ã?",
-                    "–£–¥–∞–ª–µ–Ω–∏–µ Majestic Boost",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question,
-                    MessageBoxDefaultButton.Button2);
-                if (result != DialogResult.Yes)
-                {
-                    return;
-                }
-            }
-
-            try
-            {
-                StopInstalledApplication();
-
-                string desktopShortcut = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-                    ProductName + ".lnk");
-                DeleteIfExists(desktopShortcut);
-
-                string startMenuDirectory = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
-                    ProductName);
-                if (Directory.Exists(startMenuDirectory))
-                {
-                    Directory.Delete(startMenuDirectory, true);
-                }
-
-                using (RegistryKey baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
-                {
-                    baseKey.DeleteSubKeyTree(UninstallRegistryPath, false);
-                    baseKey.DeleteSubKeyTree(AppPathsRegistryPath, false);
-                }
-
-                string localData = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "MajesticBoost");
-                if (Directory.Exists(localData))
-                {
-                    Directory.Delete(localData, true);
-                }
-
-                if (!quiet)
-                {
-                    MessageBox.Show(
-                        "Majestic Boost —É–¥–∞–ª—ë–Ω.",
-                        "–£–¥–∞–ª–µ–Ω–∏–µ –∑–∞–≤–µ—Ä—à–µ–Ω–æ",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                }
-
-                int currentProcessId = Process.GetCurrentProcess().Id;
-                string escapedInstallDirectory = InstallDirectory.Replace("'", "''");
-                string cleanupCommand =
-                    "$ErrorActionPreference='SilentlyContinue';" +
-                    "Wait-Process -Id " + currentProcessId.ToString(CultureInfo.InvariantCulture) +
-                    " -ErrorAction SilentlyContinue;" +
-                    "Remove-Item -LiteralPath '" + escapedInstallDirectory +
-                    "' -Recurse -Force -ErrorAction SilentlyContinue";
-                string encodedCleanupCommand = Convert.ToBase64String(
-                    Encoding.Unicode.GetBytes(cleanupCommand));
-                var cleanupInfo = new ProcessStartInfo();
-                cleanupInfo.FileName = Path.Combine(
-                    Environment.SystemDirectory,
-                    @"WindowsPowerShell\v1.0\powershell.exe");
-                cleanupInfo.Arguments =
-                    "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " +
-                    encodedCleanupCommand;
-                cleanupInfo.UseShellExecute = false;
-                cleanupInfo.CreateNoWindow = true;
-                cleanupInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                Process.Start(cleanupInfo);
-            }
-            catch (Exception exception)
-            {
-                if (!quiet)
-                {
-                    MessageBox.Show(
-                        "–ù–µ —É–¥–∞–ª–æ—Å—å –ø–æ–ª–Ω–æ—Å—Ç—å—é —É–¥–∞–ª–∏—Ç—å –ø—Ä–æ–≥—Ä–∞–º–º—É:\r\n" + exception.Message,
-                        "–û—à–∏–±–∫–∞ —É–¥–∞–ª–µ–Ω–∏—è",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                }
-                Environment.ExitCode = 1;
-            }
-        }
-
-        private static void InstallPayloadsAtomically(Action<int, string> progress = null)
-        {
-            string token = Guid.NewGuid().ToString("N");
-            string appStage = Path.Combine(InstallDirectory, ".MajesticBoost-" + token + ".stage");
-            string gameBoostStage = Path.Combine(InstallDirectory, ".Game-Boost-" + token + ".stage");
-            string maxFpsApplyStage = Path.Combine(InstallDirectory, ".MaxFPS-Apply-" + token + ".stage");
-            string maxFpsRestoreStage = Path.Combine(InstallDirectory, ".MaxFPS-Restore-" + token + ".stage");
-            string appBackup = Path.Combine(InstallDirectory, ".MajesticBoost-" + token + ".backup");
-            string gameBoostBackup = Path.Combine(InstallDirectory, ".Game-Boost-" + token + ".backup");
-            string maxFpsApplyBackup = Path.Combine(InstallDirectory, ".MaxFPS-Apply-" + token + ".backup");
-            string maxFpsRestoreBackup = Path.Combine(InstallDirectory, ".MaxFPS-Restore-" + token + ".backup");
-            bool appExisted = File.Exists(InstalledExe);
-            bool gameBoostExisted = File.Exists(InstalledGameBoostScript);
-            bool maxFpsApplyExisted = File.Exists(InstalledMaxFpsApplyScript);
-            bool maxFpsRestoreExisted = File.Exists(InstalledMaxFpsRestoreScript);
-            bool appCommitted = false;
-            bool gameBoostCommitted = false;
-            bool maxFpsApplyCommitted = false;
-            bool maxFpsRestoreCommitted = false;
-            bool appRestored = true;
-            bool gameBoostRestored = true;
-            bool maxFpsApplyRestored = true;
-            bool maxFpsRestoreRestored = true;
-            bool installationSucceeded = false;
-
-            try
-            {
-                ReportProgress(progress, 12, "–†–∞—Å–ø–∞–∫–æ–≤–∫–∞ —Ñ–∞–π–ª–æ–≤ –ø—Ä–æ–≥—Ä–∞–º–º—ã");
-                ExtractResource("MajesticBoost.Payload.exe", appStage);
-                ReportProgress(progress, 17, "–†–∞—Å–ø–∞–∫–æ–≤–∫–∞ –∏–≥—Ä–æ–≤—ã—Ö –Ω–∞—Å—Ç—Ä–æ–µ–∫");
-                ExtractResource("MajesticBoost.GameBoost.ps1", gameBoostStage);
-                ReportProgress(progress, 21, "–†–∞—Å–ø–∞–∫–æ–≤–∫–∞ –ø—Ä–æ—Ñ–∏–ª—è –ø—Ä–æ–∏–∑–≤–æ–¥–∏—Ç–µ–ª—å–Ω–æ—Å—Ç–∏");
-                ExtractResource("MajesticBoost.MaxFPSApply.ps1", maxFpsApplyStage);
-                ReportProgress(progress, 25, "–†–∞—Å–ø–∞–∫–æ–≤–∫–∞ –∫–æ–º–ø–æ–Ω–µ–Ω—Ç–æ–≤ –≤–æ—Å—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–∏—è");
-                ExtractResource("MajesticBoost.MaxFPSRestore.ps1", maxFpsRestoreStage);
-
-                // Do not alter the existing installation until every payload is ready.
-                ReportProgress(progress, 30, "–ü—Ä–æ–≤–µ—Ä–∫–∞ —Ñ–∞–π–ª–æ–≤ –ø—Ä–æ–≥—Ä–∞–º–º—ã");
-                ValidateStagedPayload(appStage, true);
-                ReportProgress(progress, 35, "–ü—Ä–æ–≤–µ—Ä–∫–∞ –∏–≥—Ä–æ–≤—ã—Ö –Ω–∞—Å—Ç—Ä–æ–µ–∫");
-                ValidateStagedPayload(gameBoostStage, false);
-                ReportProgress(progress, 40, "–ü—Ä–æ–≤–µ—Ä–∫–∞ –ø—Ä–æ—Ñ–∏–ª—è –ø—Ä–æ–∏–∑–≤–æ–¥–∏—Ç–µ–ª—å–Ω–æ—Å—Ç–∏");
-                ValidateStagedPayload(maxFpsApplyStage, false);
-                ReportProgress(progress, 44, "–ü—Ä–æ–≤–µ—Ä–∫–∞ –∫–æ–º–ø–æ–Ω–µ–Ω—Ç–æ–≤ –≤–æ—Å—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–∏—è");
-                ValidateStagedPayload(maxFpsRestoreStage, false);
-
-                // Publish dependency scripts first and the application itself last.
-                ReportProgress(progress, 49, "–£—Å—Ç–∞–Ω–æ–≤–∫–∞ –∏–≥—Ä–æ–≤—ã—Ö –Ω–∞—Å—Ç—Ä–æ–µ–∫");
-                CommitStagedFile(gameBoostStage, InstalledGameBoostScript, gameBoostBackup, gameBoostExisted);
-                gameBoostCommitted = true;
-                ReportProgress(progress, 55, "–£—Å—Ç–∞–Ω–æ–≤–∫–∞ –ø—Ä–æ—Ñ–∏–ª—è –ø—Ä–æ–∏–∑–≤–æ–¥–∏—Ç–µ–ª—å–Ω–æ—Å—Ç–∏");
-                CommitStagedFile(maxFpsApplyStage, InstalledMaxFpsApplyScript, maxFpsApplyBackup, maxFpsApplyExisted);
-                maxFpsApplyCommitted = true;
-                ReportProgress(progress, 61, "–£—Å—Ç–∞–Ω–æ–≤–∫–∞ –∫–æ–º–ø–æ–Ω–µ–Ω—Ç–æ–≤ –≤–æ—Å—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–∏—è");
-                CommitStagedFile(maxFpsRestoreStage, InstalledMaxFpsRestoreScript, maxFpsRestoreBackup, maxFpsRestoreExisted);
-                maxFpsRestoreCommitted = true;
-                ReportProgress(progress, 68, "–£—Å—Ç–∞–Ω–æ–≤–∫–∞ –Ω–æ–≤–æ–π –≤–µ—Ä—Å–∏–∏ –ø—Ä–æ–≥—Ä–∞–º–º—ã");
-                CommitStagedFile(appStage, InstalledExe, appBackup, appExisted);
-                appCommitted = true;
-                installationSucceeded = true;
-                ReportProgress(progress, 72, "–§–∞–π–ª—ã –ø—Ä–æ–≥—Ä–∞–º–º—ã –æ–±–Ω–æ–≤–ª–µ–Ω—ã");
-            }
-            catch
-            {
-                // Roll back in the exact reverse order of the commits above.
-                if (appCommitted)
-                {
-                    appRestored = RestoreCommittedFile(InstalledExe, appBackup, appExisted);
-                }
-                if (maxFpsRestoreCommitted)
-                {
-                    maxFpsRestoreRestored = RestoreCommittedFile(
-                        InstalledMaxFpsRestoreScript,
-                        maxFpsRestoreBackup,
-                        maxFpsRestoreExisted);
-                }
-                if (maxFpsApplyCommitted)
-                {
-                    maxFpsApplyRestored = RestoreCommittedFile(
-                        InstalledMaxFpsApplyScript,
-                        maxFpsApplyBackup,
-                        maxFpsApplyExisted);
-                }
-                if (gameBoostCommitted)
-                {
-                    gameBoostRestored = RestoreCommittedFile(
-                        InstalledGameBoostScript,
-                        gameBoostBackup,
-                        gameBoostExisted);
-                }
-                throw;
-            }
-            finally
-            {
-                DeleteIfExists(appStage);
-                DeleteIfExists(gameBoostStage);
-                DeleteIfExists(maxFpsApplyStage);
-                DeleteIfExists(maxFpsRestoreStage);
-
-                // Preserve a backup whenever restoring that payload failed.
-                if (installationSucceeded || !appCommitted || appRestored)
-                {
-                    DeleteIfExists(appBackup);
-                }
-                if (installationSucceeded || !maxFpsRestoreCommitted || maxFpsRestoreRestored)
-                {
-                    DeleteIfExists(maxFpsRestoreBackup);
-                }
-                if (installationSucceeded || !maxFpsApplyCommitted || maxFpsApplyRestored)
-                {
-                    DeleteIfExists(maxFpsApplyBackup);
-                }
-                if (installationSucceeded || !gameBoostCommitted || gameBoostRestored)
-                {
-                    DeleteIfExists(gameBoostBackup);
-                }
-            }
-        }
-
-        private static void ValidateStagedPayload(string path, bool executable)
-        {
-            var file = new FileInfo(path);
-            if (!file.Exists || file.Length == 0)
-            {
-                throw new InvalidDataException("–í—Å—Ç—Ä–æ–µ–Ω–Ω—ã–µ —Ñ–∞–π–ª—ã —É—Å—Ç–∞–Ω–æ–≤—â–∏–∫–∞ –ø–æ–≤—Ä–µ–∂–¥–µ–Ω—ã.");
-            }
-
-            if (!executable)
-            {
-                return;
-            }
-
-            using (var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                if (input.Length < 2 || input.ReadByte() != 'M' || input.ReadByte() != 'Z')
-                {
-                    throw new InvalidDataException("–í—Å—Ç—Ä–æ–µ–Ω–Ω—ã–π —Ñ–∞–π–ª –ø—Ä–æ–≥—Ä–∞–º–º—ã –ø–æ–≤—Ä–µ–∂–¥—ë–Ω.");
-                }
-            }
-        }
-
-        private static void CommitStagedFile(string stage, string destination, string backup, bool destinationExists)
-        {
-            if (destinationExists)
-            {
-                File.Replace(stage, destination, backup, true);
-            }
-            else
-            {
-                File.Move(stage, destination);
-            }
-        }
-
-        private static void ReplaceFileWithoutRetainedBackup(string source, string destination)
-        {
-            string discardBackup = destination + ".replace-backup-" + Guid.NewGuid().ToString("N");
-            try
-            {
-                File.Replace(source, destination, discardBackup, true);
-            }
-            finally
-            {
-                try
-                {
-                    DeleteIfExists(discardBackup);
-                }
-                catch
-                {
-                    // A disposable copy of the failed destination must not make
-                    // restoring the known-good installation report failure.
-                }
-            }
-        }
-
-        private static bool RestoreCommittedFile(string destination, string backup, bool destinationExisted)
-        {
-            try
-            {
-                if (destinationExisted && File.Exists(backup))
-                {
-                    if (File.Exists(destination))
-                    {
-                        ReplaceFileWithoutRetainedBackup(backup, destination);
-                    }
-                    else
-                    {
-                        File.Move(backup, destination);
-                    }
-                }
-                else if (!destinationExisted)
-                {
-                    DeleteIfExists(destination);
-                }
-                else
-                {
-                    return false;
-                }
-                return true;
-            }
-            catch
-            {
-                // Keep the original installation error; backup remains for diagnostics.
-                return false;
-            }
-        }
-
-        private static void ExtractResource(string resourceName, string destination)
-        {
-            Assembly assembly = Assembly.GetExecutingAssembly();
-            using (Stream input = assembly.GetManifestResourceStream(resourceName))
-            {
-                if (input == null)
-                {
-                    throw new InvalidOperationException("–í —É—Å—Ç–∞–Ω–æ–≤—â–∏–∫–µ –æ—Ç—Å—É—Ç—Å—Ç–≤—É–µ—Ç —Ä–µ—Å—É—Ä—Å: " + resourceName);
-                }
-                using (var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    input.CopyTo(output);
-                }
-            }
-        }
-
-        private static void StopInstalledApplication()
-        {
-            foreach (Process process in Process.GetProcessesByName("MajesticBoost"))
-            {
-                try
-                {
-                    string runningPath = process.MainModule.FileName;
-                    if (string.Equals(runningPath, InstalledExe, StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!process.CloseMainWindow() || !process.WaitForExit(1200))
-                        {
-                            process.Kill();
-                        }
-                        if (!process.WaitForExit(3000))
-                        {
-                            throw new InvalidOperationException("–ó–∞–∫—Ä–æ–π—Ç–µ –∑–∞–ø—É—â–µ–Ω–Ω—ã–π Majestic Boost –∏ –ø–æ–≤—Ç–æ—Ä–∏—Ç–µ —É—Å—Ç–∞–Ω–æ–≤–∫—É.");
-                        }
-                    }
-                }
-                catch (InvalidOperationException)
-                {
-                    throw;
-                }
-                catch
-                {
-                    // An unrelated inaccessible process with the same name is ignored.
-                }
-                finally { process.Dispose(); }
-            }
-        }
-
-        public static void LaunchInstalledApplication()
-        {
-            string explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
-            var startInfo = new ProcessStartInfo();
-            startInfo.FileName = explorer;
-            startInfo.Arguments = Quote(InstalledExe);
-            startInfo.UseShellExecute = true;
-            Process.Start(startInfo);
-        }
-
-        private static void CreateShortcut(string shortcutPath, string targetPath, string workingDirectory, string description)
-        {
-            Type shellType = Type.GetTypeFromProgID("WScript.Shell");
-            if (shellType == null)
-            {
-                throw new InvalidOperationException("Windows Script Host –Ω–µ–¥–æ—Å—Ç—É–ø–µ–Ω.");
-            }
-
-            object shell = Activator.CreateInstance(shellType);
-            object shortcut = null;
-            try
-            {
-                shortcut = shellType.InvokeMember(
-                    "CreateShortcut",
-                    BindingFlags.InvokeMethod,
-                    null,
-                    shell,
-                    new object[] { shortcutPath });
-                Type shortcutType = shortcut.GetType();
-                shortcutType.InvokeMember("TargetPath", BindingFlags.SetProperty, null, shortcut, new object[] { targetPath });
-                shortcutType.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, shortcut, new object[] { workingDirectory });
-                shortcutType.InvokeMember("Description", BindingFlags.SetProperty, null, shortcut, new object[] { description });
-                shortcutType.InvokeMember("IconLocation", BindingFlags.SetProperty, null, shortcut, new object[] { targetPath + ",0" });
-                shortcutType.InvokeMember("Save", BindingFlags.InvokeMethod, null, shortcut, null);
-            }
-            finally
-            {
-                if (shortcut != null && Marshal.IsComObject(shortcut))
-                {
-                    Marshal.FinalReleaseComObject(shortcut);
-                }
-                if (shell != null && Marshal.IsComObject(shell))
-                {
-                    Marshal.FinalReleaseComObject(shell);
-                }
-            }
-        }
-
-        private static int CalculateEstimatedSizeKb()
-        {
-            long total = 0;
-            foreach (string file in new[]
-            {
-                InstalledExe,
-                InstalledGameBoostScript,
-                InstalledMaxFpsApplyScript,
-                InstalledMaxFpsRestoreScript,
-                UninstallerExe
-            })
-            {
-                if (File.Exists(file))
-                {
-                    total += new FileInfo(file).Length;
-                }
-            }
-            return (int)Math.Max(1, total / 1024);
-        }
-
-        private static void ReportProgress(Action<int, string> progress, int percent, string stage)
-        {
-            if (progress == null)
-            {
-                return;
-            }
-
-            try
-            {
-                progress(Math.Max(0, Math.Min(100, percent)), stage ?? string.Empty);
-            }
-            catch
-            {
-                // A closed or unavailable progress surface must not corrupt installation.
-            }
-        }
-
-        private static string Quote(string value)
-        {
-            return "\"" + value + "\"";
-        }
-
-        private static void DeleteIfExists(string path)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-    }
-
-    internal static class MajesticFontProvider
-    {
-        private static readonly PrivateFontCollection Fonts = new PrivateFontCollection();
-        private static bool loaded;
-
-        public static Font Create(float size, FontStyle style)
-        {
-            EnsureLoaded();
-            FontFamily selected = null;
-            string preferred = "Proxima Nova";
-            foreach (FontFamily family in Fonts.Families)
-            {
-                if (string.Equals(family.Name, preferred, StringComparison.OrdinalIgnoreCase))
-                {
-                    selected = family;
-                    break;
-                }
-            }
-
-            if (selected != null)
-            {
-                FontStyle actualStyle = selected.IsStyleAvailable(style) ? style : FontStyle.Regular;
-                try
-                {
-                    return new Font(selected, size, actualStyle, GraphicsUnit.Point);
-                }
-                catch { }
-            }
-
-            return new Font("Segoe UI", size, style, GraphicsUnit.Point);
-        }
-
-        public static void Dispose()
-        {
-            Fonts.Dispose();
-        }
-
-        private static void EnsureLoaded()
-        {
-            if (loaded)
-            {
-                return;
-            }
-            loaded = true;
-
-            try
-            {
-                string fontDirectory = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "MajesticBoost",
-                    "Fonts");
-                Directory.CreateDirectory(fontDirectory);
-                string regularFont = Path.Combine(fontDirectory, "ProximaNova-Regular.ttf");
-                if (!File.Exists(regularFont))
-                {
-                    ExtractFromMajestic(fontDirectory);
-                }
-
-                foreach (string fontFile in Directory.GetFiles(fontDirectory, "ProximaNova-*.ttf"))
-                {
-                    Fonts.AddFontFile(fontFile);
-                }
-            }
-            catch
-            {
-                // Segoe UI is used when Majestic is not installed.
-            }
-        }
-
-        private static void ExtractFromMajestic(string destinationDirectory)
-        {
-            string asarPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "MajesticLauncher",
-                "resources",
-                "app.asar");
-            if (!File.Exists(asarPath))
-            {
-                return;
-            }
-
-            using (var stream = new FileStream(asarPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            using (var reader = new BinaryReader(stream, Encoding.UTF8))
-            {
-                reader.ReadUInt32();
-                uint headerSize = reader.ReadUInt32();
-                reader.ReadUInt32();
-                uint jsonLength = reader.ReadUInt32();
-                if (jsonLength == 0 || jsonLength > 64 * 1024 * 1024)
-                {
-                    return;
-                }
-
-                string header = Encoding.UTF8.GetString(reader.ReadBytes((int)jsonLength));
-                long dataOffset = 8L + headerSize;
-                var pattern = new Regex(
-                    @"ProximaNova-(?<weight>Black|Bold|Regular|Semibold)-[^""\\]+\.ttf"":\{""size"":(?<size>\d+),""offset"":""(?<offset>\d+)""",
-                    RegexOptions.CultureInvariant);
-
-                foreach (Match match in pattern.Matches(header))
-                {
-                    int size;
-                    long offset;
-                    if (!int.TryParse(match.Groups["size"].Value, out size)
-                        || !long.TryParse(match.Groups["offset"].Value, out offset)
-                        || size <= 0
-                        || dataOffset + offset + size > stream.Length)
-                    {
-                        continue;
-                    }
-
-                    stream.Position = dataOffset + offset;
-                    byte[] bytes = reader.ReadBytes(size);
-                    if (bytes.Length == size)
-                    {
-                        File.WriteAllBytes(
-                            Path.Combine(destinationDirectory, "ProximaNova-" + match.Groups["weight"].Value + ".ttf"),
-                            bytes);
-                    }
-                }
-            }
-        }
-    }
-
-    internal static class MajesticDrawing
-    {
-        public static GraphicsPath RoundedRectangle(RectangleF rectangle, float radius)
-        {
-            float diameter = radius * 2F;
-            var path = new GraphicsPath();
-            path.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180F, 90F);
-            path.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270F, 90F);
-            path.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0F, 90F);
-            path.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90F, 90F);
-            path.CloseFigure();
-            return path;
-        }
-
-        public static Color Interpolate(Color from, Color to, float amount)
-        {
-            amount = Math.Max(0F, Math.Min(1F, amount));
-            return Color.FromArgb(
-                (int)Math.Round(from.A + ((to.A - from.A) * amount)),
-                (int)Math.Round(from.R + ((to.R - from.R) * amount)),
-                (int)Math.Round(from.G + ((to.G - from.G) * amount)),
-                (int)Math.Round(from.B + ((to.B - from.B) * amount)));
-        }
-
-        public static float CssEase(float progress)
-        {
-            progress = Math.Max(0F, Math.Min(1F, progress));
-            float low = 0F;
-            float high = 1F;
-            float parameter = progress;
-            for (int index = 0; index < 10; index++)
-            {
-                parameter = (low + high) * 0.5F;
-                float x = CubicBezier(parameter, 0.25F, 0.25F);
-                if (x < progress)
-                {
-                    low = parameter;
-                }
-                else
-                {
-                    high = parameter;
-                }
-            }
-            return CubicBezier(parameter, 0.10F, 1F);
-        }
-
-        private static float CubicBezier(float parameter, float firstControl, float secondControl)
-        {
-            float inverse = 1F - parameter;
-            return (3F * inverse * inverse * parameter * firstControl)
-                + (3F * inverse * parameter * parameter * secondControl)
-                + (parameter * parameter * parameter);
-        }
-    }
-
-    internal abstract class AnimatedButtonBase : Button
-    {
-        private readonly Timer animationTimer;
-        private Color currentFill;
-        private Color currentGlyph;
-        private Color startFill;
-        private Color startGlyph;
-        private Color targetFill;
-        private Color targetGlyph;
-        private long animationStart;
-        private int animationDuration;
-        private bool pressed;
-
-        protected AnimatedButtonBase()
-        {
-            SetStyle(
-                ControlStyles.UserPaint
-                | ControlStyles.AllPaintingInWmPaint
-                | ControlStyles.OptimizedDoubleBuffer
-                | ControlStyles.ResizeRedraw,
-                true);
-            FlatStyle = FlatStyle.Flat;
-            FlatAppearance.BorderSize = 0;
-            UseVisualStyleBackColor = false;
-            Cursor = Cursors.Hand;
-            TabStop = true;
-
-            animationTimer = new Timer();
-            animationTimer.Interval = 15;
-            animationTimer.Tick += AnimationTick;
-        }
-
-        protected abstract Color IdleFill { get; }
-        protected abstract Color HoverFill { get; }
-        protected abstract Color PressedFill { get; }
-        protected abstract Color IdleGlyph { get; }
-        protected abstract Color HoverGlyph { get; }
-        protected abstract Color PressedGlyph { get; }
-        protected abstract float CornerRadius { get; }
-
-        protected void InitializeVisualState()
-        {
-            currentFill = IdleFill;
-            currentGlyph = IdleGlyph;
-            startFill = currentFill;
-            startGlyph = currentGlyph;
-            targetFill = currentFill;
-            targetGlyph = currentGlyph;
-        }
-
-        protected override void OnMouseEnter(EventArgs e)
-        {
-            base.OnMouseEnter(e);
-            if (Enabled)
-            {
-                BeginTransition(HoverFill, HoverGlyph, 200);
-            }
-        }
-
-        protected override void OnMouseLeave(EventArgs e)
-        {
-            base.OnMouseLeave(e);
-            pressed = false;
-            BeginTransition(IdleFill, IdleGlyph, 200);
-        }
-
-        protected override void OnMouseDown(MouseEventArgs e)
-        {
-            base.OnMouseDown(e);
-            if (Enabled && e.Button == MouseButtons.Left)
-            {
-                pressed = true;
-                BeginTransition(PressedFill, PressedGlyph, 90);
-            }
-        }
-
-        protected override void OnMouseUp(MouseEventArgs e)
-        {
-            base.OnMouseUp(e);
-            pressed = false;
-            if (Enabled && ClientRectangle.Contains(e.Location))
-            {
-                BeginTransition(HoverFill, HoverGlyph, 160);
-            }
-            else
-            {
-                BeginTransition(IdleFill, IdleGlyph, 160);
-            }
-        }
-
-        protected override void OnKeyDown(KeyEventArgs e)
-        {
-            base.OnKeyDown(e);
-            if (Enabled && !pressed && (e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter))
-            {
-                pressed = true;
-                BeginTransition(PressedFill, PressedGlyph, 90);
-            }
-        }
-
-        protected override void OnKeyUp(KeyEventArgs e)
-        {
-            base.OnKeyUp(e);
-            if (pressed && (e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter))
-            {
-                pressed = false;
-                bool pointerInside = ClientRectangle.Contains(PointToClient(Cursor.Position));
-                BeginTransition(
-                    pointerInside ? HoverFill : IdleFill,
-                    pointerInside ? HoverGlyph : IdleGlyph,
-                    160);
-            }
-        }
-
-        protected override void OnLostFocus(EventArgs e)
-        {
-            base.OnLostFocus(e);
-            if (pressed)
-            {
-                pressed = false;
-                BeginTransition(IdleFill, IdleGlyph, 160);
-            }
-        }
-
-        protected override void OnEnabledChanged(EventArgs e)
-        {
-            base.OnEnabledChanged(e);
-            pressed = false;
-            bool pointerInside = Enabled && ClientRectangle.Contains(PointToClient(Cursor.Position));
-            BeginTransition(
-                pointerInside ? HoverFill : IdleFill,
-                pointerInside ? HoverGlyph : IdleGlyph,
-                160);
-            Invalidate();
-        }
-
-        protected override void OnTextChanged(EventArgs e)
-        {
-            base.OnTextChanged(e);
-            Invalidate();
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            Color parentColor = Parent == null ? Color.FromArgb(22, 22, 22) : Parent.BackColor;
-            using (var backgroundBrush = new SolidBrush(parentColor))
-            {
-                e.Graphics.FillRectangle(backgroundBrush, ClientRectangle);
-            }
-
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            RectangleF buttonBounds = new RectangleF(0F, 0F, Math.Max(1F, Width - 1F), Math.Max(1F, Height - 1F));
-            Color fill = currentFill;
-            Color glyph = currentGlyph;
-            if (!Enabled)
-            {
-                fill = MajesticDrawing.Interpolate(fill, parentColor, 0.45F);
-                glyph = Color.FromArgb(100, 100, 100);
-            }
-            if (SystemInformation.HighContrast)
-            {
-                fill = Enabled && (pressed || ClientRectangle.Contains(PointToClient(Cursor.Position)))
-                    ? SystemColors.Highlight
-                    : SystemColors.ControlDark;
-                glyph = Enabled ? SystemColors.HighlightText : SystemColors.GrayText;
-            }
-
-            using (GraphicsPath path = MajesticDrawing.RoundedRectangle(buttonBounds, CornerRadius))
-            using (var brush = new SolidBrush(fill))
-            {
-                e.Graphics.FillPath(brush, path);
-            }
-
-            DrawContent(e.Graphics, Rectangle.Round(buttonBounds), glyph);
-
-            if (Focused && ShowFocusCues)
-            {
-                Rectangle focusBounds = Rectangle.Inflate(ClientRectangle, -4, -4);
-                ControlPaint.DrawFocusRectangle(e.Graphics, focusBounds, glyph, fill);
-            }
-        }
-
-        protected abstract void DrawContent(Graphics graphics, Rectangle bounds, Color glyphColor);
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                animationTimer.Stop();
-                animationTimer.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-
-        private void BeginTransition(Color fill, Color glyph, int duration)
-        {
-            startFill = currentFill;
-            startGlyph = currentGlyph;
-            targetFill = fill;
-            targetGlyph = glyph;
-            animationStart = Stopwatch.GetTimestamp();
-            animationDuration = Math.Max(1, duration);
-            animationTimer.Start();
-            Invalidate();
-        }
-
-        private void AnimationTick(object sender, EventArgs e)
-        {
-            double elapsed = (Stopwatch.GetTimestamp() - animationStart) * 1000D / Stopwatch.Frequency;
-            float progress = (float)Math.Min(1D, elapsed / animationDuration);
-            float eased = MajesticDrawing.CssEase(progress);
-            currentFill = MajesticDrawing.Interpolate(startFill, targetFill, eased);
-            currentGlyph = MajesticDrawing.Interpolate(startGlyph, targetGlyph, eased);
-            Invalidate();
-            if (progress >= 1F)
-            {
-                animationTimer.Stop();
-                currentFill = targetFill;
-                currentGlyph = targetGlyph;
-            }
-        }
-    }
-
-    internal sealed class MajesticActionButton : AnimatedButtonBase
-    {
-        public MajesticActionButton()
-        {
-            InitializeVisualState();
-        }
-
-        protected override Color IdleFill { get { return Color.FromArgb(37, 37, 37); } }
-        protected override Color HoverFill { get { return Color.FromArgb(232, 28, 90); } }
-        protected override Color PressedFill { get { return Color.FromArgb(208, 25, 81); } }
-        protected override Color IdleGlyph { get { return Color.White; } }
-        protected override Color HoverGlyph { get { return Color.White; } }
-        protected override Color PressedGlyph { get { return Color.White; } }
-        protected override float CornerRadius { get { return 8F; } }
-
-        protected override void DrawContent(Graphics graphics, Rectangle bounds, Color glyphColor)
-        {
-            TextRenderer.DrawText(
-                graphics,
-                Text,
-                Font,
-                bounds,
-                glyphColor,
-                TextFormatFlags.HorizontalCenter
-                | TextFormatFlags.VerticalCenter
-                | TextFormatFlags.SingleLine
-                | TextFormatFlags.NoPadding);
-        }
-    }
-
-    internal sealed class MajesticCloseButton : AnimatedButtonBase
-    {
-        public MajesticCloseButton()
-        {
-            InitializeVisualState();
-        }
-
-        protected override Color IdleFill { get { return Color.FromArgb(0, 231, 24, 42); } }
-        protected override Color HoverFill { get { return Color.FromArgb(231, 24, 42); } }
-        protected override Color PressedFill { get { return Color.FromArgb(197, 20, 35); } }
-        protected override Color IdleGlyph { get { return Color.FromArgb(128, 255, 255, 255); } }
-        protected override Color HoverGlyph { get { return Color.White; } }
-        protected override Color PressedGlyph { get { return Color.White; } }
-        protected override float CornerRadius { get { return 6F; } }
-
-        protected override void DrawContent(Graphics graphics, Rectangle bounds, Color glyphColor)
-        {
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (var pen = new Pen(glyphColor, 1.6F))
-            {
-                pen.StartCap = LineCap.Round;
-                pen.EndCap = LineCap.Round;
-                graphics.DrawLine(pen, 9F, 9F, 21F, 21F);
-                graphics.DrawLine(pen, 21F, 9F, 9F, 21F);
-            }
-        }
-    }
-
-    internal sealed class MajesticToggle : CheckBox
-    {
-        private static readonly Color OffColor = Color.FromArgb(37, 37, 37);
-        private static readonly Color OffHoverColor = Color.FromArgb(52, 52, 52);
-        private static readonly Color OnColor = Color.FromArgb(232, 28, 90);
-        private readonly Timer animationTimer;
-        private float thumbPosition;
-        private float startThumbPosition;
-        private float targetThumbPosition;
-        private Color currentTrackColor;
-        private Color startTrackColor;
-        private Color targetTrackColor;
-        private long animationStart;
-        private bool pointerInside;
-
-        public MajesticToggle()
-        {
-            SetStyle(
-                ControlStyles.UserPaint
-                | ControlStyles.AllPaintingInWmPaint
-                | ControlStyles.OptimizedDoubleBuffer
-                | ControlStyles.ResizeRedraw
-                | ControlStyles.SupportsTransparentBackColor,
-                true);
-            AutoSize = false;
-            BackColor = Color.Transparent;
-            Cursor = Cursors.Hand;
-            TabStop = true;
-            currentTrackColor = OffColor;
-            targetTrackColor = OffColor;
-
-            animationTimer = new Timer();
-            animationTimer.Interval = 15;
-            animationTimer.Tick += AnimationTick;
-        }
-
-        protected override void OnHandleCreated(EventArgs e)
-        {
-            base.OnHandleCreated(e);
-            thumbPosition = Checked ? 1F : 0F;
-            startThumbPosition = thumbPosition;
-            targetThumbPosition = thumbPosition;
-            currentTrackColor = TargetTrackColor();
-            startTrackColor = currentTrackColor;
-            targetTrackColor = currentTrackColor;
-        }
-
-        protected override void OnCheckedChanged(EventArgs e)
-        {
-            base.OnCheckedChanged(e);
-            if (!IsHandleCreated)
-            {
-                thumbPosition = Checked ? 1F : 0F;
-                currentTrackColor = Checked ? OnColor : OffColor;
-                return;
-            }
-            BeginTransition();
-        }
-
-        protected override void OnMouseEnter(EventArgs e)
-        {
-            base.OnMouseEnter(e);
-            pointerInside = true;
-            BeginTransition();
-        }
-
-        protected override void OnMouseLeave(EventArgs e)
-        {
-            base.OnMouseLeave(e);
-            pointerInside = false;
-            BeginTransition();
-        }
-
-        protected override void OnEnabledChanged(EventArgs e)
-        {
-            base.OnEnabledChanged(e);
-            if (!Enabled)
-            {
-                pointerInside = false;
-            }
-            BeginTransition();
-            Invalidate();
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            Color parentColor = Parent == null ? Color.FromArgb(22, 22, 22) : Parent.BackColor;
-            using (var backgroundBrush = new SolidBrush(parentColor))
-            {
-                e.Graphics.FillRectangle(backgroundBrush, ClientRectangle);
-            }
-
-            Color textColor = Enabled ? ForeColor : Color.FromArgb(95, 95, 95);
-            Rectangle textBounds = new Rectangle(0, 0, Math.Max(0, Width - 52), Height);
-            TextRenderer.DrawText(
-                e.Graphics,
-                Text,
-                Font,
-                textBounds,
-                textColor,
-                TextFormatFlags.Left
-                | TextFormatFlags.VerticalCenter
-                | TextFormatFlags.SingleLine
-                | TextFormatFlags.NoPadding
-                | TextFormatFlags.EndEllipsis);
-
-            float trackLeft = Width - 36F;
-            float trackTop = (Height - 20F) * 0.5F;
-            RectangleF trackBounds = new RectangleF(trackLeft, trackTop, 36F, 20F);
-            Color trackColor = currentTrackColor;
-            Color knobColor = Color.White;
-            if (!Enabled)
-            {
-                trackColor = MajesticDrawing.Interpolate(trackColor, parentColor, 0.5F);
-                knobColor = Color.FromArgb(145, 145, 145);
-            }
-            if (SystemInformation.HighContrast)
-            {
-                if (!Enabled)
-                {
-                    trackColor = SystemColors.ControlDarkDark;
-                    knobColor = SystemColors.GrayText;
-                }
-                else
-                {
-                    trackColor = Checked ? SystemColors.Highlight : SystemColors.ControlDark;
-                    knobColor = Checked ? SystemColors.HighlightText : SystemColors.Window;
-                }
-            }
-
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (GraphicsPath trackPath = MajesticDrawing.RoundedRectangle(trackBounds, 10F))
-            using (var trackBrush = new SolidBrush(trackColor))
-            {
-                e.Graphics.FillPath(trackBrush, trackPath);
-            }
-
-            float knobLeft = trackLeft + 2F + (16F * thumbPosition);
-            RectangleF knobBounds = new RectangleF(knobLeft, trackTop + 2F, 16F, 16F);
-            using (var knobBrush = new SolidBrush(knobColor))
-            {
-                e.Graphics.FillEllipse(knobBrush, knobBounds);
-            }
-
-            if (Focused && ShowFocusCues)
-            {
-                Rectangle focusBounds = Rectangle.Round(trackBounds);
-                focusBounds.Inflate(-2, -2);
-                ControlPaint.DrawFocusRectangle(e.Graphics, focusBounds, textColor, parentColor);
-            }
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                animationTimer.Stop();
-                animationTimer.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-
-        private Color TargetTrackColor()
-        {
-            if (Checked)
-            {
-                return OnColor;
-            }
-            return pointerInside && Enabled ? OffHoverColor : OffColor;
-        }
-
-        private void BeginTransition()
-        {
-            if (!IsHandleCreated)
-            {
-                return;
-            }
-            startThumbPosition = thumbPosition;
-            targetThumbPosition = Checked ? 1F : 0F;
-            startTrackColor = currentTrackColor;
-            targetTrackColor = TargetTrackColor();
-            animationStart = Stopwatch.GetTimestamp();
-            animationTimer.Start();
-            Invalidate();
-        }
-
-        private void AnimationTick(object sender, EventArgs e)
-        {
-            double elapsed = (Stopwatch.GetTimestamp() - animationStart) * 1000D / Stopwatch.Frequency;
-            float progress = (float)Math.Min(1D, elapsed / 200D);
-            float eased = MajesticDrawing.CssEase(progress);
-            thumbPosition = startThumbPosition + ((targetThumbPosition - startThumbPosition) * eased);
-            currentTrackColor = MajesticDrawing.Interpolate(startTrackColor, targetTrackColor, eased);
-            Invalidate(new Rectangle(Math.Max(0, Width - 40), 0, Math.Min(40, Width), Height));
-            if (progress >= 1F)
-            {
-                animationTimer.Stop();
-                thumbPosition = targetThumbPosition;
-                currentTrackColor = targetTrackColor;
-            }
-        }
-    }
-
-    internal sealed class UpdateProgressForm : Form
-    {
-        private const int ProgressTrackWidth = 480;
-        private readonly Color background = Color.FromArgb(22, 22, 22);
-        private readonly Color accent = Color.FromArgb(232, 28, 90);
-        private readonly Color muted = Color.FromArgb(142, 142, 142);
-        private readonly bool demoMode;
-        private readonly Timer progressAnimationTimer;
-        private readonly Timer demoTimer;
-        private MajesticCloseButton closeButton;
-        private MajesticActionButton actionButton;
-        private Label headlineLabel;
-        private Label descriptionLabel;
-        private Label percentLabel;
-        private Label phaseLabel;
-        private Label detailLabel;
-        private Panel progressFill;
-        private int displayedProgress;
-        private int targetProgress;
-        private int demoMilestoneIndex;
-        private bool installing;
-        private bool successPending;
-        private bool successShown;
-
-        private static readonly int[] DemoPercentages =
-        {
-            0, 5, 10, 17, 25, 35, 44, 55, 68, 76, 87, 94, 100
-        };
-
-        private static readonly string[] DemoStages =
-        {
-            "–ü–æ–¥–≥–æ—Ç–æ–≤–∫–∞ –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è",
-            "–ü–æ–¥–≥–æ—Ç–æ–≤–∫–∞ –ø–∞–ø–∫–∏ —É—Å—Ç–∞–Ω–æ–≤–∫–∏",
-            "–û—Å—Ç–∞–Ω–æ–≤–∫–∞ –∑–∞–ø—É—â–µ–Ω–Ω–æ–π –≤–µ—Ä—Å–∏–∏",
-            "–†–∞—Å–ø–∞–∫–æ–≤–∫–∞ —Ñ–∞–π–ª–æ–≤ –ø—Ä–æ–≥—Ä–∞–º–º—ã",
-            "–†–∞—Å–ø–∞–∫–æ–≤–∫–∞ –∫–æ–º–ø–æ–Ω–µ–Ω—Ç–æ–≤ –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è",
-            "–ü—Ä–æ–≤–µ—Ä–∫–∞ —Ñ–∞–π–ª–æ–≤ –ø—Ä–æ–≥—Ä–∞–º–º—ã",
-            "–ü—Ä–æ–≤–µ—Ä–∫–∞ –∫–æ–º–ø–æ–Ω–µ–Ω—Ç–æ–≤ –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è",
-            "–£—Å—Ç–∞–Ω–æ–≤–∫–∞ –ø—Ä–æ—Ñ–∏–ª—è –ø—Ä–æ–∏–∑–≤–æ–¥–∏—Ç–µ–ª—å–Ω–æ—Å—Ç–∏",
-            "–£—Å—Ç–∞–Ω–æ–≤–∫–∞ –Ω–æ–≤–æ–π –≤–µ—Ä—Å–∏–∏ –ø—Ä–æ–≥—Ä–∞–º–º—ã",
-            "–û–±–Ω–æ–≤–ª–µ–Ω–∏–µ –∫–æ–º–ø–æ–Ω–µ–Ω—Ç–æ–≤ —É–¥–∞–ª–µ–Ω–∏—è",
-            "–°–æ—Ö—Ä–∞–Ω–µ–Ω–∏–µ –ø–∞—Ä–∞–º–µ—Ç—Ä–æ–≤ —É—Å—Ç–∞–Ω–æ–≤–∫–∏",
-            "–†–µ–≥–∏—Å—Ç—Ä–∞—Ü–∏—è –Ω–æ–≤–æ–π –≤–µ—Ä—Å–∏–∏",
-            "–û–±–Ω–æ–≤–ª–µ–Ω–∏–µ —É—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–æ"
-        };
-
-        public UpdateProgressForm(bool demoMode)
-        {
-            this.demoMode = demoMode;
-            Text = "Majestic Boost Update";
-            ClientSize = new Size(560, 345);
-            StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.None;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            BackColor = background;
-            ForeColor = Color.White;
-            Font = CreateUiFont(9F, FontStyle.Regular);
-            DoubleBuffered = true;
-            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-
-            progressAnimationTimer = new Timer();
-            progressAnimationTimer.Interval = 15;
-            progressAnimationTimer.Tick += ProgressAnimationTick;
-
-            demoTimer = new Timer();
-            demoTimer.Interval = 360;
-            demoTimer.Tick += DemoTimerTick;
-
-            BuildInterface();
-            Resize += delegate { ApplyRoundedRegion(); };
-            Shown += UpdateProgressFormShown;
-            MouseDown += DragWindow;
-        }
-
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                const int CsDropShadow = 0x00020000;
-                CreateParams parameters = base.CreateParams;
-                parameters.ClassStyle |= CsDropShadow;
-                return parameters;
-            }
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            base.OnPaint(e);
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (GraphicsPath path = MakeRoundedRectangle(
-                new Rectangle(0, 0, ClientSize.Width - 1, ClientSize.Height - 1), 11))
-            using (var pen = new Pen(Color.FromArgb(56, 56, 56), 1F))
-            {
-                e.Graphics.DrawPath(pen, path);
-            }
-        }
-
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            if (installing)
-            {
-                e.Cancel = true;
-                return;
-            }
-            base.OnFormClosing(e);
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                progressAnimationTimer.Stop();
-                progressAnimationTimer.Dispose();
-                demoTimer.Stop();
-                demoTimer.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-
-        private void BuildInterface()
-        {
-            closeButton = new MajesticCloseButton();
-            closeButton.Location = new Point(530, 0);
-            closeButton.Size = new Size(30, 30);
-            closeButton.AccessibleName = "–ó–∞–∫—Ä—ã—Ç—å –æ–±–Ω–æ–≤–ª–µ–Ω–∏–µ";
-            closeButton.AccessibleDescription = "–ó–∞–∫—Ä—ã–≤–∞–µ—Ç –æ–∫–Ω–æ –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è Majestic Boost";
-            closeButton.TabIndex = 1;
-            closeButton.Click += delegate
-            {
-                if (!installing)
-                {
-                    Close();
-                }
-            };
-            Controls.Add(closeButton);
-
-            var iconBox = new PictureBox();
-            iconBox.Location = new Point(40, 32);
-            iconBox.Size = new Size(50, 50);
-            iconBox.SizeMode = PictureBoxSizeMode.Zoom;
-            iconBox.Image = Icon == null ? null : Icon.ToBitmap();
-            iconBox.MouseDown += DragWindow;
-            Controls.Add(iconBox);
-
-            var title = MakeLabel("MAJESTIC BOOST", 22F, FontStyle.Bold, Color.White);
-            title.Location = new Point(105, 31);
-            title.AutoSize = true;
-            title.MouseDown += DragWindow;
-            Controls.Add(title);
-
-            var version = MakeLabel("UPDATE  ‚Ä¢  v" + InstallerEngine.ProductVersion, 8.5F, FontStyle.Bold, accent);
-            version.Location = new Point(108, 66);
-            version.AutoSize = true;
-            version.MouseDown += DragWindow;
-            Controls.Add(version);
-
-            headlineLabel = MakeLabel("–£–°–¢–ê–ù–û–í–ö–ê –û–ë–ù–û–í–õ–ï–ù–ò–Ø", 16F, FontStyle.Bold, Color.White);
-            headlineLabel.Location = new Point(40, 112);
-            headlineLabel.AutoSize = true;
-            Controls.Add(headlineLabel);
-
-            descriptionLabel = MakeLabel(
-                "Majestic Boost –æ–±–Ω–æ–≤–ª—è–µ—Ç—Å—è –¥–æ –≤–µ—Ä—Å–∏–∏ " + InstallerEngine.ProductVersion,
-                10F,
-                FontStyle.Regular,
-                muted);
-            descriptionLabel.Location = new Point(42, 146);
-            descriptionLabel.AutoSize = true;
-            Controls.Add(descriptionLabel);
-
-            percentLabel = MakeLabel("0%", 24F, FontStyle.Bold, accent);
-            percentLabel.Location = new Point(39, 181);
-            percentLabel.Size = new Size(120, 42);
-            percentLabel.TextAlign = ContentAlignment.MiddleLeft;
-            percentLabel.AccessibleName = "–ü—Ä–æ–≥—Ä–µ—Å—Å –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è: 0 –ø—Ä–æ—Ü–µ–Ω—Ç–æ–≤";
-            Controls.Add(percentLabel);
-
-            phaseLabel = MakeLabel("–ü–æ–¥–≥–æ—Ç–æ–≤–∫–∞ –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è", 10F, FontStyle.Bold, Color.FromArgb(220, 220, 220));
-            phaseLabel.Location = new Point(162, 190);
-            phaseLabel.Size = new Size(356, 28);
-            phaseLabel.TextAlign = ContentAlignment.MiddleLeft;
-            phaseLabel.AutoEllipsis = true;
-            Controls.Add(phaseLabel);
-
-            var progressTrack = new Panel();
-            progressTrack.Location = new Point(40, 231);
-            progressTrack.Size = new Size(ProgressTrackWidth, 6);
-            progressTrack.BackColor = Color.FromArgb(48, 48, 48);
-            Controls.Add(progressTrack);
-
-            progressFill = new Panel();
-            progressFill.Location = new Point(0, 0);
-            progressFill.Size = new Size(0, 6);
-            progressFill.BackColor = accent;
-            progressTrack.Controls.Add(progressFill);
-
-            detailLabel = MakeLabel(
-                "–ù–µ –∑–∞–∫—Ä—ã–≤–∞–π—Ç–µ —É—Å—Ç–∞–Ω–æ–≤—â–∏–∫ –¥–æ –∑–∞–≤–µ—Ä—à–µ–Ω–∏—è –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è.",
-                9F,
-                FontStyle.Regular,
-                muted);
-            detailLabel.Location = new Point(42, 252);
-            detailLabel.Size = new Size(478, 34);
-            detailLabel.AutoEllipsis = true;
-            Controls.Add(detailLabel);
-
-            actionButton = new MajesticActionButton();
-            actionButton.Text = "–ü–†–û–î–û–õ–ñ–ò–¢–¨";
-            actionButton.Location = new Point(350, 288);
-            actionButton.Size = new Size(170, 42);
-            actionButton.ForeColor = Color.White;
-            actionButton.Font = CreateUiFont(10F, FontStyle.Bold);
-            actionButton.AccessibleName = "–ü—Ä–æ–¥–æ–ª–∂–∏—Ç—å –ø–æ—Å–ª–µ –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è";
-            actionButton.AccessibleDescription = "–ó–∞–ø—É—Å–∫–∞–µ—Ç –æ–±–Ω–æ–≤–ª—ë–Ω–Ω—É—é –≤–µ—Ä—Å–∏—é Majestic Boost";
-            actionButton.TabIndex = 0;
-            actionButton.Visible = false;
-            actionButton.Click += ActionButtonClick;
-            Controls.Add(actionButton);
-
-            AcceptButton = actionButton;
-            CancelButton = closeButton;
-        }
-
-        private void UpdateProgressFormShown(object sender, EventArgs e)
-        {
-            ApplyRoundedRegion();
-            BeginInvoke(new Action(StartInstallation));
-        }
-
-        private void StartInstallation()
-        {
-            if (installing)
-            {
-                return;
-            }
-
-            installing = true;
-            successPending = false;
-            successShown = false;
-            displayedProgress = 0;
-            targetProgress = 0;
-            progressFill.Width = 0;
-            percentLabel.Text = "0%";
-            percentLabel.AccessibleName = "–ü—Ä–æ–≥—Ä–µ—Å—Å –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è: 0 –ø—Ä–æ—Ü–µ–Ω—Ç–æ–≤";
-            headlineLabel.Text = "–£–°–¢–ê–ù–û–í–ö–ê –û–ë–ù–û–í–õ–ï–ù–ò–Ø";
-            headlineLabel.ForeColor = Color.White;
-            descriptionLabel.Text = "Majestic Boost –æ–±–Ω–æ–≤–ª—è–µ—Ç—Å—è –¥–æ –≤–µ—Ä—Å–∏–∏ " + InstallerEngine.ProductVersion;
-            phaseLabel.Text = "–ü–æ–¥–≥–æ—Ç–æ–≤–∫–∞ –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è";
-            phaseLabel.ForeColor = Color.FromArgb(220, 220, 220);
-            detailLabel.Text = "–ù–µ –∑–∞–∫—Ä—ã–≤–∞–π—Ç–µ —É—Å—Ç–∞–Ω–æ–≤—â–∏–∫ –¥–æ –∑–∞–≤–µ—Ä—à–µ–Ω–∏—è –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è.";
-            detailLabel.ForeColor = muted;
-            actionButton.Visible = false;
-            actionButton.Enabled = false;
-            closeButton.Enabled = false;
-            progressAnimationTimer.Start();
-
-            if (demoMode)
-            {
-                demoMilestoneIndex = 0;
-                demoTimer.Start();
-                return;
-            }
-
-            System.Threading.ThreadPool.QueueUserWorkItem(delegate
-            {
-                try
-                {
-                    string desktopShortcut = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-                        InstallerEngine.ProductName + ".lnk");
-                    bool preserveDesktopShortcut = File.Exists(desktopShortcut);
-                    InstallerEngine.Install(preserveDesktopShortcut, ReportProgressFromWorker);
-                    PostToUi(InstallationCompleted);
-                }
-                catch (Exception exception)
-                {
-                    PostToUi(delegate { InstallationFailed(exception); });
-                }
-            });
-        }
-
-        private void ReportProgressFromWorker(int percent, string stage)
-        {
-            PostToUi(delegate { SetProgressTarget(percent, stage); });
-        }
-
-        private void PostToUi(Action action)
-        {
-            if (action == null || IsDisposed || Disposing)
-            {
-                return;
-            }
-
-            try
-            {
-                if (InvokeRequired)
-                {
-                    BeginInvoke(action);
-                }
-                else
-                {
-                    action();
-                }
-            }
-            catch (ObjectDisposedException)
-            {
-                // The window was disposed while a background operation was finishing.
-            }
-            catch (InvalidOperationException)
-            {
-                // The window was closed while a background operation was finishing.
-            }
-        }
-
-        private void SetProgressTarget(int percent, string stage)
-        {
-            int normalized = Math.Max(0, Math.Min(100, percent));
-            targetProgress = Math.Max(targetProgress, normalized);
-            if (!string.IsNullOrWhiteSpace(stage))
-            {
-                phaseLabel.Text = stage;
-            }
-            progressAnimationTimer.Start();
-        }
-
-        private void InstallationCompleted()
-        {
-            SetProgressTarget(100, "–û–±–Ω–æ–≤–ª–µ–Ω–∏–µ —É—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–æ");
-            successPending = true;
-        }
-
-        private void InstallationFailed(Exception exception)
-        {
-            installing = false;
-            successPending = false;
-            demoTimer.Stop();
-            headlineLabel.Text = "–ù–ï –£–î–ê–õ–û–°–¨ –û–ë–ù–û–í–ò–¢–¨";
-            headlineLabel.ForeColor = Color.FromArgb(255, 102, 122);
-            descriptionLabel.Text = "–ü–æ–≤—Ç–æ—Ä–∏—Ç–µ —É—Å—Ç–∞–Ω–æ–≤–∫—É –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è.";
-            phaseLabel.Text = "–û—à–∏–±–∫–∞ —É—Å—Ç–∞–Ω–æ–≤–∫–∏";
-            phaseLabel.ForeColor = Color.FromArgb(255, 102, 122);
-            detailLabel.Text = FriendlyError(exception);
-            detailLabel.ForeColor = Color.FromArgb(205, 205, 205);
-            actionButton.Text = "–ü–û–í–¢–û–†–ò–¢–¨";
-            actionButton.AccessibleName = "–ü–æ–≤—Ç–æ—Ä–∏—Ç—å –æ–±–Ω–æ–≤–ª–µ–Ω–∏–µ Majestic Boost";
-            actionButton.AccessibleDescription = "–ü–æ–≤—Ç–æ—Ä–Ω–æ –∑–∞–ø—É—Å–∫–∞–µ—Ç —É—Å—Ç–∞–Ω–æ–≤–∫—É –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è";
-            actionButton.Visible = true;
-            actionButton.Enabled = true;
-            closeButton.Enabled = true;
-            actionButton.Focus();
-        }
-
-        private void ProgressAnimationTick(object sender, EventArgs e)
-        {
-            if (displayedProgress < targetProgress)
-            {
-                int difference = targetProgress - displayedProgress;
-                displayedProgress += Math.Min(3, Math.Max(1, (difference + 11) / 12));
-                if (displayedProgress > targetProgress)
-                {
-                    displayedProgress = targetProgress;
-                }
-                percentLabel.Text = displayedProgress.ToString(CultureInfo.InvariantCulture) + "%";
-                percentLabel.AccessibleName = "–ü—Ä–æ–≥—Ä–µ—Å—Å –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è: " +
-                    displayedProgress.ToString(CultureInfo.InvariantCulture) + " –ø—Ä–æ—Ü–µ–Ω—Ç–æ–≤";
-                progressFill.Width = (int)Math.Round(
-                    ProgressTrackWidth * (displayedProgress / 100D),
-                    MidpointRounding.AwayFromZero);
-            }
-
-            if (successPending && displayedProgress >= 100)
-            {
-                successPending = false;
-                ShowSuccess();
-            }
-            else if (displayedProgress >= targetProgress)
-            {
-                progressAnimationTimer.Stop();
-            }
-        }
-
-        private void DemoTimerTick(object sender, EventArgs e)
-        {
-            if (demoMilestoneIndex >= DemoPercentages.Length)
-            {
-                demoTimer.Stop();
-                successPending = true;
-                progressAnimationTimer.Start();
-                return;
-            }
-
-            SetProgressTarget(
-                DemoPercentages[demoMilestoneIndex],
-                DemoStages[demoMilestoneIndex]);
-            demoMilestoneIndex++;
-        }
-
-        private void ShowSuccess()
-        {
-            if (successShown)
-            {
-                return;
-            }
-
-            successShown = true;
-            installing = false;
-            headlineLabel.Text = "–ü–†–û–ì–†–ê–ú–ú–ê –£–°–ü–ï–®–ù–û –û–ë–ù–û–í–õ–ï–ù–ê";
-            headlineLabel.ForeColor = Color.White;
-            descriptionLabel.Text = "–í–µ—Ä—Å–∏—è " + InstallerEngine.ProductVersion + " –≥–æ—Ç–æ–≤–∞ –∫ –∑–∞–ø—É—Å–∫—É.";
-            phaseLabel.Text = "–û–±–Ω–æ–≤–ª–µ–Ω–∏–µ –∑–∞–≤–µ—Ä—à–µ–Ω–æ";
-            phaseLabel.ForeColor = accent;
-            detailLabel.Text = "–ù–∞–∂–º–∏—Ç–µ ¬´–ü—Ä–æ–¥–æ–ª–∂–∏—Ç—å¬ª, —á—Ç–æ–±—ã –æ—Ç–∫—Ä—ã—Ç—å Majestic Boost.";
-            detailLabel.ForeColor = muted;
-            actionButton.Text = "–ü–†–û–î–û–õ–ñ–ò–¢–¨";
-            actionButton.AccessibleName = "–ü—Ä–æ–¥–æ–ª–∂–∏—Ç—å –ø–æ—Å–ª–µ –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è";
-            actionButton.AccessibleDescription = demoMode
-                ? "–ó–∞–∫—Ä—ã–≤–∞–µ—Ç –¥–µ–º–æ–Ω—Å—Ç—Ä–∞—Ü–∏—é –æ–±–Ω–æ–≤–ª–µ–Ω–∏—è"
-                : "–ó–∞–ø—É—Å–∫–∞–µ—Ç –æ–±–Ω–æ–≤–ª—ë–Ω–Ω—É—é –≤–µ—Ä—Å–∏—é Majestic Boost";
-            actionButton.Visible = true;
-            actionButton.Enabled = true;
-            closeButton.Enabled = true;
-            actionButton.Focus();
-        }
-
-        private void ActionButtonClick(object sender, EventArgs e)
-        {
-            if (!successShown)
-            {
-                StartInstallation();
-                return;
-            }
-
-            if (demoMode)
-            {
-                Close();
-                return;
-            }
-
-            try
-            {
-                InstallerEngine.LaunchInstalledApplication();
-                Close();
-            }
-            catch (Exception exception)
-            {
-                detailLabel.Text = "–ù–µ —É–¥–∞–ª–æ—Å—å –∑–∞–ø—É—Å—Ç–∏—Ç—å –ø—Ä–æ–≥—Ä–∞–º–º—É: " + FriendlyError(exception);
-                detailLabel.ForeColor = Color.FromArgb(255, 102, 122);
-                actionButton.Enabled = true;
-                actionButton.Focus();
-            }
-        }
-
-        private static string FriendlyError(Exception exception)
-        {
-            if (exception == null || string.IsNullOrWhiteSpace(exception.Message))
-            {
-                return "–ù–µ–∏–∑–≤–µ—Å—Ç–Ω–∞—è –æ—à–∏–±–∫–∞. –ù–∞–∂–º–∏—Ç–µ ¬´–ü–æ–≤—Ç–æ—Ä–∏—Ç—å¬ª.";
-            }
-
-            string message = exception.Message.Replace('\r', ' ').Replace('\n', ' ').Trim();
-            return message.Length <= 150 ? message : message.Substring(0, 147) + "...";
-        }
-
-        private Label MakeLabel(string text, float size, FontStyle style, Color color)
-        {
-            var label = new Label();
-            label.Text = text;
-            label.Font = CreateUiFont(size, style);
-            label.ForeColor = color;
-            label.BackColor = Color.Transparent;
-            return label;
-        }
-
-        private Font CreateUiFont(float size, FontStyle style)
-        {
-            return demoMode
-                ? new Font("Segoe UI", size, style, GraphicsUnit.Point)
-                : MajesticFontProvider.Create(size, style);
-        }
-
-        private void ApplyRoundedRegion()
-        {
-            using (GraphicsPath path = MakeRoundedRectangle(new Rectangle(0, 0, Width, Height), 11))
-            {
-                Region oldRegion = Region;
-                Region = new Region(path);
-                if (oldRegion != null)
-                {
-                    oldRegion.Dispose();
-                }
-            }
-        }
-
-        private static GraphicsPath MakeRoundedRectangle(Rectangle rectangle, int radius)
-        {
-            int diameter = radius * 2;
-            var path = new GraphicsPath();
-            path.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180, 90);
-            path.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270, 90);
-            path.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0, 90);
-            path.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
-
-        private void DragWindow(object sender, MouseEventArgs e)
-        {
-            if (e.Button != MouseButtons.Left || installing)
-            {
-                return;
-            }
-            NativeMethods.ReleaseCapture();
-            NativeMethods.SendMessage(Handle, 0xA1, new IntPtr(0x2), IntPtr.Zero);
-        }
-    }
-
-    internal sealed class InstallerForm : Form
-    {
-        private readonly Color background = Color.FromArgb(22, 22, 22);
-        private readonly Color panel = Color.FromArgb(27, 27, 27);
-        private readonly Color accent = Color.FromArgb(232, 28, 90);
-        private readonly Color muted = Color.FromArgb(142, 142, 142);
-        private MajesticActionButton installButton;
-        private MajesticCloseButton closeButton;
-        private MajesticToggle desktopShortcut;
-        private Label statusLabel;
-        private Panel progressFill;
-        private bool installed;
-
-        public InstallerForm()
-        {
-            Text = "Majestic Boost Setup";
-            ClientSize = new Size(560, 360);
-            StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.None;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            BackColor = background;
-            ForeColor = Color.White;
-            Font = MajesticFontProvider.Create(9F, FontStyle.Regular);
-            DoubleBuffered = true;
-            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-            BuildInterface();
-            Resize += delegate { ApplyRoundedRegion(); };
-            Shown += delegate { ApplyRoundedRegion(); };
-            MouseDown += DragWindow;
-        }
-
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                const int CsDropShadow = 0x00020000;
-                CreateParams parameters = base.CreateParams;
-                parameters.ClassStyle |= CsDropShadow;
-                return parameters;
-            }
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            base.OnPaint(e);
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (var path = MakeRoundedRectangle(new Rectangle(0, 0, ClientSize.Width - 1, ClientSize.Height - 1), 11))
-            using (var pen = new Pen(Color.FromArgb(56, 56, 56), 1F))
-            {
-                e.Graphics.DrawPath(pen, path);
-            }
-        }
-
-        private void BuildInterface()
-        {
-            closeButton = new MajesticCloseButton();
-            closeButton.Location = new Point(530, 0);
-            closeButton.Size = new Size(30, 30);
-            closeButton.AccessibleName = "–ó–∞–∫—Ä—ã—Ç—å —É—Å—Ç–∞–Ω–æ–≤—â–∏–∫";
-            closeButton.AccessibleDescription = "–ó–∞–∫—Ä—ã–≤–∞–µ—Ç –æ–∫–Ω–æ —É—Å—Ç–∞–Ω–æ–≤–∫–∏ Majestic Boost";
-            closeButton.TabIndex = 2;
-            closeButton.Click += delegate { Close(); };
-            Controls.Add(closeButton);
-
-            var iconBox = new PictureBox();
-            iconBox.Location = new Point(38, 35);
-            iconBox.Size = new Size(52, 52);
-            iconBox.SizeMode = PictureBoxSizeMode.Zoom;
-            iconBox.Image = Icon.ToBitmap();
-            iconBox.MouseDown += DragWindow;
-            Controls.Add(iconBox);
-
-            var title = MakeLabel("MAJESTIC BOOST", 22F, FontStyle.Bold, Color.White);
-            title.Location = new Point(105, 35);
-            title.AutoSize = true;
-            title.MouseDown += DragWindow;
-            Controls.Add(title);
-
-            var version = MakeLabel("SETUP  ‚Ä¢  v" + InstallerEngine.ProductVersion, 8.5F, FontStyle.Bold, accent);
-            version.Location = new Point(108, 69);
-            version.AutoSize = true;
-            version.MouseDown += DragWindow;
-            Controls.Add(version);
-
-            var subtitle = MakeLabel("–£—Å—Ç–∞–Ω–æ–≤—â–∏–∫ –ª–∞—É–Ω—á–µ—Ä–∞ –º–∞–∫—Å–∏–º–∞–ª—å–Ω–æ–π –ø—Ä–æ–∏–∑–≤–æ–¥–∏—Ç–µ–ª—å–Ω–æ—Å—Ç–∏", 10F, FontStyle.Regular, muted);
-            subtitle.Location = new Point(40, 110);
-            subtitle.AutoSize = true;
-            Controls.Add(subtitle);
-
-            var locationPanel = new Panel();
-            locationPanel.Location = new Point(40, 145);
-            locationPanel.Size = new Size(480, 70);
-            locationPanel.BackColor = panel;
-            Controls.Add(locationPanel);
-
-            var locationTitle = MakeLabel("–ü–ê–ü–ö–ê –£–°–¢–ê–ù–û–í–ö–ò", 8.5F, FontStyle.Bold, muted);
-            locationTitle.Location = new Point(16, 11);
-            locationTitle.AutoSize = true;
-            locationPanel.Controls.Add(locationTitle);
-
-            var locationValue = MakeLabel(InstallerEngine.InstallDirectory, 9.5F, FontStyle.Regular, Color.FromArgb(235, 235, 235));
-            locationValue.Location = new Point(16, 34);
-            locationValue.AutoEllipsis = true;
-            locationValue.Size = new Size(448, 24);
-            locationPanel.Controls.Add(locationValue);
-
-            desktopShortcut = new MajesticToggle();
-            desktopShortcut.Text = "–°–æ–∑–¥–∞—Ç—å —è—Ä–ª—ã–∫ –Ω–∞ —Ä–∞–±–æ—á–µ–º —Å—Ç–æ–ª–µ";
-            desktopShortcut.Checked = true;
-            desktopShortcut.Location = new Point(42, 226);
-            desktopShortcut.Size = new Size(478, 26);
-            desktopShortcut.ForeColor = Color.FromArgb(195, 195, 195);
-            desktopShortcut.Font = MajesticFontProvider.Create(9.5F, FontStyle.Regular);
-            desktopShortcut.AccessibleName = "–°–æ–∑–¥–∞—Ç—å —è—Ä–ª—ã–∫ –Ω–∞ —Ä–∞–±–æ—á–µ–º —Å—Ç–æ–ª–µ";
-            desktopShortcut.AccessibleDescription = "–í–∫–ª—é—á–∞–µ—Ç –∏–ª–∏ –æ—Ç–∫–ª—é—á–∞–µ—Ç —Å–æ–∑–¥–∞–Ω–∏–µ —è—Ä–ª—ã–∫–∞ Majestic Boost –Ω–∞ —Ä–∞–±–æ—á–µ–º —Å—Ç–æ–ª–µ";
-            desktopShortcut.TabIndex = 0;
-            Controls.Add(desktopShortcut);
-
-            var progressTrack = new Panel();
-            progressTrack.Location = new Point(40, 276);
-            progressTrack.Size = new Size(480, 4);
-            progressTrack.BackColor = Color.FromArgb(48, 48, 48);
-            Controls.Add(progressTrack);
-
-            progressFill = new Panel();
-            progressFill.Location = new Point(0, 0);
-            progressFill.Size = new Size(0, 4);
-            progressFill.BackColor = accent;
-            progressTrack.Controls.Add(progressFill);
-
-            statusLabel = MakeLabel("–ì–û–¢–û–í–û –ö –£–°–¢–ê–ù–û–í–ö–ï", 8.5F, FontStyle.Bold, muted);
-            statusLabel.Location = new Point(42, 292);
-            statusLabel.AutoSize = true;
-            Controls.Add(statusLabel);
-
-            installButton = new MajesticActionButton();
-            installButton.Text = "–£–°–¢–ê–ù–û–í–ò–¢–¨";
-            installButton.Location = new Point(350, 299);
-            installButton.Size = new Size(170, 42);
-            installButton.ForeColor = Color.White;
-            installButton.Font = MajesticFontProvider.Create(10F, FontStyle.Bold);
-            installButton.AccessibleName = "–£—Å—Ç–∞–Ω–æ–≤–∏—Ç—å Majestic Boost";
-            installButton.AccessibleDescription = "–ù–∞—á–∏–Ω–∞–µ—Ç —É—Å—Ç–∞–Ω–æ–≤–∫—É –ø—Ä–∏–ª–æ–∂–µ–Ω–∏—è";
-            installButton.TabIndex = 1;
-            installButton.Click += InstallButtonClick;
-            Controls.Add(installButton);
-
-            AcceptButton = installButton;
-            CancelButton = closeButton;
-        }
-
-        private void InstallButtonClick(object sender, EventArgs e)
-        {
-            if (installed)
-            {
-                InstallerEngine.LaunchInstalledApplication();
-                Close();
-                return;
-            }
-
-            installButton.Enabled = false;
-            closeButton.Enabled = false;
-            desktopShortcut.Enabled = false;
-            statusLabel.Text = "–£–°–¢–ê–ù–ê–í–õ–ò–í–ê–Æ...";
-            statusLabel.ForeColor = Color.FromArgb(255, 139, 175);
-            AnimateProgress(120);
-
-            try
-            {
-                InstallerEngine.Install(desktopShortcut.Checked);
-                AnimateProgress(480);
-                statusLabel.Text = "–£–°–¢–ê–ù–û–í–õ–ï–ù–û";
-                statusLabel.ForeColor = accent;
-                installButton.Text = "–ó–ê–ü–£–°–¢–ò–¢–¨";
-                installButton.AccessibleName = "–ó–∞–ø—É—Å—Ç–∏—Ç—å Majestic Boost";
-                installButton.AccessibleDescription = "–ó–∞–ø—É—Å–∫–∞–µ—Ç —É—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–Ω–æ–µ –ø—Ä–∏–ª–æ–∂–µ–Ω–∏–µ Majestic Boost";
-                installButton.Enabled = true;
-                closeButton.Enabled = true;
-                installed = true;
-            }
-            catch (Exception exception)
-            {
-                statusLabel.Text = "–û–®–ò–ë–ö–ê –£–°–¢–ê–ù–û–í–ö–ò";
-                statusLabel.ForeColor = Color.FromArgb(255, 102, 122);
-                installButton.Text = "–ü–û–í–¢–û–†–ò–¢–¨";
-                installButton.AccessibleName = "–ü–æ–≤—Ç–æ—Ä–∏—Ç—å —É—Å—Ç–∞–Ω–æ–≤–∫—É Majestic Boost";
-                installButton.AccessibleDescription = "–ü–æ–≤—Ç–æ—Ä–Ω–æ –∑–∞–ø—É—Å–∫–∞–µ—Ç —É—Å—Ç–∞–Ω–æ–≤–∫—É –ø—Ä–∏–ª–æ–∂–µ–Ω–∏—è";
-                installButton.Enabled = true;
-                closeButton.Enabled = true;
-                desktopShortcut.Enabled = true;
-                MessageBox.Show(
-                    "–ù–µ —É–¥–∞–ª–æ—Å—å —É—Å—Ç–∞–Ω–æ–≤–∏—Ç—å Majestic Boost:\r\n" + exception.Message,
-                    "–û—à–∏–±–∫–∞ —É—Å—Ç–∞–Ω–æ–≤–∫–∏",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-            }
-        }
-
-        private void AnimateProgress(int width)
-        {
-            progressFill.Width = Math.Max(0, Math.Min(480, width));
-            progressFill.Refresh();
-            Application.DoEvents();
-        }
-
-        private static Label MakeLabel(string text, float size, FontStyle style, Color color)
-        {
-            var label = new Label();
-            label.Text = text;
-            label.Font = MajesticFontProvider.Create(size, style);
-            label.ForeColor = color;
-            label.BackColor = Color.Transparent;
-            return label;
-        }
-
-        private void ApplyRoundedRegion()
-        {
-            using (GraphicsPath path = MakeRoundedRectangle(new Rectangle(0, 0, Width, Height), 11))
-            {
-                Region oldRegion = Region;
-                Region = new Region(path);
-                if (oldRegion != null)
-                {
-                    oldRegion.Dispose();
-                }
-            }
-        }
-
-        private static GraphicsPath MakeRoundedRectangle(Rectangle rectangle, int radius)
-        {
-            int diameter = radius * 2;
-            var path = new GraphicsPath();
-            path.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180, 90);
-            path.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270, 90);
-            path.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0, 90);
-            path.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
-
-        private void DragWindow(object sender, MouseEventArgs e)
-        {
-            if (e.Button != MouseButtons.Left)
-            {
-                return;
-            }
-            NativeMethods.ReleaseCapture();
-            NativeMethods.SendMessage(Handle, 0xA1, new IntPtr(0x2), IntPtr.Zero);
-        }
-    }
-
-    internal static class NativeMethods
-    {
-        [DllImport("user32.dll")]
-        public static extern bool ReleaseCapture();
-
-        [DllImport("user32.dll")]
-        public static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, IntPtr lParam);
-    }
-}
+                    "–£–¥–€]¥Ó⁄$z{-ÆÈ‹j◊ùÌ›Ì-Ω]›çÚ#∞¢7Fñˆ‰'WGFˆ‚‰66W76ñ&∆TFW67&óFñˆ‚“FV÷Ù÷ˆFP¢Ú-	}≠Ω-]"M]ÕÌ›-mç‚Ì›Ì-Ω]›çÚ ¢¢-	}˝=≠]"Ì›Ì-Ω››=‚-]ç‚÷¶W7Fñ2&ˆ˜7B#∞¢7Fñˆ‰'WGFˆ‚Âfó6ñ&∆R“G'VS∞¢7Fñˆ‰'WGFˆ‚‰VÊ&∆VB“G'VS∞¢6∆˜6T'WGFˆ‚‰VÊ&∆VB“G'VS∞¢7Fñˆ‰'WGFˆ‚‰fˆ7W2Çì∞¢–†¢&ófFRfˆñB7Fñˆ‰'WGFˆ‰6∆ñ6≤Üˆ&¶V7B6VÊFW"¬WfVÁD&w2Rê¢∞¢ñbÇ7V66W756Ü˜v‚ê¢∞¢7F'DñÁ7F∆∆Fñˆ‚Çì∞¢&WGW&„∞¢–†¢ñbÜFV÷Ù÷ˆFRê¢∞¢6∆˜6RÇì∞¢&WGW&„∞¢–†¢G'ê¢∞¢ñÁ7F∆∆W$VÊvñÊR‰∆VÊ6ÑñÁ7F∆∆VD∆ñ6Fñˆ‚Çì∞¢6∆˜6RÇì∞¢–¢6F6ÇÑWÜ6WFñˆ‚WÜ6WFñˆ‚ê¢∞¢FWFñƒ∆&V¬ÂFWáB“-	›R=MΩÌ¬}˝=-ç-¬˝Ì=ÕÕ3¢"≤g&ñVÊF«îW'&˜"ÜWÜ6WFñˆ‚ì∞¢FWFñƒ∆&V¬‰f˜&T6ˆ∆˜"“6ˆ∆˜"‰g&ˆ‘&v"É#SR¬"¬#"ì∞¢7Fñˆ‰'WGFˆ‚‰VÊ&∆VB“G'VS∞¢7Fñˆ‰'WGFˆ‚‰fˆ7W2Çì∞¢–¢–†¢&ófFR7FFñ27G&ñÊrg&ñVÊF«îW'&˜"ÑWÜ6WFñˆ‚WÜ6WFñˆ‚ê¢∞¢ñbÜWÜ6WFñˆ‚”“ÁV∆¬«¬7G&ñÊr‰ó4ÁV∆ƒ˜%vÜóFU76RÜWÜ6WFñˆ‚‰÷W76vRíê¢∞¢&WGW&‚-	›]ç}-]-›ÚÌçç≠‚	›mÕç-R*Ω	˝Ì--Ìç-Ã+≤‚#∞¢–†¢7G&ñÊr÷W76vR“WÜ6WFñˆ‚‰÷W76vRÂ&W∆6RÇu«"r¬rríÂ&W∆6RÇu∆‚r¬rríÂG&ñ“Çì∞¢&WGW&‚÷W76vR‰∆VÊwFÇ√“SÚ÷W76vR¢÷W76vRÂ7V'7G&ñÊrÉ¬Crí≤"‚‚‚#∞¢–†¢&ófFR∆&V¬÷∂T∆&V¬á7G&ñÊrFWáB¬f∆ˆB6ó¶R¬fˆÁE7Gñ∆R7Gñ∆R¬6ˆ∆˜"6ˆ∆˜"ê¢∞¢f"∆&V¬“ÊWr∆&V¬Çì∞¢∆&V¬ÂFWáB“FWáC∞¢∆&V¬‰fˆÁB“7&VFUVîfˆÁBá6ó¶R¬7Gñ∆Rì∞¢∆&V¬‰f˜&T6ˆ∆˜"“6ˆ∆˜#∞¢∆&V¬‰&6¥6ˆ∆˜"“6ˆ∆˜"ÂG&Á7&VÁC∞¢&WGW&‚∆&V√∞¢–†¢&ófFRfˆÁB7&VFUVîfˆÁBÜf∆ˆB6ó¶R¬fˆÁE7Gñ∆R7Gñ∆Rê¢∞¢&WGW&‚FV÷Ù÷ˆFP¢ÚÊWrfˆÁBÇ%6VvˆRTí"¬6ó¶R¬7Gñ∆R¬w&Üñ75VÊóBÂˆñÁBê¢¢÷¶W7Fñ4fˆÁE&˜fñFW"‰7&VFRá6ó¶R¬7Gñ∆Rì∞¢–†¢&ófFRfˆñB«ï&˜VÊFVE&Vvñˆ‚Çê¢∞¢W6ñÊrÑw&Üñ75FÇFÇ“÷∂U&˜VÊFVE&V7FÊv∆RÜÊWr&V7FÊv∆RÉ¬¬vñGFÇ¬ÜVñváBí¬íê¢∞¢&Vvñˆ‚ˆ∆E&Vvñˆ‚“&Vvñˆ„∞¢&Vvñˆ‚“ÊWr&Vvñˆ‚áFÇì∞¢ñbÜˆ∆E&Vvñˆ‚“ÁV∆¬ê¢∞¢ˆ∆E&Vvñˆ‚‰Fó7˜6RÇì∞¢–¢–¢–†¢&ófFR7FFñ2w&Üñ75FÇ÷∂U&˜VÊFVE&V7FÊv∆RÖ&V7FÊv∆R&V7FÊv∆R¬ñÁB&FóW2ê¢∞¢ñÁBFñ÷WFW"“&FóW2¢#∞¢f"FÇ“ÊWrw&Üñ75FÇÇì∞¢FÇ‰FD&2á&V7FÊv∆R‰∆VgB¬&V7FÊv∆RÂF˜¬Fñ÷WFW"¬Fñ÷WFW"¬É¬ìì∞¢FÇ‰FD&2á&V7FÊv∆RÂ&ñváB“Fñ÷WFW"¬&V7FÊv∆RÂF˜¬Fñ÷WFW"¬Fñ÷WFW"¬#s¬ìì∞¢FÇ‰FD&2á&V7FÊv∆RÂ&ñváB“Fñ÷WFW"¬&V7FÊv∆R‰&˜GFˆ““Fñ÷WFW"¬Fñ÷WFW"¬Fñ÷WFW"¬¬ìì∞¢FÇ‰FD&2á&V7FÊv∆R‰∆VgB¬&V7FÊv∆R‰&˜GFˆ““Fñ÷WFW"¬Fñ÷WFW"¬Fñ÷WFW"¬ì¬ìì∞¢FÇ‰6∆˜6TfñwW&RÇì∞¢&WGW&‚FÉ∞¢–†¢&ófFRfˆñBG&uvñÊF˜rÜˆ&¶V7B6VÊFW"¬÷˜W6TWfVÁD&w2Rê¢∞¢ñbÜR‰'WGFˆ‚“÷˜W6T'WGFˆÁ2‰∆VgB«¬ñÁ7F∆∆ñÊrê¢∞¢&WGW&„∞¢–¢ÊFófT÷WFÜˆG2Â&V∆V6T6GW&RÇì∞¢ÊFófT÷WFÜˆG2Â6VÊD÷W76vRÑÜÊF∆R¬Ñ¬ÊWrñÁEG"ÉÉ"í¬ñÁEG"Â¶W&Úì∞¢–¢–†¢ñÁFW&Ê¬6V∆VB6∆72ñÁ7F∆∆W$f˜&“¢f˜&–¢∞¢&ófFR&VFˆÊ«í6ˆ∆˜"&6∂w&˜VÊB“6ˆ∆˜"‰g&ˆ‘&v"É#"¬#"¬#"ì∞¢&ófFR&VFˆÊ«í6ˆ∆˜"ÊV¬“6ˆ∆˜"‰g&ˆ‘&v"É#r¬#r¬#rì∞¢&ófFR&VFˆÊ«í6ˆ∆˜"66VÁB“6ˆ∆˜"‰g&ˆ‘&v"É#3"¬#Ç¬ìì∞¢&ófFR&VFˆÊ«í6ˆ∆˜"◊WFVB“6ˆ∆˜"‰g&ˆ‘&v"ÉC"¬C"¬C"ì∞¢&ófFR÷¶W7Fñ47Fñˆ‰'WGFˆ‚ñÁ7F∆ƒ'WGFˆ„∞¢&ófFR÷¶W7Fñ46∆˜6T'WGFˆ‚6∆˜6T'WGFˆ„∞¢&ófFR÷¶W7Fñ5Fˆvv∆RFW6∑F˜6Ü˜'F7WC∞¢&ófFR∆&V¬7FGW4∆&V√∞¢&ófFRÊV¬&ˆw&W74fñ∆√∞¢&ófFR&ˆˆ¬ñÁ7F∆∆VC∞†¢V&∆ñ2ñÁ7F∆∆W$f˜&“Çê¢∞¢FWáB“$÷¶W7Fñ2&ˆ˜7B6WGW#∞¢6∆ñVÁE6ó¶R“ÊWr6ó¶RÉSc¬3cì∞¢7F'E˜6óFñˆ‚“f˜&’7F'E˜6óFñˆ‚‰6VÁFW%67&VV„∞¢f˜&‘&˜&FW%7Gñ∆R“f˜&‘&˜&FW%7Gñ∆R‰ÊˆÊS∞¢÷Üñ÷ó¶T&˜Ç“f«6S∞¢÷ñÊñ÷ó¶T&˜Ç“f«6S∞¢&6¥6ˆ∆˜"“&6∂w&˜VÊC∞¢f˜&T6ˆ∆˜"“6ˆ∆˜"ÂvÜóFS∞¢fˆÁB“÷¶W7Fñ4fˆÁE&˜fñFW"‰7&VFRÉîb¬fˆÁE7Gñ∆RÂ&VwV∆"ì∞¢F˜V&∆T'VffW&VB“G'VS∞¢ñ6ˆ‚“ñ6ˆ‚‰WáG&7D76ˆ6ñFVDñ6ˆ‚Ñ∆ñ6Fñˆ‚‰WÜV7WF&∆UFÇì∞¢'Vñ∆DñÁFW&f6RÇì∞¢&W6ó¶R≥“FV∆VvFR≤«ï&˜VÊFVE&Vvñˆ‚Çì≤”∞¢6Ü˜v‚≥“FV∆VvFR≤«ï&˜VÊFVE&Vvñˆ‚Çì≤”∞¢÷˜W6TF˜v‚≥“G&uvñÊF˜s∞¢–†¢&˜FV7FVB˜fW'&ñFR7&VFU&◊27&VFU&◊0¢∞¢vW@¢∞¢6ˆÁ7BñÁB74G&˜6ÜF˜r“É#∞¢7&VFU&◊2&÷WFW'2“&6R‰7&VFU&◊3∞¢&÷WFW'2‰6∆757Gñ∆R√“74G&˜6ÜF˜s∞¢&WGW&‚&÷WFW'3∞¢–¢–†¢&˜FV7FVB˜fW'&ñFRfˆñBˆÂñÁBÖñÁDWfVÁD&w2Rê¢∞¢&6R‰ˆÂñÁBÜRì∞¢R‰w&Üñ72Â6÷ˆ˜FÜñÊt÷ˆFR“6÷ˆ˜FÜñÊt÷ˆFR‰ÁFî∆ñ3∞¢W6ñÊráf"FÇ“÷∂U&˜VÊFVE&V7FÊv∆RÜÊWr&V7FÊv∆RÉ¬¬6∆ñVÁE6ó¶RÂvñGFÇ“¬6∆ñVÁE6ó¶R‰ÜVñváB“í¬íê¢W6ñÊráf"V‚“ÊWrV‚Ñ6ˆ∆˜"‰g&ˆ‘&v"ÉSb¬Sb¬Sbí¬bíê¢∞¢R‰w&Üñ72‰G&uFÇáV‚¬FÇì∞¢–¢–†¢&ófFRfˆñB'Vñ∆DñÁFW&f6RÇê¢∞¢6∆˜6T'WGFˆ‚“ÊWr÷¶W7Fñ46∆˜6T'WGFˆ‚Çì∞¢6∆˜6T'WGFˆ‚‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉS3¬ì∞¢6∆˜6T'WGFˆ‚Â6ó¶R“ÊWr6ó¶RÉ3¬3ì∞¢6∆˜6T'WGFˆ‚‰66W76ñ&∆TÊ÷R“-	}≠Ω-¬=-›Ì-ùç¢#∞¢6∆˜6T'WGFˆ‚‰66W76ñ&∆TFW67&óFñˆ‚“-	}≠Ω-]"Ì≠›‚=-›Ì-≠Ç÷¶W7Fñ2&ˆ˜7B#∞¢6∆˜6T'WGFˆ‚ÂF$ñÊFWÇ“#∞¢6∆˜6T'WGFˆ‚‰6∆ñ6≤≥“FV∆VvFR≤6∆˜6RÇì≤”∞¢6ˆÁG&ˆ«2‰FBÜ6∆˜6T'WGFˆ‚ì∞†¢f"ñ6ˆ‰&˜Ç“ÊWrñ7GW&T&˜ÇÇì∞¢ñ6ˆ‰&˜Ç‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉ3Ç¬3Rì∞¢ñ6ˆ‰&˜ÇÂ6ó¶R“ÊWr6ó¶RÉS"¬S"ì∞¢ñ6ˆ‰&˜ÇÂ6ó¶T÷ˆFR“ñ7GW&T&˜Ö6ó¶T÷ˆFRÂ¶ˆˆ”∞¢ñ6ˆ‰&˜Ç‰ñ÷vR“ñ6ˆ‚ÂFÙ&óF÷Çì∞¢ñ6ˆ‰&˜Ç‰÷˜W6TF˜v‚≥“G&uvñÊF˜s∞¢6ˆÁG&ˆ«2‰FBÜñ6ˆ‰&˜Çì∞†¢f"FóF∆R“÷∂T∆&V¬Ç$‘§U5Dî2$Ùı5B"¬#$b¬fˆÁE7Gñ∆R‰&ˆ∆B¬6ˆ∆˜"ÂvÜóFRì∞¢FóF∆R‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉR¬3Rì∞¢FóF∆R‰WFı6ó¶R“G'VS∞¢FóF∆R‰÷˜W6TF˜v‚≥“G&uvñÊF˜s∞¢6ˆÁG&ˆ«2‰FBáFóF∆Rì∞†¢f"fW'6ñˆ‚“÷∂T∆&V¬Ç%4UEU(
+"b"≤ñÁ7F∆∆W$VÊvñÊRÂ&ˆGV7EfW'6ñˆ‚¬Ç„Tb¬fˆÁE7Gñ∆R‰&ˆ∆B¬66VÁBì∞¢fW'6ñˆ‚‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉÇ¬cíì∞¢fW'6ñˆ‚‰WFı6ó¶R“G'VS∞¢fW'6ñˆ‚‰÷˜W6TF˜v‚≥“G&uvñÊF˜s∞¢6ˆÁG&ˆ«2‰FBáfW'6ñˆ‚ì∞†¢f"7V'FóF∆R“÷∂T∆&V¬Ç-
+=-›Ì-ùç¢Ω=›}]Õ≠çÕΩÕ›Ìí˝Ìç}-ÌMç-]ΩÕ›Ì-Ç"¬b¬fˆÁE7Gñ∆RÂ&VwV∆"¬◊WFVBì∞¢7V'FóF∆R‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉC¬ì∞¢7V'FóF∆R‰WFı6ó¶R“G'VS∞¢6ˆÁG&ˆ«2‰FBá7V'FóF∆Rì∞†¢f"∆ˆ6FñˆÂÊV¬“ÊWrÊV¬Çì∞¢∆ˆ6FñˆÂÊV¬‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉC¬CRì∞¢∆ˆ6FñˆÂÊV¬Â6ó¶R“ÊWr6ó¶RÉCÉ¬sì∞¢∆ˆ6FñˆÂÊV¬‰&6¥6ˆ∆˜"“ÊV√∞¢6ˆÁG&ˆ«2‰FBÜ∆ˆ6FñˆÂÊV¬ì∞†¢f"∆ˆ6FñˆÂFóF∆R“÷∂T∆&V¬Ç-	˝		˝	≠	
+=
+
+-		›	Ì	-	≠	Ç"¬Ç„Tb¬fˆÁE7Gñ∆R‰&ˆ∆B¬◊WFVBì∞¢∆ˆ6FñˆÂFóF∆R‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉb¬ì∞¢∆ˆ6FñˆÂFóF∆R‰WFı6ó¶R“G'VS∞¢∆ˆ6FñˆÂÊV¬‰6ˆÁG&ˆ«2‰FBÜ∆ˆ6FñˆÂFóF∆Rì∞†¢f"∆ˆ6FñˆÂf«VR“÷∂T∆&V¬ÑñÁ7F∆∆W$VÊvñÊR‰ñÁ7F∆ƒFó&V7F˜'í¬í„Tb¬fˆÁE7Gñ∆RÂ&VwV∆"¬6ˆ∆˜"‰g&ˆ‘&v"É#3R¬#3R¬#3Ríì∞¢∆ˆ6FñˆÂf«VR‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉb¬3Bì∞¢∆ˆ6FñˆÂf«VR‰WFÙV∆∆ó6ó2“G'VS∞¢∆ˆ6FñˆÂf«VRÂ6ó¶R“ÊWr6ó¶RÉCCÇ¬#Bì∞¢∆ˆ6FñˆÂÊV¬‰6ˆÁG&ˆ«2‰FBÜ∆ˆ6FñˆÂf«VRì∞†¢FW6∑F˜6Ü˜'F7WB“ÊWr÷¶W7Fñ5Fˆvv∆RÇì∞¢FW6∑F˜6Ü˜'F7WBÂFWáB“-
+Ì}M-¬˝ΩΩ¢›Ì}]¬-ÌΩR#∞¢FW6∑F˜6Ü˜'F7WB‰6ÜV6∂VB“ñÁ7F∆∆W$VÊvñÊR‰vWDFW6∑F˜6Ü˜'F7WE&VfW&VÊ6RÇì∞¢FW6∑F˜6Ü˜'F7WB‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉC"¬##bì∞¢FW6∑F˜6Ü˜'F7WBÂ6ó¶R“ÊWr6ó¶RÉCsÇ¬#bì∞¢FW6∑F˜6Ü˜'F7WB‰f˜&T6ˆ∆˜"“6ˆ∆˜"‰g&ˆ‘&v"ÉìR¬ìR¬ìRì∞¢FW6∑F˜6Ü˜'F7WB‰fˆÁB“÷¶W7Fñ4fˆÁE&˜fñFW"‰7&VFRÉí„Tb¬fˆÁE7Gñ∆RÂ&VwV∆"ì∞¢FW6∑F˜6Ü˜'F7WB‰66W76ñ&∆TÊ÷R“-
+Ì}M-¬˝ΩΩ¢›Ì}]¬-ÌΩR#∞¢FW6∑F˜6Ü˜'F7WB‰66W76ñ&∆TFW67&óFñˆ‚“-	-≠ΩÌ}]"çΩÇÌ-≠ΩÌ}]"Ì}M›çR˝ΩΩ≠÷¶W7Fñ2&ˆ˜7B›Ì}]¬-ÌΩR#∞¢FW6∑F˜6Ü˜'F7WBÂF$ñÊFWÇ“∞¢6ˆÁG&ˆ«2‰FBÜFW6∑F˜6Ü˜'F7WBì∞†¢f"&ˆw&W75G&6≤“ÊWrÊV¬Çì∞¢&ˆw&W75G&6≤‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉC¬#sbì∞¢&ˆw&W75G&6≤Â6ó¶R“ÊWr6ó¶RÉCÉ¬Bì∞¢&ˆw&W75G&6≤‰&6¥6ˆ∆˜"“6ˆ∆˜"‰g&ˆ‘&v"ÉCÇ¬CÇ¬CÇì∞¢6ˆÁG&ˆ«2‰FBá&ˆw&W75G&6≤ì∞†¢&ˆw&W74fñ∆¬“ÊWrÊV¬Çì∞¢&ˆw&W74fñ∆¬‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉ¬ì∞¢&ˆw&W74fñ∆¬Â6ó¶R“ÊWr6ó¶RÉ¬Bì∞¢&ˆw&W74fñ∆¬‰&6¥6ˆ∆˜"“66VÁC∞¢&ˆw&W75G&6≤‰6ˆÁG&ˆ«2‰FBá&ˆw&W74fñ∆¬ì∞†¢7FGW4∆&V¬“÷∂T∆&V¬Ç-	=	Ì
+-	Ì	-	‚	¢
+=
+
+-		›	Ì	-	≠	R"¬Ç„Tb¬fˆÁE7Gñ∆R‰&ˆ∆B¬◊WFVBì∞¢7FGW4∆&V¬‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉC"¬#ì"ì∞¢7FGW4∆&V¬‰WFı6ó¶R“G'VS∞¢6ˆÁG&ˆ«2‰FBá7FGW4∆&V¬ì∞†¢ñÁ7F∆ƒ'WGFˆ‚“ÊWr÷¶W7Fñ47Fñˆ‰'WGFˆ‚Çì∞¢ñÁ7F∆ƒ'WGFˆ‚ÂFWáB“-
+=
+
+-		›	Ì	-	ç
+-
+¬#∞¢ñÁ7F∆ƒ'WGFˆ‚‰∆ˆ6Fñˆ‚“ÊWrˆñÁBÉ3S¬#ìíì∞¢ñÁ7F∆ƒ'WGFˆ‚Â6ó¶R“ÊWr6ó¶RÉs¬C"ì∞¢ñÁ7F∆ƒ'WGFˆ‚‰f˜&T6ˆ∆˜"“6ˆ∆˜"ÂvÜóFS∞¢ñÁ7F∆ƒ'WGFˆ‚‰fˆÁB“÷¶W7Fñ4fˆÁE&˜fñFW"‰7&VFRÉb¬fˆÁE7Gñ∆R‰&ˆ∆Bì∞¢ñÁ7F∆ƒ'WGFˆ‚‰66W76ñ&∆TÊ÷R“-
+=-›Ì-ç-¬÷¶W7Fñ2&ˆ˜7B#∞¢ñÁ7F∆ƒ'WGFˆ‚‰66W76ñ&∆TFW67&óFñˆ‚“-	›}ç›]"=-›Ì-≠2˝çΩÌm]›çÚ#∞¢ñÁ7F∆ƒ'WGFˆ‚ÂF$ñÊFWÇ“∞¢ñÁ7F∆ƒ'WGFˆ‚‰6∆ñ6≤≥“ñÁ7F∆ƒ'WGFˆ‰6∆ñ6≥∞¢6ˆÁG&ˆ«2‰FBÜñÁ7F∆ƒ'WGFˆ‚ì∞†¢66WD'WGFˆ‚“ñÁ7F∆ƒ'WGFˆ„∞¢6Ê6Vƒ'WGFˆ‚“6∆˜6T'WGFˆ„∞¢–†¢&ófFRfˆñBñÁ7F∆ƒ'WGFˆ‰6∆ñ6≤Üˆ&¶V7B6VÊFW"¬WfVÁD&w2Rê¢∞¢ñbÜñÁ7F∆∆VBê¢∞¢ñÁ7F∆∆W$VÊvñÊR‰∆VÊ6ÑñÁ7F∆∆VD∆ñ6Fñˆ‚Çì∞¢6∆˜6RÇì∞¢&WGW&„∞¢–†¢ñÁ7F∆ƒ'WGFˆ‚‰VÊ&∆VB“f«6S∞¢6∆˜6T'WGFˆ‚‰VÊ&∆VB“f«6S∞¢FW6∑F˜6Ü˜'F7WB‰VÊ&∆VB“f«6S∞¢7FGW4∆&V¬ÂFWáB“-
+=
+
+-		›		-	Ω	ç	-	
+‚‚‚‚#∞¢7FGW4∆&V¬‰f˜&T6ˆ∆˜"“6ˆ∆˜"‰g&ˆ‘&v"É#SR¬3í¬sRì∞¢Êñ÷FU&ˆw&W72É#ì∞†¢G'ê¢∞¢ñÁ7F∆∆W$VÊvñÊR‰ñÁ7F∆¬ÜFW6∑F˜6Ü˜'F7WB‰6ÜV6∂VBì∞¢Êñ÷FU&ˆw&W72ÉCÉì∞¢7FGW4∆&V¬ÂFWáB“-
+=
+
+-		›	Ì	-	Ω	]	›	‚#∞¢7FGW4∆&V¬‰f˜&T6ˆ∆˜"“66VÁC∞¢ñÁ7F∆ƒ'WGFˆ‚ÂFWáB“-	}		˝
+=
+
+-	ç
+-
+¬#∞¢ñÁ7F∆ƒ'WGFˆ‚‰66W76ñ&∆TÊ÷R“-	}˝=-ç-¬÷¶W7Fñ2&ˆ˜7B#∞¢ñÁ7F∆ƒ'WGFˆ‚‰66W76ñ&∆TFW67&óFñˆ‚“-	}˝=≠]"=-›Ì-Ω]››ÌR˝çΩÌm]›çR÷¶W7Fñ2&ˆ˜7B#∞¢ñÁ7F∆ƒ'WGFˆ‚‰VÊ&∆VB“G'VS∞¢6∆˜6T'WGFˆ‚‰VÊ&∆VB“G'VS∞¢ñÁ7F∆∆VB“G'VS∞¢–¢6F6ÇÑWÜ6WFñˆ‚WÜ6WFñˆ‚ê¢∞¢7FGW4∆&V¬ÂFWáB“-	Ì
+ç	ç		≠	
+=
+
+-		›	Ì	-	≠	Ç#∞¢7FGW4∆&V¬‰f˜&T6ˆ∆˜"“6ˆ∆˜"‰g&ˆ‘&v"É#SR¬"¬#"ì∞¢ñÁ7F∆ƒ'WGFˆ‚ÂFWáB“-	˝	Ì	-
+-	Ì
+	ç
+-
+¬#∞¢ñÁ7F∆ƒ'WGFˆ‚‰66W76ñ&∆TÊ÷R“-	˝Ì--Ìç-¬=-›Ì-≠2÷¶W7Fñ2&ˆ˜7B#∞¢ñÁ7F∆ƒ'WGFˆ‚‰66W76ñ&∆TFW67&óFñˆ‚“-	˝Ì--Ì›‚}˝=≠]"=-›Ì-≠2˝çΩÌm]›çÚ#∞¢ñÁ7F∆ƒ'WGFˆ‚‰VÊ&∆VB“G'VS∞¢6∆˜6T'WGFˆ‚‰VÊ&∆VB“G'VS∞¢FW6∑F˜6Ü˜'F7WB‰VÊ&∆VB“G'VS∞¢÷W76vT&˜ÇÂ6Ü˜rÄ¢-	›R=MΩÌ¬=-›Ì-ç-¬÷¶W7Fñ2&ˆ˜7C•«%∆‚"≤WÜ6WFñˆ‚‰÷W76vR¿¢-	Ìçç≠=-›Ì-≠Ç"¿¢÷W76vT&˜Ñ'WGFˆÁ2‰Ù≤¿¢÷W76vT&˜Ññ6ˆ‚‰W'&˜"ì∞¢–¢–†¢&ófFRfˆñBÊñ÷FU&ˆw&W72ÜñÁBvñGFÇê¢∞¢&ˆw&W74fñ∆¬ÂvñGFÇ“÷FÇ‰÷ÇÉ¬÷FÇ‰÷ñ‚ÉCÉ¬vñGFÇíì∞¢&ˆw&W74fñ∆¬Â&Vg&W6ÇÇì∞¢∆ñ6Fñˆ‚‰FÙWfVÁG2Çì∞¢–†¢&ófFR7FFñ2∆&V¬÷∂T∆&V¬á7G&ñÊrFWáB¬f∆ˆB6ó¶R¬fˆÁE7Gñ∆R7Gñ∆R¬6ˆ∆˜"6ˆ∆˜"ê¢∞¢f"∆&V¬“ÊWr∆&V¬Çì∞¢∆&V¬ÂFWáB“FWáC∞¢∆&V¬‰fˆÁB“÷¶W7Fñ4fˆÁE&˜fñFW"‰7&VFRá6ó¶R¬7Gñ∆Rì∞¢∆&V¬‰f˜&T6ˆ∆˜"“6ˆ∆˜#∞¢∆&V¬‰&6¥6ˆ∆˜"“6ˆ∆˜"ÂG&Á7&VÁC∞¢&WGW&‚∆&V√∞¢–†¢&ófFRfˆñB«ï&˜VÊFVE&Vvñˆ‚Çê¢∞¢W6ñÊrÑw&Üñ75FÇFÇ“÷∂U&˜VÊFVE&V7FÊv∆RÜÊWr&V7FÊv∆RÉ¬¬vñGFÇ¬ÜVñváBí¬íê¢∞¢&Vvñˆ‚ˆ∆E&Vvñˆ‚“&Vvñˆ„∞¢&Vvñˆ‚“ÊWr&Vvñˆ‚áFÇì∞¢ñbÜˆ∆E&Vvñˆ‚“ÁV∆¬ê¢∞¢ˆ∆E&Vvñˆ‚‰Fó7˜6RÇì∞¢–¢–¢–†¢&ófFR7FFñ2w&Üñ75FÇ÷∂U&˜VÊFVE&V7FÊv∆RÖ&V7FÊv∆R&V7FÊv∆R¬ñÁB&FóW2ê¢∞¢ñÁBFñ÷WFW"“&FóW2¢#∞¢f"FÇ“ÊWrw&Üñ75FÇÇì∞¢FÇ‰FD&2á&V7FÊv∆R‰∆VgB¬&V7FÊv∆RÂF˜¬Fñ÷WFW"¬Fñ÷WFW"¬É¬ìì∞¢FÇ‰FD&2á&V7FÊv∆RÂ&ñváB“Fñ÷WFW"¬&V7FÊv∆RÂF˜¬Fñ÷WFW"¬Fñ÷WFW"¬#s¬ìì∞¢FÇ‰FD&2á&V7FÊv∆RÂ&ñváB“Fñ÷WFW"¬&V7FÊv∆R‰&˜GFˆ““Fñ÷WFW"¬Fñ÷WFW"¬Fñ÷WFW"¬¬ìì∞¢FÇ‰FD&2á&V7FÊv∆R‰∆VgB¬&V7FÊv∆R‰&˜GFˆ““Fñ÷WFW"¬Fñ÷WFW"¬Fñ÷WFW"¬ì¬ìì∞¢FÇ‰6∆˜6TfñwW&RÇì∞¢&WGW&‚FÉ∞¢–†¢&ófFRfˆñBG&uvñÊF˜rÜˆ&¶V7B6VÊFW"¬÷˜W6TWfVÁD&w2Rê¢∞¢ñbÜR‰'WGFˆ‚“÷˜W6T'WGFˆÁ2‰∆VgBê¢∞¢&WGW&„∞¢–¢ÊFófT÷WFÜˆG2Â&V∆V6T6GW&RÇì∞¢ÊFófT÷WFÜˆG2Â6VÊD÷W76vRÑÜÊF∆R¬Ñ¬ÊWrñÁEG"ÉÉ"í¬ñÁEG"Â¶W&Úì∞¢–¢–†¢ñÁFW&Ê¬7FFñ26∆72ÊFófT÷WFÜˆG0¢∞¢¥F∆ƒñ◊˜'BÇ'W6W#3"ÊF∆¬"ï–¢V&∆ñ27FFñ2WáFW&‚&ˆˆ¬&V∆V6T6GW&RÇì∞†¢¥F∆ƒñ◊˜'BÇ'W6W#3"ÊF∆¬"ï–¢V&∆ñ27FFñ2WáFW&‚ñÁEG"6VÊD÷W76vRÑñÁEG"ÖvÊB¬ñÁB÷W76vR¬ñÁEG"u&“¬ñÁEG"≈&“ì∞¢–ß–

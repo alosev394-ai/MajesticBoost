@@ -13,7 +13,9 @@ $compiler = Join-Path $frameworkRoot 'csc.exe'
 $workDirectory = Join-Path $projectRoot 'work'
 $distDirectory = Join-Path $projectRoot 'dist'
 $appOutput = Join-Path $workDirectory 'MajesticBoost.exe'
-$setupOutput = Join-Path $workDirectory 'MajesticBoost-Setup-1.5.0.exe'
+$setupOutput = Join-Path $workDirectory 'MajesticBoost-Setup-1.5.1.exe'
+$versionedSetupOutput = Join-Path $distDirectory 'MajesticBoost-Setup-1.5.1.exe'
+$latestSetupOutput = Join-Path $distDirectory 'MajesticBoost-Setup-Latest.exe'
 
 if (-not (Test-Path -LiteralPath $compiler)) {
     throw ".NET Framework C# compiler not found: $compiler"
@@ -70,9 +72,20 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Copy-Item -LiteralPath $appOutput -Destination (Join-Path $distDirectory 'MajesticBoost.exe') -Force
-Copy-Item -LiteralPath $setupOutput -Destination (Join-Path $distDirectory 'MajesticBoost-Setup-1.5.0.exe') -Force
+Copy-Item -LiteralPath $setupOutput -Destination $versionedSetupOutput -Force
+Copy-Item -LiteralPath $setupOutput -Destination $latestSetupOutput -Force
 
-Get-FileHash -Algorithm SHA256 -LiteralPath @(
+$releaseFiles = @(
     (Join-Path $distDirectory 'MajesticBoost.exe'),
-    (Join-Path $distDirectory 'MajesticBoost-Setup-1.5.0.exe')
-) | Format-Table -AutoSize
+    $versionedSetupOutput,
+    $latestSetupOutput
+)
+$hashes = Get-FileHash -Algorithm SHA256 -LiteralPath $releaseFiles
+$hashLines = foreach ($hash in $hashes) {
+    $hash.Hash + ' *' + (Split-Path -Leaf $hash.Path)
+}
+[IO.File]::WriteAllLines(
+    (Join-Path $distDirectory 'SHA256SUMS.txt'),
+    $hashLines,
+    (New-Object Text.UTF8Encoding($false)))
+$hashes | Format-Table -AutoSize

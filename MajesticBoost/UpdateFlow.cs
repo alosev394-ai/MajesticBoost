@@ -425,9 +425,1675 @@ namespace MajesticBoost
         private const string InstallerUrlPrefix =
             "https://raw.githubusercontent.com/alosev394-ai/MajesticBoost/main/dist/MajesticBoost-Setup-";
         private const string UpdateSigningPublicKeyXml =
-            "<RSAKeyValue><Modulus>vCSgQnLtxkncktDMNkZo6cnqx3cBrLMm8z6R+jj/ljBCAm/yiC8fs1GTy7mzPBkH+LhEiEYJlx/HAVVfVXUI4hMEamtYUffbjkeCwrcpOTm9dBXDEiLOQ4ZV5Niisvws/TVqCHPwZj8ck4c/gISjUWotDGkuViPThl5suJImn4zXSo9pnJS5c2G5Pn62NMk2L3HaCmBPSeuFMbYah3XYgjQj7+K8LQ2H×¾{âÚ$z{-®éÜj×ÆG&VâäFB†'WGFöç2“°¢fö7W5&VfW'&VD'WGFöâ‚“°¢Ğ ¢&—fFRfö–B6†÷tFVÖô†æFöfb‚¢°¢7FFRÒWFFU7FFRå&WG'“°¢f—6–&–Æ—G’Òf—6–&–Æ—G’åf—6–&ÆS°¢&W6WE&öw&W75&VfW&Væ6W2‚“°¢6&D6öçFVçBä6†–ÆG&Vâä6ÆV"‚“°¢6&D6öçFVçBå&÷tFVf–æ—F–öç2ä6ÆV"‚“°¢6&D6öçFVçBå&÷tFVf–æ—F–öç2äFB†æWr&÷tFVf–æ—F–öâ²†V–v‡BÒæWrw&–DÆVæwF‚ƒc‚’Ò“°¢6&D6öçFVçBå&÷tFVf–æ—F–öç2äFB†æWr&÷tFVf–æ—F–öâ²†V–v‡BÒæWrw&–DÆVæwF‚ƒÂw&–EVæ—EG—Rå7F"’Ò“°¢6&D6öçFVçBå&÷tFVf–æ—F–öç2äFB†æWr&÷tFVf–æ—F–öâ²†V–v‡BÒæWrw&–DÆVæwF‚ƒS’Ò“° ¢7F6µæVÂ†VFW"Ò'V–ÆD†VFW"€¢-	í		İ	í	-	½	]	İ		R	=	í
--	í	-	â"À¢-	ıí-]]İİ½’=-İí-¢ı]]M-òí-M]½ÍİíÍ2í­İ2íİí-½]İòâ"“°¢w&–Bå6WE&÷r††VFW"Â“°¢6&D6öçFVçBä6†–ÆG&VâäFB††VFW"“° ¢FW‡D&Æö6²ÖW76vUFW‡BÒÖ¶UFW‡B€¢-	M]Íâ}-]]İâ]}íıİã¢]-ÂÂT2‚}ı=¢=-İí-­í-­½í}]İ²â"À¢ãRÀ¢66VçD6öÆ÷"À¢6VÖ–&öÆDföçBÀ¢föçEvV–v‡G2ä&öÆB“°¢ÖW76vUFW‡BåFW‡DÆ–væÖVçBÒFW‡DÆ–væÖVçBä6VçFW#°¢ÖW76vUFW‡BåfW'F–6ÄÆ–væÖVçBÒfW'F–6ÄÆ–væÖVçBä6VçFW#°¢ÖW76vUFW‡BäÖ&v–âÒæWrF†–6¶æW72ƒ"ÂÂ"Â“°¢w&–Bå6WE&÷r†ÖW76vUFW‡BÂ“°¢6&D6öçFVçBä6†–ÆG&VâäFB†ÖW76vUFW‡B“° ¢7F6µæVÂ'WGFöç2Ò'V–ÆD'WGFöå&÷r‚“°¢'WGFöâ&WG'”'WGFöâÒÖ¶T7F–öä'WGFöâ‚-	ı	í	-
--	í
-	
--
-Â	M	]	Í	â"ÂG'VR“°¢&WG'”'WGFöâåv–GF‚Òs°¢&WG'”'WGFöâä—4FVfVÇBÒG'VS°¢&WG'”'WGFöâä6Æ–6²³Ò6öçF–çVT'WGFöä6Æ–6³°¢WFöÖF–öå&÷W'F–W2å6WDæÖR‡&WG'”'WGFöâÂ-	ıí--í-ÂM]Ííİ-mâíİí-½]İò"“°¢'WGFöç2ä6†–ÆG&VâäFB‡&WG'”'WGFöâ“°¢&VfW'&VDfö7W4'WGFöâÒ&WG'”'WGFöã°¢w&–Bå6WE&÷r†'WGFöç2Â"“°¢6&D6öçFVçBä6†–ÆG&VâäFB†'WGFöç2“°¢fö7W5&VfW'&VD'WGFöâ‚“°¢Ğ ¢&—fFR7F6µæVÂ'V–ÆD†VFW"‡7G&–ærF—FÆRÂ7G&–ær7V'F—FÆR¢°¢f"†VFW"ÒæWr7F6µæVÂ‚“°¢†VFW"ä6†–ÆG&VâäFB„Ö¶UFW‡B‡F—FÆRÂ‚ÂFW‡D6öÆ÷"Â6VÖ–&öÆDföçBÂföçEvV–v‡G2ä&öÆB’“°¢FW‡D&Æö6²7V'F—FÆUFW‡BÒÖ¶UFW‡B€¢7V'F—FÆRÀ¢ãRÀ¢×WFVD6öÆ÷"À¢&VwVÆ$föçBÀ¢föçEvV–v‡G2äæ÷&ÖÂ“°¢7V'F—FÆUFW‡BäÖ&v–âÒæWrF†–6¶æW72ƒÂRÂÂ“°¢†VFW"ä6†–ÆG&VâäFB‡7V'F—FÆUFW‡B“°¢&WGW&â†VFW#°¢Ğ ¢&—fFR7FF–2FW‡D&Æö6²Ö¶UFW‡B€¢7G&–ærFW‡BÀ¢F÷V&ÆR6—¦RÀ¢6öÆ÷"6öÆ÷"À¢föçDfÖ–Ç’föçBÀ¢föçEvV–v‡BvV–v‡B¢°¢&WGW&âæWrFW‡D&Æö6°¢°¢FW‡BÒFW‡BÀ¢föçE6—¦RÒ6—¦RÀ¢föçDfÖ–Ç’ÒföçBÀ¢föçEvV–v‡BÒvV–v‡BÀ¢f÷&Vw&÷VæBÒæWr6öÆ–D6öÆ÷$''W6‚†6öÆ÷"’À¢FW‡Ew&–ærÒFW‡Ew&–æråw&À¢FW‡EG&–ÖÖ–ærÒFW‡EG&–ÖÖ–æräæöæP¢Ó°¢Ğ ¢&—fFR7FF–27F6µæVÂ'V–ÆD'WGFöå&÷r‚¢°¢&WGW&âæWr7F6µæVÀ¢°¢÷&–VçFF–öâÒ÷&–VçFF–öâä†÷&—¦öçFÂÀ¢†÷&—¦öçFÄÆ–væÖVçBÒ†÷&—¦öçFÄÆ–væÖVçBå&–v‡BÀ¢fW'F–6ÄÆ–væÖVçBÒfW'F–6ÄÆ–væÖVçBä&÷GFöĞ¢Ó°¢Ğ ¢&—fFR'WGFöâÖ¶T7F–öä'WGFöâ‡7G&–ærFW‡BÂ&ööÂ66VçDöä†÷fW"¢°¢6öÆ÷"&6T6öÆ÷"Ò6öÆ÷"äg&öÕ&v"ƒ3rÂ3rÂ3r“°¢6öÆ÷"†÷fW$6öÆ÷"Ò66VçDöä†÷fW"ò66VçD6öÆ÷"¢6öÆ÷"äg&öÕ&v"ƒC’ÂC’ÂC’“°¢f"&6¶w&÷VæBÒæWr6öÆ–D6öÆ÷$''W6‚†&6T6öÆ÷"“°¢f"G&ç6ÆFRÒæWrG&ç6ÆFUG&ç6f÷&Ò‚“°¢f"'WGFöâÒæWr'WGFöà¢°¢6öçFVçBÒFW‡BÀ¢†V–v‡BÒ3‚À¢FF–ærÒæWrF†–6¶æW72ƒ2ÂÂ2Â’À¢&6¶w&÷VæBÒ&6¶w&÷VæBÀ¢f÷&Vw&÷VæBÒæWr6öÆ–D6öÆ÷$''W6‚…FW‡D6öÆ÷"’À¢&÷&FW%F†–6¶æW72ÒæWrF†–6¶æW72ƒ’À¢föçDfÖ–Ç’Ò6VÖ–&öÆDföçBÀ¢föçE6—¦RÒÀ¢föçEvV–v‡BÒföçEvV–v‡G2ä&öÆBÀ¢7W'6÷"Ò7W'6÷'2ä†æBÀ¢fö7W6&ÆRÒG'VRÀ¢&VæFW%G&ç6f÷&ÒÒG&ç6ÆFRÀ¢&VæFW%G&ç6f÷&Ô÷&–v–âÒæWrö–çBƒãRÂãR’À¢FV×ÆFRÒ'V–ÆE&÷VæFVD'WGFöåFV×ÆFR‚¢Ó°¢'WGFöâäÖ÷W6TVçFW"³ÒFVÆVvFP¢°¢–b‚'WGFöâä—4Væ&ÆVB¢°¢&WGW&ã°¢Ğ¢æ–ÖFT''W6‚†&6¶w&÷VæBÂ†÷fW$6öÆ÷"Â#“°¢æ–ÖFTÆ–gB‡G&ç6ÆFRÂÓÂ#C“°¢Ó°¢'WGFöâäÖ÷W6TÆVfR³ÒFVÆVvFP¢°¢æ–ÖFT''W6‚†&6¶w&÷VæBÂ&6T6öÆ÷"Â#c“°¢æ–ÖFTÆ–gB‡G&ç6ÆFRÂÂ3“°¢Ó°¢'WGFöâä—4Væ&ÆVD6†ævVB³ÒFVÆVvFP¢°¢'WGFöâä÷6—G’Ò'WGFöâä—4Væ&ÆVBòã¢ãCS°¢Ó°¢&WGW&â'WGFöã°¢Ğ ¢&—fFR7FF–26öçG&öÅFV×ÆFR'V–ÆE&÷VæFVD'WGFöåFV×ÆFR‚¢°¢f"FV×ÆFRÒæWr6öçG&öÅFV×ÆFR‡G—Vöb„'WGFöâ’“°¢f"&÷&FW"ÒæWrg&ÖWv÷&´VÆVÖVçDf7F÷'’‡G—Vöb„&÷&FW"’“°¢&÷&FW"å6WEfÇVR„&÷&FW"ä6÷&æW%&F—W5&÷W'G’ÂæWr6÷&æW%&F—W2ƒb’“°¢&÷&FW"å6WD&–æF–ær„&÷&FW"ä&6¶w&÷VæE&÷W'G’ÂæWr&–æF–ær‚$&6¶w&÷VæB"¢°¢&VÆF—fU6÷W&6RÒæWr&VÆF—fU6÷W&6R…&VÆF—fU6÷W&6TÖöFRåFV×ÆFVE&VçB¢Ò“°¢&÷&FW"å6WD&–æF–ær„&÷&FW"åFF–æu&÷W'G’ÂæWr&–æF–ær‚%FF–ær"¢°¢&VÆF—fU6÷W&6RÒæWr&VÆF—fU6÷W&6R…&VÆF—fU6÷W&6TÖöFRåFV×ÆFVE&VçB¢Ò“°¢f"&W6VçFW"ÒæWrg&ÖWv÷&´VÆVÖVçDf7F÷'’‡G—Vöb„6öçFVçE&W6VçFW"’“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"ä†÷&—¦öçFÄÆ–væÖVçE&÷W'G’Â†÷&—¦öçFÄÆ–væÖVçBä6VçFW"“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"åfW'F–6ÄÆ–væÖVçE&÷W'G’ÂfW'F–6ÄÆ–væÖVçBä6VçFW"“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"å&V6övæ—¦W466W74¶W•&÷W'G’ÂG'VR“°¢&÷&FW"äVæD6†–ÆB‡&W6VçFW"“°¢FV×ÆFRåf—7VÅG&VRÒ&÷&FW#°¢&WGW&âFV×ÆFS°¢Ğ ¢&—fFR7FF–2fö–Bæ–ÖFT''W6‚…6öÆ–D6öÆ÷$''W6‚''W6‚Â6öÆ÷"F&vWBÂ–çBÖ–ÆÆ—6V6öæG2¢°¢f"æ–ÖF–öâÒæWr6öÆ÷$æ–ÖF–öà¢°¢FòÒF&vWBÀ¢GW&F–öâÒF–ÖU7âäg&öÔÖ–ÆÆ—6V6öæG2†Ö–ÆÆ—6V6öæG2’À¢V6–ætgVæ7F–öâÒæWr6–æTV6R²V6–ætÖöFRÒV6–ætÖöFRäV6T÷WBĞ¢Ó°¢''W6‚ä&Vv–äæ–ÖF–öâ…6öÆ–D6öÆ÷$''W6‚ä6öÆ÷%&÷W'G’Âæ–ÖF–öâÂ†æFöfd&V†f–÷"å6æ6†÷DæE&WÆ6R“°¢Ğ ¢&—fFR7FF–2fö–Bæ–ÖFTÆ–gB…G&ç6ÆFUG&ç6f÷&ÒG&ç6f÷&ÒÂF÷V&ÆRF&vWBÂ–çBÖ–ÆÆ—6V6öæG2¢°¢f"æ–ÖF–öâÒæWrF÷V&ÆTæ–ÖF–öà¢°¢FòÒF&vWBÀ¢GW&F–öâÒF–ÖU7âäg&öÔÖ–ÆÆ—6V6öæG2†Ö–ÆÆ—6V6öæG2’À¢V6–ætgVæ7F–öâÒæWr6–æTV6R²V6–ætÖöFRÒV6–ætÖöFRäV6T÷WBĞ¢Ó°¢G&ç6f÷&Òä&Vv–äæ–ÖF–öâ…G&ç6ÆFUG&ç6f÷&Òå•&÷W'G’Âæ–ÖF–öâÂ†æFöfd&V†f–÷"å6æ6†÷DæE&WÆ6R“°¢Ğ ¢&—fFRfö–B÷fW&Æ•&Wf–Wt¶W”F÷vâ†ö&¦V7B6VæFW"Â¶W”WfVçD&w2R¢°¢–b†Rä¶W’ÓÒ¶W’äW66R¢°¢†æFÆTW66R‚“°¢Rä†æFÆVBÒG'VS°¢&WGW&ã°¢Ğ¢–b†Rä¶W’Ò¶W’åF"¢°¢&WGW&ã°¢Ğ¢T”VÆVÖVçBfö7W6VBÒ¶W–&ö&Bäfö7W6VDVÆVÖVçB2T”VÆVÖVçC°¢–b†fö7W6VBÒçVÆÂ¢°¢fö7W4æf–vF–öäF—&V7F–öâF—&V7F–öâĞ¢„¶W–&ö&BäÖöF–f–W'2bÖöF–f–W$¶W—2å6†–gB’ÓÒÖöF–f–W$¶W—2å6†–g@¢òfö7W4æf–vF–öäF—&V7F–öâå&Wf–÷W0¢¢fö7W4æf–vF–öäF—&V7F–öâäæW‡C°¢fö7W6VBäÖ÷fTfö7W2†æWrG&fW'6Å&WVW7B†F—&V7F–öâ’“°¢Ğ¢VÇ6P¢°¢fö7W5&VfW'&VD'WGFöâ‚“°¢Ğ¢Rä†æFÆVBÒG'VS°¢Ğ ¢&—fFRfö–Bfö7W5&VfW'&VD'WGFöâ‚¢°¢–b‡&VfW'&VDfö7W4'WGFöâÓÒçVÆÂ¢°¢&WGW&ã°¢Ğ¢F—7F6†W"ä&Vv–ä–çfö¶R†æWr7F–öâ†FVÆVvFP¢°¢–b‡&VfW'&VDfö7W4'WGFöâÒçVÆÂbb&VfW'&VDfö7W4'WGFöâä—5f—6–&ÆR¢°¢&VfW'&VDfö7W4'WGFöâäfö7W2‚“°¢¶W–&ö&Bäfö7W2‡&VfW'&VDfö7W4'WGFöâ“°¢Ğ¢Ò’“°¢Ğ ¢&—fFRfö–B†–FTfÆ÷r‚¢°¢7FFRÒWFFU7FFRä†–FFVã°¢ÆÆ÷t÷væW$6Æ÷6RÒG'VS°¢&VfW'&VDfö7W4'WGFöâÒçVÆÃ°¢&W6WE&öw&W75&VfW&Væ6W2‚“°¢f—6–&–Æ—G’Òf—6–&–Æ—G’ä6öÆÆ6VC°¢Ğ ¢&—fFRfö–B&—6UWFFU&WV—&VB…6VÖçF–5fW'6–öâ7W'&VçEfW'6–öâÂ6VÖçF–5fW'6–öâæWufW'6–öâ¢°¢WfVçD†æFÆW#ÅWFFU&WV—&VDWfVçD&w3â†æFÆW"ÒWFFU&WV—&VC°¢–b††æFÆW"ÒçVÆÂ¢°¢†æFÆW"‡F†—2ÂæWrWFFU&WV—&VDWfVçD&w2†7W'&VçEfW'6–öâåFõ7G&–ær‚’ÂæWufW'6–öâåFõ7G&–ær‚’’“°¢Ğ¢Ğ ¢&—fFR&ööÂ†4&wVÖVçB‡7G&–ærW‡V7FVB¢°¢f÷"†–çB–æFW‚Ò²–æFW‚Â&wVÖVçG2äÆVæwFƒ²–æFW‚²²¢°¢–b‡7G&–æräWVÇ2†&wVÖVçG5¶–æFW…ÒÂW‡V7FVBÂ7G&–æt6ö×&—6öâä÷&F–æÄ–væ÷&T66R’¢°¢&WGW&âG'VS°¢Ğ¢Ğ¢&WGW&âfÇ6S°¢Ğ ¢&—fFR7FF–26VÖçF–5fW'6–öâvWD7W'&VçEfW'6–öâ‚¢°¢fW'6–öâfW'6–öâÒ76VÖ&Ç’ävWDW†V7WF–æt76VÖ&Ç’‚’ävWDæÖR‚’åfW'6–öã°¢–b‡fW'6–öâÓÒçVÆÂÇÂfW'6–öâäÖ¦÷"ÂÇÂfW'6–öâäÖ–æ÷"ÂÇÂfW'6–öâä'V–ÆBÂ¢°¢F‡&÷ræWr–çfÆ–D÷W&F–öäW†6WF–öâ‚$Æ–6F–öâ76VÖ&Ç’fW'6–öâ—2–çfÆ–Bâ"“°¢Ğ¢&WGW&âæWr6VÖçF–5fW'6–öà¢°¢Ö¦÷"ÒfW'6–öâäÖ¦÷"À¢Ö–æ÷"ÒfW'6–öâäÖ–æ÷"À¢F6‚ÒfW'6–öâä'V–Æ@¢Ó°¢Ğ ¢&—fFR7FF–2&ööÂG'•'6U6VÖçF–5fW'6–öâ‡7G&–ærFW‡BÂ÷WB6VÖçF–5fW'6–öâfW'6–öâ¢°¢fW'6–öâÒæWr6VÖçF–5fW'6–öâ‚“°¢–b‡7G&–ærä—4çVÆÄ÷$V×G’‡FW‡B’ÇÂFW‡BäÆVæwF‚â3"¢°¢&WGW&âfÇ6S°¢Ğ¢7G&–æuµÒ'G2ÒFW‡Bå7Æ—B‚râr“°¢–çBÖ¦÷#°¢–çBÖ–æ÷#°¢–çBF6ƒ°¢–b‡'G2äÆVæwF‚Ò2ÇÀ¢G'•'6UfW'6–öå'B‡'G5³ÒÂ÷WBÖ¦÷"’ÇÀ¢G'•'6UfW'6–öå'B‡'G5³ÒÂ÷WBÖ–æ÷"’ÇÀ¢G'•'6UfW'6–öå'B‡'G5³%ÒÂ÷WBF6‚’¢°¢&WGW&âfÇ6S°¢Ğ¢fW'6–öâäÖ¦÷"ÒÖ¦÷#°¢fW'6–öâäÖ–æ÷"ÒÖ–æ÷#°¢fW'6–öâåF6‚ÒF6ƒ°¢&WGW&âG'VS°¢Ğ ¢&—fFR7FF–2&ööÂG'•'6UfW'6–öå'B‡7G&–ærFW‡BÂ÷WB–çBfÇVR¢°¢fÇVRÒ°¢–b‡7G&–ærä—4çVÆÄ÷$V×G’‡FW‡B’ÇÀ¢‡FW‡BäÆVæwF‚âbbFW‡E³ÒÓÒsr’¢°¢&WGW&âfÇ6S°¢Ğ¢f÷"†–çB–æFW‚Ò²–æFW‚ÂFW‡BäÆVæwFƒ²–æFW‚²²¢°¢–b‡FW‡E¶–æFW…ÒÂsrÇÂFW‡E¶–æFW…Òâs’r¢°¢&WGW&âfÇ6S°¢Ğ¢Ğ¢&WGW&â–çBåG'•'6R‡FW‡BÂçVÖ&W%7G–ÆW2äæöæRÂ7VÇGW&T–æfòä–çf&–çD7VÇGW&RÂ÷WBfÇVR“°¢Ğ ¢&—fFR7FF–2&ööÂG'•'6U7G&–7D–çFVvW"‡7G&–ærFW‡BÂ÷WB–çBfÇVR¢°¢fÇVRÒ°¢–b‡7G&–ærä—4çVÆÄ÷$V×G’‡FW‡B’¢°¢&WGW&âfÇ6S°¢Ğ¢f÷"†–çB–æFW‚Ò²–æFW‚ÂFW‡BäÆVæwFƒ²–æFW‚²²¢°¢–b‡FW‡E¶–æFW…ÒÂsrÇÂFW‡E¶–æFW…Òâs’r¢°¢&WGW&âfÇ6S°¢Ğ¢Ğ¢&WGW&â–çBåG'•'6R‡FW‡BÂçVÖ&W%7G–ÆW2äæöæRÂ7VÇGW&T–æfòä–çf&–çD7VÇGW&RÂ÷WBfÇVR“°¢Ğ ¢&—fFR7FF–2&ööÂG'•'6U7G&–7DÆöær‡7G&–ærFW‡BÂ÷WBÆöærfÇVR¢°¢fÇVRÒ°¢–b‡7G&–ærä—4çVÆÄ÷$V×G’‡FW‡B’¢°¢&WGW&âfÇ6S°¢Ğ¢f÷"†–çB–æFW‚Ò²–æFW‚ÂFW‡BäÆVæwFƒ²–æFW‚²²¢°¢–b‡FW‡E¶–æFW…ÒÂsrÇÂFW‡E¶–æFW…Òâs’r¢°¢&WGW&âfÇ6S°¢Ğ¢Ğ¢&WGW&âÆöæråG'•'6R‡FW‡BÂçVÖ&W%7G–ÆW2äæöæRÂ7VÇGW&T–æfòä–çf&–çD7VÇGW&RÂ÷WBfÇVR“°¢Ğ ¢&—fFR7FF–2&ööÂ—56†#Sb‡7G&–ærFW‡B¢°¢–b‡7G&–ærä—4çVÆÄ÷$V×G’‡FW‡B’ÇÂFW‡BäÆVæwF‚ÒcB¢°¢&WGW&âfÇ6S°¢Ğ¢f÷"†–çB–æFW‚Ò²–æFW‚ÂFW‡BäÆVæwFƒ²–æFW‚²²¢°¢6†"fÇVRÒFW‡E¶–æFW…Ó°¢–b‚‚‡fÇVRãÒsrbbfÇVRÃÒs’r’ÇÀ¢‡fÇVRãÒvrbbfÇVRÃÒvbr’ÇÀ¢‡fÇVRãÒtrbbfÇVRÃÒtbr’’¢°¢&WGW&âfÇ6S°¢Ğ¢Ğ¢&WGW&âG'VS°¢Ğ ¢&—fFR7FF–27G&–ær'—FW5Fô†W‚†'—FUµÒ'—FW2¢°¢f"'V–ÆFW"ÒæWr7G&–æt'V–ÆFW"†'—FW2äÆVæwF‚¢"“°¢f÷"†–çB–æFW‚Ò²–æFW‚Â'—FW2äÆVæwFƒ²–æFW‚²²¢°¢'V–ÆFW"äVæB†'—FW5¶–æFW…ÒåFõ7G&–ær‚%ƒ""Â7VÇGW&T–æfòä–çf&–çD7VÇGW&R’“°¢Ğ¢&WGW&â'V–ÆFW"åFõ7G&–ær‚“°¢Ğ ¢&—fFR7FF–27G&–ærFW67&–&TW†6WF–öâ„W†6WF–öâW†6WF–öâ¢°¢–b†W†6WF–öâÓÒçVÆÂ¢°¢&WGW&â'Væ¶æ÷vâW'&÷"#°¢Ğ¢7G&–ærÖW76vRÒ†W†6WF–öâäÖW76vRóòW†6WF–öâävWEG—R‚’äæÖR¢å&WÆ6R‚uÇ"rÂrr¢å&WÆ6R‚uÆârÂrr“°¢–b†ÖW76vRäÆVæwF‚â3¢°¢ÖW76vRÒÖW76vRå7V'7G&–ærƒÂ3“°¢Ğ¢&WGW&âW†6WF–öâävWEG—R‚’äæÖR²#¢"²ÖW76vS°¢Ğ ¢&—fFR7FF–2fö–BÆör‡7G&–ærÖW76vR¢°¢G'¢°¢7G&–ærF—&V7F÷'’ÒF‚ä6öÖ&–æR€¢Vçf—&öæÖVçBävWDföÆFW%F‚„Vçf—&öæÖVçBå7V6–ÄföÆFW"äÆö6ÄÆ–6F–öäFF’À¢$Ö¦W7F–4&ö÷7B"“°¢F—&V7F÷'’ä7&VFTF—&V7F÷'’†F—&V7F÷'’“°¢7G&–ærF‚ÒF‚ä6öÖ&–æR†F—&V7F÷'’Â'WFFRæÆör"“°¢7G&–ærÆ–æRÒFFUF–ÖRåWF4æ÷råFõ7G&–ær‚&ò"Â7VÇGW&T–æfòä–çf&–çD7VÇGW&R’°¢""²ÖW76vR²Vçf—&öæÖVçBäæWtÆ–æS°¢f–ÆRäVæDÆÅFW‡B‡F‚ÂÆ–æRÂæWrUDc„Væ6öF–ær†fÇ6R’“°¢Ğ¢6F6€¢°¢Ğ¢Ğ¢Ğ§Ğ
+            "<RSAKeyValue><Modulus>vCSgQnLtxkncktDMNkZo6cnqx3cBrLMm8z6R+jj/ljBCAm/yiC8fs1GTy7mzPBkH+LhEiEYJlx/HAVVfVXUI4hMEamtYUffbjkeCwrcpOTm9dBXDEiLOQ4ZV5Niisvws/TVqCHPwZj8ck4c/gISjUWotDGkuViPThl5suJImn4zXSo9pnJS5c2G5Pn62NMk2L3HaCmBPSeuFMbYah3XYgjQj7+K8LQ2HkXIwNl9pcJc/Pt8VarA7lVH5u9boct9YIe811iLAyKZ/h+xxN2stBKEE1Eb+HQnO6X6SrdmY+I0jjqsT1uy7yNwAE+ASlAu7iAw+L+nQB1ndi0F2/TWQ73J9Nw5E/GLtVkco9p0aCsiYvBX99Cu+02EMuICSRzfljKWfCD+TIlyX0HzDnLhFV+M3JVweSRLo1UWlyfOWdda3Re4mSUXk0YNyGegCnW/PFSjKgvm9ufYeEHTFoiLCGrsPknSsH5nrSFqCk/UCefupyJnNLfLB53SM8luedAJ9</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
+        private const int ManifestSchemaVersion = 1;
+        private const int ManifestMaximumBytes = 16384;
+        private const int SignatureMaximumBytes = 1024;
+        private const int Rsa3072SignatureBytes = 384;
+        private const long InstallerMaximumBytes = 268435456L;
+        private const int ManifestTimeoutMilliseconds = 12000;
+        private const int DownloadReadTimeoutMilliseconds = 20000;
+        private const int DownloadTotalTimeoutMilliseconds = 120000;
+
+        private static readonly Color BackgroundColor = Color.FromRgb(22, 22, 22);
+        private static readonly Color TextColor = Color.FromRgb(244, 244, 244);
+        private static readonly Color MutedColor = Color.FromRgb(142, 142, 142);
+        private static readonly Color AccentColor = Color.FromRgb(232, 28, 90);
+        private static readonly Color ErrorColor = Color.FromRgb(231, 24, 42);
+
+        private readonly Window owner;
+        private readonly string[] arguments;
+        private readonly FontFamily regularFont;
+        private readonly FontFamily semiboldFont;
+        private readonly Border card;
+        private readonly Grid cardContent;
+        private readonly bool demoMode;
+
+        private UpdateState state;
+        private UpdateManifest availableUpdate;
+        private Task<bool> checkTask;
+        private Button preferredFocusButton;
+        private Border progressFill;
+        private TextBlock progressPercentText;
+        private TextBlock progressStageText;
+        private TextBlock progressBytesText;
+        private bool allowOwnerClose;
+        private bool checkCompleted;
+        private bool updateOperationRunning;
+
+        public UpdateFlowOverlay(
+            Window ownerWindow,
+            string[] launchArguments,
+            FontFamily normalFont,
+            FontFamily boldFont)
+        {
+            if (ownerWindow == null)
+            {
+                throw new ArgumentNullException("ownerWindow");
+            }
+
+            owner = ownerWindow;
+            arguments = launchArguments ?? new string[0];
+            regularFont = normalFont ?? new FontFamily("Segoe UI");
+            semiboldFont = boldFont ?? regularFont;
+            demoMode = HasArgument("--demo-update");
+
+            HorizontalAlignment = HorizontalAlignment.Stretch;
+            VerticalAlignment = VerticalAlignment.Stretch;
+            Background = new SolidColorBrush(BackgroundColor);
+            Visibility = Visibility.Collapsed;
+            Focusable = true;
+            KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.Cycle);
+            KeyboardNavigation.SetControlTabNavigation(this, KeyboardNavigationMode.Cycle);
+            AutomationProperties.SetName(this, "ĞŸÑ€Ğ¾Ğ²ĞµÑ€ĞºĞ° Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğ¹ Majestic Boost");
+
+            card = new Border
+            {
+                Width = 386,
+                Height = 410,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(24)
+            };
+            Children.Add(card);
+
+            cardContent = new Grid();
+            card.Child = cardContent;
+
+            PreviewKeyDown += OverlayPreviewKeyDown;
+            owner.Activated += delegate
+            {
+                if (IsFlowVisible)
+                {
+                    FocusPreferredButton();
+                }
+            };
+        }
+
+        public event EventHandler RequestApplicationClose;
+
+        public event EventHandler<UpdateRequiredEventArgs> UpdateRequired;
+
+        public bool IsFlowVisible
+        {
+            get { return Visibility == Visibility.Visible; }
+        }
+
+        public bool IsBlocking
+        {
+            get { return IsFlowVisible && !allowOwnerClose; }
+        }
+
+        /// <summary>
+        /// True while the overlay must own mouse and keyboard input. The host window
+        /// should test this before handling its boost shortcuts.
+        /// </summary>
+        public bool ConsumesApplicationInput
+        {
+            get { return IsFlowVisible; }
+        }
+
+        /// <summary>
+        /// Becomes true only after a completed fail-open check found no mandatory
+        /// update. It is false before the check, while checking, and while an update
+        /// gate is visible.
+        /// </summary>
+        public bool CanContinueStartup
+        {
+            get { return checkCompleted && state == UpdateState.Hidden; }
+        }
+
+        public string AvailableVersion
+        {
+            get { return availableUpdate == null ? null : availableUpdate.Version.ToString(); }
+        }
+
+        /// <summary>
+        /// Checks GitHub once for this overlay instance. True means the caller may
+        /// continue into the normal startup flow; false means the update overlay owns
+        /// the window until its verified installer is launched.
+        /// </summary>
+        public Task<bool> CheckForUpdatesAsync()
+        {
+            if (checkTask == null)
+            {
+                checkTask = CheckForUpdatesCoreAsync();
+            }
+            return checkTask;
+        }
+
+        public bool ShouldCancelWindowClose()
+        {
+            return state == UpdateState.Downloading && !allowOwnerClose;
+        }
+
+        public void HandleEscape()
+        {
+            if (!IsFlowVisible)
+            {
+                return;
+            }
+            FocusPreferredButton();
+        }
+
+        private async Task<bool> CheckForUpdatesCoreAsync()
+        {
+            allowOwnerClose = false;
+            checkCompleted = false;
+            ShowChecking();
+
+            if (demoMode)
+            {
+                await Task.Delay(550);
+                SemanticVersion currentDemoVersion = GetCurrentVersion();
+                availableUpdate = new UpdateManifest
+                {
+                    Version = new SemanticVersion
+                    {
+                        Major = currentDemoVersion.Major + 1,
+                        Minor = 0,
+                        Patch = 0
+                    },
+                    InstallerUrl = InstallerUrlPrefix +
+                        (currentDemoVersion.Major + 1).ToString(CultureInfo.InvariantCulture) +
+                        ".0.0.exe",
+                    Sha256 = new string('0', 64),
+                    Size = 24L * 1024L * 1024L
+                };
+                ShowUpdateRequired(GetCurrentVersion(), availableUpdate.Version);
+                RaiseUpdateRequired(GetCurrentVersion(), availableUpdate.Version);
+                checkCompleted = true;
+                return false;
+            }
+
+            try
+            {
+                UpdateManifest manifest = await Task.Run(new Func<UpdateManifest>(FetchAndValidateManifest));
+                SemanticVersion currentVersion = GetCurrentVersion();
+                if (manifest.Version.CompareTo(currentVersion) <= 0)
+                {
+                    Log("Update check completed: current version is up to date.");
+                    checkCompleted = true;
+                    HideFlow();
+                    return true;
+                }
+
+                availableUpdate = manifest;
+                Log("Update required: " + currentVersion + " -> " + manifest.Version + ".");
+                ShowUpdateRequired(currentVersion, manifest.Version);
+                RaiseUpdateRequired(currentVersion, manifest.Version);
+                checkCompleted = true;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // Availability and manifest problems are deliberately fail-open. A
+                // bad network day must not brick an otherwise usable installed app.
+                Log("Update check skipped: " + DescribeException(ex));
+                checkCompleted = true;
+                HideFlow();
+                return true;
+            }
+        }
+
+        private UpdateManifest FetchAndValidateManifest()
+        {
+            byte[] payload = DownloadSmallFile(ManifestUrl, ManifestMaximumBytes);
+            byte[] signaturePayload = DownloadSmallFile(ManifestSignatureUrl, SignatureMaximumBytes);
+            byte[] signature = DecodeManifestSignature(signaturePayload);
+            VerifyManifestSignature(payload, signature);
+            string json = new UTF8Encoding(false, true).GetString(payload);
+            Dictionary<string, JsonValue> root;
+            if (!new JsonParser(json).TryParseRootObject(out root))
+            {
+                throw new InvalidDataException("Manifest is not valid JSON.");
+            }
+
+            JsonValue schemaValue = RequireField(root, "schemaVersion", JsonValueKind.Number);
+            JsonValue versionValue = RequireField(root, "version", JsonValueKind.String);
+            JsonValue installerValue = RequireField(root, "installerUrl", JsonValueKind.String);
+            JsonValue shaValue = RequireField(root, "sha256", JsonValueKind.String);
+            JsonValue sizeValue = RequireField(root, "size", JsonValueKind.Number);
+
+            int schemaVersion;
+            if (!TryParseStrictInteger(schemaValue.Text, out schemaVersion) ||
+                schemaVersion != ManifestSchemaVersion)
+            {
+                throw new InvalidDataException("Unsupported manifest schemaVersion.");
+            }
+
+            SemanticVersion version;
+            if (!TryParseSemanticVersion(versionValue.Text, out version))
+            {
+                throw new InvalidDataException("Invalid manifest version.");
+            }
+
+            string expectedInstallerUrl = InstallerUrlPrefix + version + ".exe";
+            if (!string.Equals(installerValue.Text, expectedInstallerUrl, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Installer URL is outside the trusted release path.");
+            }
+            Uri installerUri;
+            if (!Uri.TryCreate(installerValue.Text, UriKind.Absolute, out installerUri) ||
+                !string.Equals(installerUri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal) ||
+                !string.Equals(installerUri.Host, "raw.githubusercontent.com", StringComparison.OrdinalIgnoreCase) ||
+                !installerUri.IsDefaultPort ||
+                !string.IsNullOrEmpty(installerUri.Query) ||
+                !string.IsNullOrEmpty(installerUri.Fragment))
+            {
+                throw new InvalidDataException("Installer URL is invalid.");
+            }
+
+            string sha256 = shaValue.Text;
+            if (!IsSha256(sha256))
+            {
+                throw new InvalidDataException("Invalid manifest SHA-256.");
+            }
+
+            long size;
+            if (!TryParseStrictLong(sizeValue.Text, out size) ||
+                size <= 0 || size > InstallerMaximumBytes)
+            {
+                throw new InvalidDataException("Invalid installer size.");
+            }
+
+            return new UpdateManifest
+            {
+                Version = version,
+                InstallerUrl = installerValue.Text,
+                Sha256 = sha256.ToUpperInvariant(),
+                Size = size
+            };
+        }
+
+        private static void VerifyManifestSignature(byte[] manifestBytes, byte[] signatureBytes)
+        {
+            if (signatureBytes == null || signatureBytes.Length != Rsa3072SignatureBytes)
+            {
+                throw new CryptographicException("Manifest signature length is invalid.");
+            }
+            using (var rsa = new RSACryptoServiceProvider())
+            {
+                rsa.PersistKeyInCsp = false;
+                rsa.FromXmlString(UpdateSigningPublicKeyXml);
+                if (rsa.KeySize != 3072)
+                {
+                    throw new CryptographicException("Update signing key size is invalid.");
+                }
+                string sha256Oid = CryptoConfig.MapNameToOID("SHA256");
+                if (string.IsNullOrEmpty(sha256Oid) ||
+                    !rsa.VerifyData(manifestBytes, sha256Oid, signatureBytes))
+                {
+                    throw new CryptographicException("Manifest signature verification failed.");
+                }
+            }
+        }
+
+        private static byte[] DecodeManifestSignature(byte[] signaturePayload)
+        {
+            if (signaturePayload == null || signaturePayload.Length == 0 ||
+                signaturePayload.Length > SignatureMaximumBytes)
+            {
+                throw new CryptographicException("Manifest signature payload length is invalid.");
+            }
+
+            string encoded = new UTF8Encoding(false, true).GetString(signaturePayload).Trim();
+            if (encoded.Length != 512)
+            {
+                throw new CryptographicException("Manifest signature encoding length is invalid.");
+            }
+            for (int index = 0; index < encoded.Length; index++)
+            {
+                char value = encoded[index];
+                bool valid =
+                    (value >= 'A' && value <= 'Z') ||
+                    (value >= 'a' && value <= 'z') ||
+                    (value >= '0' && value <= '9') ||
+                    value == '+' || value == '/' || value == '=';
+                if (!valid)
+                {
+                    throw new CryptographicException("Manifest signature encoding is invalid.");
+                }
+            }
+
+            byte[] signature;
+            try
+            {
+                signature = Convert.FromBase64String(encoded);
+            }
+            catch (FormatException exception)
+            {
+                throw new CryptographicException("Manifest signature is not valid base64.", exception);
+            }
+            if (signature.Length != Rsa3072SignatureBytes)
+            {
+                throw new CryptographicException("Manifest signature length is invalid.");
+            }
+            return signature;
+        }
+
+        private static JsonValue RequireField(
+            Dictionary<string, JsonValue> root,
+            string name,
+            JsonValueKind expectedKind)
+        {
+            JsonValue value;
+            if (!root.TryGetValue(name, out value) || value == null || value.Kind != expectedKind)
+            {
+                throw new InvalidDataException("Missing or invalid manifest field: " + name + ".");
+            }
+            return value;
+        }
+
+        private static byte[] DownloadSmallFile(string address, int maximumBytes)
+        {
+            HttpWebRequest request = CreateRequest(address, ManifestTimeoutMilliseconds);
+            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            {
+                ValidateResponse(response, maximumBytes, null, address);
+                using (Stream source = response.GetResponseStream())
+                using (var destination = new MemoryStream())
+                {
+                    byte[] buffer = new byte[4096];
+                    int total = 0;
+                    while (true)
+                    {
+                        int read = source.Read(buffer, 0, buffer.Length);
+                        if (read <= 0)
+                        {
+                            break;
+                        }
+                        total += read;
+                        if (total > maximumBytes)
+                        {
+                            throw new InvalidDataException("Response exceeds the allowed size.");
+                        }
+                        destination.Write(buffer, 0, read);
+                    }
+                    if (total == 0)
+                    {
+                        throw new InvalidDataException("Response is empty.");
+                    }
+                    return destination.ToArray();
+                }
+            }
+        }
+
+        private async void ContinueButtonClick(object sender, RoutedEventArgs e)
+        {
+            if (updateOperationRunning)
+            {
+                return;
+            }
+
+            updateOperationRunning = true;
+            try
+            {
+                if (state == UpdateState.Retry && !demoMode &&
+                    !await RefreshAvailableUpdateAsync())
+                {
+                    return;
+                }
+                await DownloadAndLaunchUpdateAsync();
+            }
+            finally
+            {
+                updateOperationRunning = false;
+            }
+        }
+
+        private async Task<bool> RefreshAvailableUpdateAsync()
+        {
+            ShowChecking();
+            try
+            {
+                UpdateManifest manifest = await Task.Run(new Func<UpdateManifest>(FetchAndValidateManifest));
+                SemanticVersion currentVersion = GetCurrentVersion();
+                if (manifest.Version.CompareTo(currentVersion) <= 0)
+                {
+                    Log("Update retry completed: the mandatory update is no longer required.");
+                    availableUpdate = null;
+                    HideFlow();
+                    return false;
+                }
+
+                availableUpdate = manifest;
+                Log("Update retry refreshed manifest: " + currentVersion + " -> " + manifest.Version + ".");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log("Update retry check failed: " + DescribeException(ex));
+                ShowRetry("ĞĞµ ÑƒĞ´Ğ°Ğ»Ğ¾ÑÑŒ Ğ¿Ğ¾Ğ²Ñ‚Ğ¾Ñ€Ğ½Ğ¾ Ğ¿Ñ€Ğ¾Ğ²ĞµÑ€Ğ¸Ñ‚ÑŒ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ. ĞŸÑ€Ğ¾Ğ²ĞµÑ€ÑŒÑ‚Ğµ Ğ¿Ğ¾Ğ´ĞºĞ»ÑÑ‡ĞµĞ½Ğ¸Ğµ Ğº Ğ¸Ğ½Ñ‚ĞµÑ€Ğ½ĞµÑ‚Ñƒ Ğ¸ Ğ¿Ğ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚Ğµ Ğ¿Ğ¾Ğ¿Ñ‹Ñ‚ĞºÑƒ.");
+                return false;
+            }
+        }
+
+        private async Task DownloadAndLaunchUpdateAsync()
+        {
+            if (availableUpdate == null)
+            {
+                ShowRetry("ĞĞµ ÑƒĞ´Ğ°Ğ»Ğ¾ÑÑŒ Ğ¾Ğ¿Ñ€ĞµĞ´ĞµĞ»Ğ¸Ñ‚ÑŒ Ğ´Ğ¾ÑÑ‚ÑƒĞ¿Ğ½ÑƒÑ Ğ²ĞµÑ€ÑĞ¸Ñ. ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚Ğµ Ğ¿Ñ€Ğ¾Ğ²ĞµÑ€ĞºÑƒ.");
+                return;
+            }
+
+            FileStream updateLock = TryAcquireUpdateLock();
+            if (updateLock == null)
+            {
+                ShowRetry("ĞĞ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ ÑƒĞ¶Ğµ ÑĞºĞ°Ñ‡Ğ¸Ğ²Ğ°ĞµÑ‚ÑÑ Ğ² Ğ´Ñ€ÑƒĞ³Ğ¾Ğ¼ Ğ¾ĞºĞ½Ğµ Majestic Boost. Ğ—Ğ°ĞºÑ€Ğ¾Ğ¹Ñ‚Ğµ Ğ»Ğ¸ÑˆĞ½ĞµĞµ Ğ¾ĞºĞ½Ğ¾ Ğ¸ Ğ¿Ğ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚Ğµ Ğ¿Ğ¾Ğ¿Ñ‹Ñ‚ĞºÑƒ.");
+                return;
+            }
+
+            using (updateLock)
+            {
+                await DownloadAndLaunchUpdateWithLockAsync();
+            }
+        }
+
+        private async Task DownloadAndLaunchUpdateWithLockAsync()
+        {
+            ShowDownloading(availableUpdate.Version);
+            if (demoMode)
+            {
+                await RunDemoUpdateProgressAsync(availableUpdate);
+                return;
+            }
+
+            try
+            {
+                UpdateManifest update = availableUpdate;
+                IProgress<UpdateProgressInfo> progress =
+                    new Progress<UpdateProgressInfo>(UpdateProgressDisplay);
+                await Task.Run(delegate { DownloadValidateAndLaunch(update, progress); });
+                Log("Verified installer was handed to the elevated setup process.");
+                allowOwnerClose = true;
+                EventHandler closeHandler = RequestApplicationClose;
+                if (closeHandler != null)
+                {
+                    closeHandler(this, EventArgs.Empty);
+                }
+                else
+                {
+                    owner.Close();
+                }
+            }
+            catch (Win32Exception ex)
+            {
+                Log("Installer launch failed: " + DescribeException(ex));
+                if (ex.NativeErrorCode == 1223)
+                {
+                    ShowRetry("Ğ—Ğ°Ğ¿Ñ€Ğ¾Ñ Ğ¿Ñ€Ğ°Ğ² Ğ°Ğ´Ğ¼Ğ¸Ğ½Ğ¸ÑÑ‚Ñ€Ğ°Ñ‚Ğ¾Ñ€Ğ° Ğ±Ñ‹Ğ» Ğ¾Ñ‚Ğ¼ĞµĞ½Ñ‘Ğ½. Ğ”Ğ»Ñ Ğ¿Ñ€Ğ¾Ğ´Ğ¾Ğ»Ğ¶ĞµĞ½Ğ¸Ñ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ¸Ñ‚Ğµ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ.");
+                }
+                else
+                {
+                    ShowRetry("ĞĞµ ÑƒĞ´Ğ°Ğ»Ğ¾ÑÑŒ Ğ·Ğ°Ğ¿ÑƒÑÑ‚Ğ¸Ñ‚ÑŒ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº. ĞŸÑ€Ğ¾Ğ²ĞµÑ€ÑŒÑ‚Ğµ Ğ´Ğ¾ÑÑ‚ÑƒĞ¿ Ğº ÑĞ¸ÑÑ‚ĞµĞ¼Ğµ Ğ¸ Ğ¿Ğ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚Ğµ Ğ¿Ğ¾Ğ¿Ñ‹Ñ‚ĞºÑƒ.");
+                }
+            }
+            catch (InvalidDataException ex)
+            {
+                Log("Downloaded update validation failed: " + DescribeException(ex));
+                ShowRetry("Ğ¡ĞºĞ°Ñ‡Ğ°Ğ½Ğ½Ñ‹Ğ¹ Ñ„Ğ°Ğ¹Ğ» Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ Ğ½Ğµ Ğ¿Ñ€Ğ¾ÑˆÑ‘Ğ» Ğ¿Ñ€Ğ¾Ğ²ĞµÑ€ĞºÑƒ Ğ±ĞµĞ·Ğ¾Ğ¿Ğ°ÑĞ½Ğ¾ÑÑ‚Ğ¸. ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚Ğµ Ğ¿Ğ¾Ğ¿Ñ‹Ñ‚ĞºÑƒ; ĞµÑĞ»Ğ¸ Ğ¾ÑˆĞ¸Ğ±ĞºĞ° ÑĞ¾Ñ…Ñ€Ğ°Ğ½Ğ¸Ñ‚ÑÑ, ÑĞºĞ°Ñ‡Ğ°Ğ¹Ñ‚Ğµ Ğ°ĞºÑ‚ÑƒĞ°Ğ»ÑŒĞ½Ñ‹Ğ¹ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº Ñ Ğ¾Ñ„Ğ¸Ñ†Ğ¸Ğ°Ğ»ÑŒĞ½Ğ¾Ğ³Ğ¾ Ñ€ĞµĞ¿Ğ¾Ğ·Ğ¸Ñ‚Ğ¾Ñ€Ğ¸Ñ.");
+            }
+            catch (WebException ex)
+            {
+                Log("Update download failed: " + DescribeException(ex));
+                ShowRetry("ĞĞµ ÑƒĞ´Ğ°Ğ»Ğ¾ÑÑŒ ÑĞºĞ°Ñ‡Ğ°Ñ‚ÑŒ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ. ĞŸÑ€Ğ¾Ğ²ĞµÑ€ÑŒÑ‚Ğµ Ğ¿Ğ¾Ğ´ĞºĞ»ÑÑ‡ĞµĞ½Ğ¸Ğµ Ğº Ğ¸Ğ½Ñ‚ĞµÑ€Ğ½ĞµÑ‚Ñƒ Ğ¸ Ğ¿Ğ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚Ğµ Ğ¿Ğ¾Ğ¿Ñ‹Ñ‚ĞºÑƒ.");
+            }
+            catch (Exception ex)
+            {
+                Log("Update failed: " + DescribeException(ex));
+                ShowRetry("ĞĞµ ÑƒĞ´Ğ°Ğ»Ğ¾ÑÑŒ Ğ¿Ğ¾Ğ´Ğ³Ğ¾Ñ‚Ğ¾Ğ²Ğ¸Ñ‚ÑŒ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ. ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚Ğµ Ğ¿Ğ¾Ğ¿Ñ‹Ñ‚ĞºÑƒ Ğ¸Ğ»Ğ¸ ÑĞºĞ°Ñ‡Ğ°Ğ¹Ñ‚Ğµ Ğ°ĞºÑ‚ÑƒĞ°Ğ»ÑŒĞ½Ñ‹Ğ¹ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº Ñ Ğ¾Ñ„Ğ¸Ñ†Ğ¸Ğ°Ğ»ÑŒĞ½Ğ¾Ğ³Ğ¾ Ñ€ĞµĞ¿Ğ¾Ğ·Ğ¸Ñ‚Ğ¾Ñ€Ğ¸Ñ.");
+            }
+        }
+
+        private static FileStream TryAcquireUpdateLock()
+        {
+            try
+            {
+                string directory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost");
+                Directory.CreateDirectory(directory);
+                return new FileStream(
+                    Path.Combine(directory, "update-operation.lock"),
+                    FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite,
+                    FileShare.None,
+                    1,
+                    FileOptions.DeleteOnClose);
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        }
+
+        private async Task RunDemoUpdateProgressAsync(UpdateManifest update)
+        {
+            const int step = 2;
+            for (int percent = 0; percent <= 100; percent += step)
+            {
+                long downloaded = update.Size * percent / 100L;
+                UpdateProgressDisplay(new UpdateProgressInfo
+                {
+                    Stage = UpdateProgressStage.Downloading,
+                    DownloadedBytes = downloaded,
+                    TotalBytes = update.Size
+                });
+                await Task.Delay(24);
+            }
+
+            UpdateProgressDisplay(new UpdateProgressInfo
+            {
+                Stage = UpdateProgressStage.Verifying,
+                DownloadedBytes = update.Size,
+                TotalBytes = update.Size
+            });
+            await Task.Delay(650);
+
+            UpdateProgressDisplay(new UpdateProgressInfo
+            {
+                Stage = UpdateProgressStage.Launching,
+                DownloadedBytes = update.Size,
+                TotalBytes = update.Size
+            });
+            await Task.Delay(500);
+            ShowDemoHandoff();
+        }
+
+        private static void DownloadValidateAndLaunch(
+            UpdateManifest update,
+            IProgress<UpdateProgressInfo> progress)
+        {
+            string directory = CreateUniqueDownloadDirectory();
+            string fileName = "MajesticBoost-Setup-" + update.Version + ".exe";
+            string installerPath = Path.Combine(directory, fileName);
+            bool launched = false;
+            try
+            {
+                using (var downloadStream = new FileStream(
+                    installerPath,
+                    FileMode.CreateNew,
+                    FileAccess.ReadWrite,
+                    FileShare.Read,
+                    65536,
+                    FileOptions.SequentialScan))
+                {
+                    DownloadInstallerIntoHeldFile(update, downloadStream, progress);
+                }
+
+                // FileVersionInfo opens the executable independently. Keeping the
+                // original read/write stream alive with FileShare.Read causes the
+                // Windows version API to fail with a sharing violation and return
+                // empty metadata. Reopen read-only: FileShare.Read still blocks any
+                // writer while hash/version validation and ShellExecute take place.
+                using (FileStream verificationStream = OpenInstallerForVerification(installerPath))
+                {
+                    ReportUpdateProgress(
+                        progress,
+                        UpdateProgressStage.Verifying,
+                        update.Size,
+                        update.Size);
+                    ValidateHeldInstaller(update, installerPath, verificationStream);
+
+                    ReportUpdateProgress(
+                        progress,
+                        UpdateProgressStage.Launching,
+                        update.Size,
+                        update.Size);
+
+                    var startInfo = new ProcessStartInfo
+                    {
+                        FileName = installerPath,
+                        Arguments = "/updateui",
+                        WorkingDirectory = directory,
+                        UseShellExecute = true,
+                        Verb = "runas",
+                        ErrorDialog = false
+                    };
+                    Process process = Process.Start(startInfo);
+                    if (process == null)
+                    {
+                        throw new InvalidOperationException("The installer process was not created.");
+                    }
+                    process.Dispose();
+                    launched = true;
+                }
+            }
+            finally
+            {
+                if (!launched)
+                {
+                    TryDeleteDownload(directory, installerPath);
+                }
+            }
+        }
+
+        private static FileStream OpenInstallerForVerification(string installerPath)
+        {
+            return new FileStream(
+                installerPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                65536,
+                FileOptions.SequentialScan);
+        }
+
+        private static void DownloadInstallerIntoHeldFile(
+            UpdateManifest update,
+            FileStream destination,
+            IProgress<UpdateProgressInfo> progress)
+        {
+            HttpWebRequest request = CreateRequest(update.InstallerUrl, DownloadReadTimeoutMilliseconds);
+            var stopwatch = Stopwatch.StartNew();
+            int lastReportedPercent = -1;
+            ReportUpdateProgress(progress, UpdateProgressStage.Downloading, 0, update.Size);
+            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            {
+                ValidateResponse(response, InstallerMaximumBytes, update.Size, update.InstallerUrl);
+                using (Stream source = response.GetResponseStream())
+                {
+                    byte[] buffer = new byte[65536];
+                    long total = 0;
+                    while (true)
+                    {
+                        if (stopwatch.ElapsedMilliseconds > DownloadTotalTimeoutMilliseconds)
+                        {
+                            request.Abort();
+                            throw new WebException("Installer download timed out.", WebExceptionStatus.Timeout);
+                        }
+                        int read = source.Read(buffer, 0, buffer.Length);
+                        if (read <= 0)
+                        {
+                            break;
+                        }
+                        total += read;
+                        if (total > update.Size || total > InstallerMaximumBytes)
+                        {
+                            throw new InvalidDataException("Installer exceeds the declared size.");
+                        }
+                        destination.Write(buffer, 0, read);
+                        int percent = (int)(total * 100L / update.Size);
+                        if (percent != lastReportedPercent)
+                        {
+                            lastReportedPercent = percent;
+                            ReportUpdateProgress(
+                                progress,
+                                UpdateProgressStage.Downloading,
+                                total,
+                                update.Size);
+                        }
+                    }
+                    if (total != update.Size)
+                    {
+                        throw new InvalidDataException("Installer size does not match the manifest.");
+                    }
+                }
+            }
+            destination.Flush(true);
+            ReportUpdateProgress(
+                progress,
+                UpdateProgressStage.Downloading,
+                update.Size,
+                update.Size);
+        }
+
+        private static void ReportUpdateProgress(
+            IProgress<UpdateProgressInfo> progress,
+            UpdateProgressStage stage,
+            long downloadedBytes,
+            long totalBytes)
+        {
+            if (progress == null)
+            {
+                return;
+            }
+            progress.Report(new UpdateProgressInfo
+            {
+                Stage = stage,
+                DownloadedBytes = downloadedBytes,
+                TotalBytes = totalBytes
+            });
+        }
+
+        private static void ValidateHeldInstaller(
+            UpdateManifest update,
+            string installerPath,
+            FileStream installer)
+        {
+            if (installer.Length != update.Size)
+            {
+                throw new InvalidDataException("Installer length changed during verification.");
+            }
+
+            ValidatePortableExecutableHeader(installer);
+            string actualHash;
+            installer.Position = 0;
+            using (SHA256 hasher = SHA256.Create())
+            {
+                actualHash = BytesToHex(hasher.ComputeHash(installer));
+            }
+            if (!string.Equals(actualHash, update.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("Installer SHA-256 does not match the manifest.");
+            }
+
+            FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(installerPath);
+            if (!string.Equals(versionInfo.ProductName, "Majestic Boost", StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Installer ProductName is invalid.");
+            }
+
+            Version fileVersion;
+            if (!Version.TryParse((versionInfo.FileVersion ?? string.Empty).Trim(), out fileVersion) ||
+                fileVersion.Major != update.Version.Major ||
+                fileVersion.Minor != update.Version.Minor ||
+                fileVersion.Build != update.Version.Patch ||
+                (fileVersion.Revision != 0 && fileVersion.Revision != -1))
+            {
+                throw new InvalidDataException("Installer FileVersion does not match the manifest.");
+            }
+
+            // Recheck while the non-write-sharing handle is still held. This also
+            // catches any unexpected local truncation before ShellExecute.
+            if (installer.Length != update.Size)
+            {
+                throw new InvalidDataException("Installer changed before launch.");
+            }
+            installer.Position = 0;
+        }
+
+        private static void ValidatePortableExecutableHeader(FileStream installer)
+        {
+            if (installer.Length < 64)
+            {
+                throw new InvalidDataException("Installer is too small to be a PE file.");
+            }
+            byte[] header = new byte[64];
+            installer.Position = 0;
+            ReadExactly(installer, header, 0, header.Length);
+            if (header[0] != (byte)'M' || header[1] != (byte)'Z')
+            {
+                throw new InvalidDataException("Installer is missing the MZ header.");
+            }
+            int peOffset = header[0x3c] |
+                (header[0x3d] << 8) |
+                (header[0x3e] << 16) |
+                (header[0x3f] << 24);
+            if (peOffset < 64 || peOffset > installer.Length - 4 || peOffset > 16777216)
+            {
+                throw new InvalidDataException("Installer PE offset is invalid.");
+            }
+            byte[] signature = new byte[4];
+            installer.Position = peOffset;
+            ReadExactly(installer, signature, 0, signature.Length);
+            if (signature[0] != (byte)'P' || signature[1] != (byte)'E' ||
+                signature[2] != 0 || signature[3] != 0)
+            {
+                throw new InvalidDataException("Installer PE signature is invalid.");
+            }
+        }
+
+        private static void ReadExactly(Stream source, byte[] buffer, int offset, int count)
+        {
+            while (count > 0)
+            {
+                int read = source.Read(buffer, offset, count);
+                if (read <= 0)
+                {
+                    throw new EndOfStreamException();
+                }
+                offset += read;
+                count -= read;
+            }
+        }
+
+        private static HttpWebRequest CreateRequest(string address, int timeoutMilliseconds)
+        {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            var request = (HttpWebRequest)WebRequest.Create(address);
+            request.Method = "GET";
+            request.AllowAutoRedirect = false;
+            request.AutomaticDecompression = DecompressionMethods.None;
+            request.Timeout = timeoutMilliseconds;
+            request.ReadWriteTimeout = timeoutMilliseconds;
+            request.UserAgent = "MajesticBoost-Updater/" + GetCurrentVersion();
+            request.Accept = "application/json, application/octet-stream;q=0.9, */*;q=0.1";
+            request.Headers[HttpRequestHeader.AcceptEncoding] = "identity";
+            request.KeepAlive = false;
+            return request;
+        }
+
+        private static void ValidateResponse(
+            HttpWebResponse response,
+            long maximumBytes,
+            long? expectedBytes,
+            string expectedAddress)
+        {
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                throw new WebException("Unexpected HTTP status: " + (int)response.StatusCode + ".");
+            }
+            if (response.ResponseUri == null ||
+                !string.Equals(response.ResponseUri.AbsoluteUri, expectedAddress, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Unexpected final response URL.");
+            }
+            if (!string.IsNullOrEmpty(response.ContentEncoding) &&
+                !string.Equals(response.ContentEncoding, "identity", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("Compressed update responses are not accepted.");
+            }
+            if (response.ContentLength > maximumBytes)
+            {
+                throw new InvalidDataException("Response is too large.");
+            }
+            if (expectedBytes.HasValue && response.ContentLength >= 0 &&
+                response.ContentLength != expectedBytes.Value)
+            {
+                throw new InvalidDataException("HTTP content length does not match the manifest.");
+            }
+        }
+
+        private static string CreateUniqueDownloadDirectory()
+        {
+            string root = Path.GetFullPath(Path.GetTempPath());
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                string candidate = Path.Combine(
+                    root,
+                    "MajesticBoost.Update." + Guid.NewGuid().ToString("N"));
+                if (Directory.Exists(candidate) || File.Exists(candidate))
+                {
+                    continue;
+                }
+                DirectoryInfo created = Directory.CreateDirectory(candidate);
+                if ((created.Attributes & FileAttributes.ReparsePoint) != 0 ||
+                    !IsDirectChild(root, created.FullName))
+                {
+                    throw new IOException("Unsafe update download directory.");
+                }
+                return created.FullName;
+            }
+            throw new IOException("Could not create a unique update directory.");
+        }
+
+        private static bool IsDirectChild(string parent, string child)
+        {
+            string parentFull = Path.GetFullPath(parent).TrimEnd(Path.DirectorySeparatorChar) +
+                Path.DirectorySeparatorChar;
+            string childFull = Path.GetFullPath(child).TrimEnd(Path.DirectorySeparatorChar);
+            if (!childFull.StartsWith(parentFull, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            string relative = childFull.Substring(parentFull.Length);
+            return relative.Length > 0 &&
+                relative.IndexOf(Path.DirectorySeparatorChar) < 0 &&
+                relative.IndexOf(Path.AltDirectorySeparatorChar) < 0;
+        }
+
+        private static void TryDeleteDownload(string directory, string installerPath)
+        {
+            try
+            {
+                string tempRoot = Path.GetFullPath(Path.GetTempPath());
+                if (!IsDirectChild(tempRoot, directory))
+                {
+                    return;
+                }
+                DirectoryInfo info = new DirectoryInfo(directory);
+                if (info.Exists && (info.Attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    return;
+                }
+                if (File.Exists(installerPath) &&
+                    string.Equals(Path.GetDirectoryName(Path.GetFullPath(installerPath)),
+                        Path.GetFullPath(directory), StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Delete(installerPath);
+                }
+                if (Directory.Exists(directory) && Directory.GetFileSystemEntries(directory).Length == 0)
+                {
+                    Directory.Delete(directory, false);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void ShowChecking()
+        {
+            state = UpdateState.Checking;
+            Visibility = Visibility.Visible;
+            BuildWorkingScreen(
+                "ĞŸĞ ĞĞ’Ğ•Ğ ĞšĞ ĞĞ‘ĞĞĞ’Ğ›Ğ•ĞĞ˜Ğ™",
+                "ĞŸÑ€Ğ¾Ğ²ĞµÑ€ÑĞµĞ¼ Ğ°ĞºÑ‚ÑƒĞ°Ğ»ÑŒĞ½ÑƒÑ Ğ²ĞµÑ€ÑĞ¸Ñ Majestic Boost.",
+                "ĞŸĞ¾Ğ´Ğ¾Ğ¶Ğ´Ğ¸Ñ‚Ğµ Ğ½ĞµÑĞºĞ¾Ğ»ÑŒĞºĞ¾ ÑĞµĞºÑƒĞ½Ğ´.");
+        }
+
+        private void ShowDownloading(SemanticVersion version)
+        {
+            state = UpdateState.Downloading;
+            Visibility = Visibility.Visible;
+            BuildDownloadProgressScreen(version);
+        }
+
+        private void BuildWorkingScreen(string title, string subtitle, string status)
+        {
+            ResetProgressReferences();
+            cardContent.Children.Clear();
+            cardContent.RowDefinitions.Clear();
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            StackPanel header = BuildHeader(title, subtitle);
+            Grid.SetRow(header, 0);
+            cardContent.Children.Add(header);
+
+            var body = new StackPanel
+            {
+                Width = 300,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var track = new Border
+            {
+                Width = 300,
+                Height = 4,
+                CornerRadius = new CornerRadius(2),
+                Background = new SolidColorBrush(Color.FromRgb(42, 42, 42)),
+                ClipToBounds = true
+            };
+            var indicator = new Border
+            {
+                Width = 82,
+                Height = 4,
+                CornerRadius = new CornerRadius(2),
+                Background = new SolidColorBrush(AccentColor),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                RenderTransform = new TranslateTransform(-82, 0)
+            };
+            track.Child = indicator;
+            body.Children.Add(track);
+
+            TextBlock statusText = MakeText(status, 11, MutedColor, regularFont, FontWeights.Normal);
+            statusText.TextAlignment = TextAlignment.Center;
+            statusText.Margin = new Thickness(0, 18, 0, 0);
+            AutomationProperties.SetName(statusText, status);
+            body.Children.Add(statusText);
+
+            var movement = new DoubleAnimation
+            {
+                From = -82,
+                To = 300,
+                Duration = TimeSpan.FromMilliseconds(1250),
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            };
+            ((TranslateTransform)indicator.RenderTransform).BeginAnimation(
+                TranslateTransform.XProperty,
+                movement);
+
+            Grid.SetRow(body, 1);
+            cardContent.Children.Add(body);
+            preferredFocusButton = null;
+            Focus();
+        }
+
+        private void BuildDownloadProgressScreen(SemanticVersion version)
+        {
+            ResetProgressReferences();
+            cardContent.Children.Clear();
+            cardContent.RowDefinitions.Clear();
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            StackPanel header = BuildHeader(
+                "Ğ—ĞĞ“Ğ Ğ£Ğ–ĞĞ•Ğœ ĞĞ‘ĞĞĞ’Ğ›Ğ•ĞĞ˜Ğ•",
+                "Ğ’ĞµÑ€ÑĞ¸Ñ " + version + " Ğ±ÑƒĞ´ĞµÑ‚ Ğ¿Ñ€Ğ¾Ğ²ĞµÑ€ĞµĞ½Ğ° Ğ¿ĞµÑ€ĞµĞ´ Ğ·Ğ°Ğ¿ÑƒÑĞºĞ¾Ğ¼.");
+            Grid.SetRow(header, 0);
+            cardContent.Children.Add(header);
+
+            var body = new StackPanel
+            {
+                Width = 300,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            progressPercentText = MakeText(
+                "0%",
+                30,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold);
+            progressPercentText.TextAlignment = TextAlignment.Center;
+            AutomationProperties.SetName(progressPercentText, "Ğ—Ğ°Ğ³Ñ€ÑƒĞ¶ĞµĞ½Ğ¾ 0 Ğ¿Ñ€Ğ¾Ñ†ĞµĞ½Ñ‚Ğ¾Ğ²");
+            body.Children.Add(progressPercentText);
+
+            progressStageText = MakeText(
+                "Ğ¡ĞºĞ°Ñ‡Ğ¸Ğ²Ğ°ĞµĞ¼ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº...",
+                11.5,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold);
+            progressStageText.TextAlignment = TextAlignment.Center;
+            progressStageText.Margin = new Thickness(0, 7, 0, 16);
+            body.Children.Add(progressStageText);
+
+            var track = new Border
+            {
+                Width = 300,
+                Height = 5,
+                CornerRadius = new CornerRadius(2.5),
+                Background = new SolidColorBrush(Color.FromRgb(42, 42, 42)),
+                ClipToBounds = true,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            progressFill = new Border
+            {
+                Width = 0,
+                Height = 5,
+                CornerRadius = new CornerRadius(2.5),
+                Background = new SolidColorBrush(AccentColor),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            track.Child = progressFill;
+            AutomationProperties.SetName(track, "ĞŸÑ€Ğ¾Ğ³Ñ€ĞµÑÑ Ğ·Ğ°Ğ³Ñ€ÑƒĞ·ĞºĞ¸ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ");
+            body.Children.Add(track);
+
+            progressBytesText = MakeText(
+                "0 Ğ‘ Ğ¸Ğ· " + FormatBytes(availableUpdate == null ? 0 : availableUpdate.Size),
+                10.5,
+                MutedColor,
+                regularFont,
+                FontWeights.Normal);
+            progressBytesText.TextAlignment = TextAlignment.Center;
+            progressBytesText.Margin = new Thickness(0, 13, 0, 0);
+            body.Children.Add(progressBytesText);
+
+            Grid.SetRow(body, 1);
+            cardContent.Children.Add(body);
+            preferredFocusButton = null;
+            Focus();
+        }
+
+        private void UpdateProgressDisplay(UpdateProgressInfo progress)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action<UpdateProgressInfo>(UpdateProgressDisplay), progress);
+                return;
+            }
+            if (state != UpdateState.Downloading || progressFill == null ||
+                progressPercentText == null || progressStageText == null ||
+                progressBytesText == null)
+            {
+                return;
+            }
+
+            long total = progress.TotalBytes <= 0 ? 1 : progress.TotalBytes;
+            long downloaded = Math.Max(0, Math.Min(progress.DownloadedBytes, total));
+            int percent = (int)(downloaded * 100L / total);
+            if (progress.Stage != UpdateProgressStage.Downloading)
+            {
+                downloaded = total;
+                percent = 100;
+            }
+
+            progressFill.Width = 300.0 * percent / 100.0;
+            progressPercentText.Text = percent.ToString(CultureInfo.InvariantCulture) + "%";
+            AutomationProperties.SetName(
+                progressPercentText,
+                "Ğ—Ğ°Ğ³Ñ€ÑƒĞ¶ĞµĞ½Ğ¾ " + percent.ToString(CultureInfo.InvariantCulture) + " Ğ¿Ñ€Ğ¾Ñ†ĞµĞ½Ñ‚Ğ¾Ğ²");
+
+            if (progress.Stage == UpdateProgressStage.Verifying)
+            {
+                progressStageText.Text = "ĞŸÑ€Ğ¾Ğ²ĞµÑ€ÑĞµĞ¼ Ñ†ĞµĞ»Ğ¾ÑÑ‚Ğ½Ğ¾ÑÑ‚ÑŒ Ğ¸ Ğ²ĞµÑ€ÑĞ¸Ñ...";
+                progressBytesText.Text = "Ğ—Ğ°Ğ³Ñ€ÑƒĞ·ĞºĞ° Ğ·Ğ°Ğ²ĞµÑ€ÑˆĞµĞ½Ğ°";
+            }
+            else if (progress.Stage == UpdateProgressStage.Launching)
+            {
+                progressStageText.Text = "ĞÑ‚ĞºÑ€Ñ‹Ğ²Ğ°ĞµĞ¼ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº...";
+                progressBytesText.Text = "ĞŸĞ¾Ğ´Ñ‚Ğ²ĞµÑ€Ğ´Ğ¸Ñ‚Ğµ Ğ·Ğ°Ğ¿Ñ€Ğ¾Ñ Windows";
+            }
+            else
+            {
+                progressStageText.Text = "Ğ¡ĞºĞ°Ñ‡Ğ¸Ğ²Ğ°ĞµĞ¼ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº...";
+                progressBytesText.Text = FormatBytes(downloaded) + " Ğ¸Ğ· " + FormatBytes(total);
+            }
+            AutomationProperties.SetName(progressStageText, progressStageText.Text);
+        }
+
+        private void ResetProgressReferences()
+        {
+            progressFill = null;
+            progressPercentText = null;
+            progressStageText = null;
+            progressBytesText = null;
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            if (bytes >= 1024L * 1024L)
+            {
+                return (bytes / (1024.0 * 1024.0)).ToString("0.0", CultureInfo.CurrentCulture) + " ĞœĞ‘";
+            }
+            if (bytes >= 1024L)
+            {
+                return (bytes / 1024.0).ToString("0.0", CultureInfo.CurrentCulture) + " ĞšĞ‘";
+            }
+            return bytes.ToString(CultureInfo.CurrentCulture) + " Ğ‘";
+        }
+
+        private void ShowUpdateRequired(SemanticVersion currentVersion, SemanticVersion newVersion)
+        {
+            state = UpdateState.Required;
+            Visibility = Visibility.Visible;
+            ResetProgressReferences();
+            cardContent.Children.Clear();
+            cardContent.RowDefinitions.Clear();
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(50) });
+
+            StackPanel header = BuildHeader(
+                "Ğ”ĞĞ¡Ğ¢Ğ£ĞŸĞĞ ĞĞ‘ĞĞĞ’Ğ›Ğ•ĞĞ˜Ğ•",
+                "Ğ”Ğ»Ñ Ğ¿Ñ€Ğ¾Ğ´Ğ¾Ğ»Ğ¶ĞµĞ½Ğ¸Ñ Ğ½ĞµĞ¾Ğ±Ñ…Ğ¾Ğ´Ğ¸Ğ¼Ğ¾ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ¸Ñ‚ÑŒ Majestic Boost.");
+            Grid.SetRow(header, 0);
+            cardContent.Children.Add(header);
+
+            var body = new StackPanel
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 14)
+            };
+            var versionText = MakeText(
+                "v. " + currentVersion + "   â†’   v. " + newVersion,
+                16,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold);
+            versionText.TextAlignment = TextAlignment.Center;
+            versionText.Margin = new Thickness(0, 14, 0, 0);
+            body.Children.Add(versionText);
+
+            TextBlock description = MakeText(
+                "ĞŸÑ€Ğ¾Ğ³Ñ€Ğ°Ğ¼Ğ¼Ğ° ÑĞºĞ°Ñ‡Ğ°ĞµÑ‚ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº Ñ Ğ¾Ñ„Ğ¸Ñ†Ğ¸Ğ°Ğ»ÑŒĞ½Ğ¾Ğ³Ğ¾ GitHub-Ñ€ĞµĞ¿Ğ¾Ğ·Ğ¸Ñ‚Ğ¾Ñ€Ğ¸Ñ, Ğ¿Ñ€Ğ¾Ğ²ĞµÑ€Ğ¸Ñ‚ Ñ€Ğ°Ğ·Ğ¼ĞµÑ€, Ğ²ĞµÑ€ÑĞ¸Ñ Ğ¸ SHA-256, Ğ·Ğ°Ñ‚ĞµĞ¼ Ğ·Ğ°Ğ¿Ñ€Ğ¾ÑĞ¸Ñ‚ Ğ¿Ñ€Ğ°Ğ²Ğ° Ğ°Ğ´Ğ¼Ğ¸Ğ½Ğ¸ÑÑ‚Ñ€Ğ°Ñ‚Ğ¾Ñ€Ğ°.",
+                10.5,
+                MutedColor,
+                regularFont,
+                FontWeights.Normal);
+            description.TextAlignment = TextAlignment.Center;
+            description.LineHeight = 14;
+            description.Margin = new Thickness(8, 18, 8, 0);
+            body.Children.Add(description);
+
+            Grid.SetRow(body, 1);
+            cardContent.Children.Add(body);
+
+            StackPanel buttons = BuildButtonRow();
+            Button continueButton = MakeActionButton("ĞŸĞ ĞĞ”ĞĞ›Ğ–Ğ˜Ğ¢Ğ¬", true);
+            continueButton.Width = 150;
+            continueButton.IsDefault = true;
+            continueButton.Click += ContinueButtonClick;
+            AutomationProperties.SetName(
+                continueButton,
+                "Ğ¡ĞºĞ°Ñ‡Ğ°Ñ‚ÑŒ, Ğ¿Ñ€Ğ¾Ğ²ĞµÑ€Ğ¸Ñ‚ÑŒ Ğ¸ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ¸Ñ‚ÑŒ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ " + newVersion);
+            buttons.Children.Add(continueButton);
+            preferredFocusButton = continueButton;
+            Grid.SetRow(buttons, 2);
+            cardContent.Children.Add(buttons);
+            FocusPreferredButton();
+        }
+
+        private void ShowRetry(string message)
+        {
+            state = UpdateState.Retry;
+            Visibility = Visibility.Visible;
+            ResetProgressReferences();
+            cardContent.Children.Clear();
+            cardContent.RowDefinitions.Clear();
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(50) });
+
+            StackPanel header = BuildHeader(
+                "ĞĞ£Ğ–ĞĞ ĞĞ‘ĞĞĞ’Ğ›Ğ•ĞĞ˜Ğ•",
+                "Ğ¢ĞµĞºÑƒÑ‰Ğ°Ñ Ğ²ĞµÑ€ÑĞ¸Ñ Ğ½Ğµ Ğ±ÑƒĞ´ĞµÑ‚ Ğ·Ğ°Ğ¿ÑƒÑ‰ĞµĞ½Ğ° Ğ±ĞµĞ· Ğ¾Ğ±ÑĞ·Ğ°Ñ‚ĞµĞ»ÑŒĞ½Ğ¾Ğ³Ğ¾ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ.");
+            Grid.SetRow(header, 0);
+            cardContent.Children.Add(header);
+
+            TextBlock messageText = MakeText(
+                message,
+                11.5,
+                ErrorColor,
+                regularFont,
+                FontWeights.Normal);
+            messageText.TextAlignment = TextAlignment.Center;
+            messageText.VerticalAlignment = VerticalAlignment.Center;
+            messageText.Margin = new Thickness(12, 0, 12, 0);
+            Grid.SetRow(messageText, 1);
+            cardContent.Children.Add(messageText);
+
+            StackPanel buttons = BuildButtonRow();
+            Button retryButton = MakeActionButton("ĞŸĞĞ’Ğ¢ĞĞ Ğ˜Ğ¢Ğ¬", true);
+            retryButton.Width = 150;
+            retryButton.IsDefault = true;
+            retryButton.Click += ContinueButtonClick;
+            AutomationProperties.SetName(retryButton, "ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚ÑŒ Ğ·Ğ°Ğ³Ñ€ÑƒĞ·ĞºÑƒ Ğ¾Ğ±ÑĞ·Ğ°Ñ‚ĞµĞ»ÑŒĞ½Ğ¾Ğ³Ğ¾ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ");
+            buttons.Children.Add(retryButton);
+            preferredFocusButton = retryButton;
+            Grid.SetRow(buttons, 2);
+            cardContent.Children.Add(buttons);
+            FocusPreferredButton();
+        }
+
+        private void ShowDemoHandoff()
+        {
+            state = UpdateState.Retry;
+            Visibility = Visibility.Visible;
+            ResetProgressReferences();
+            cardContent.Children.Clear();
+            cardContent.RowDefinitions.Clear();
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(50) });
+
+            StackPanel header = BuildHeader(
+                "ĞĞ‘ĞĞĞ’Ğ›Ğ•ĞĞ˜Ğ• Ğ“ĞĞ¢ĞĞ’Ğ",
+                "ĞŸÑ€Ğ¾Ğ²ĞµÑ€ĞµĞ½Ğ½Ñ‹Ğ¹ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº Ğ¿ĞµÑ€ĞµĞ´Ğ°Ñ‘Ñ‚ÑÑ Ğ¾Ñ‚Ğ´ĞµĞ»ÑŒĞ½Ğ¾Ğ¼Ñƒ Ğ¾ĞºĞ½Ñƒ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ.");
+            Grid.SetRow(header, 0);
+            cardContent.Children.Add(header);
+
+            TextBlock messageText = MakeText(
+                "Ğ”ĞµĞ¼Ğ¾ Ğ·Ğ°Ğ²ĞµÑ€ÑˆĞµĞ½Ğ¾ Ğ±ĞµĞ·Ğ¾Ğ¿Ğ°ÑĞ½Ğ¾: ÑĞµÑ‚ÑŒ, UAC Ğ¸ Ğ·Ğ°Ğ¿ÑƒÑĞº ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸ĞºĞ° Ğ¾Ñ‚ĞºĞ»ÑÑ‡ĞµĞ½Ñ‹.",
+                11.5,
+                AccentColor,
+                semiboldFont,
+                FontWeights.Bold);
+            messageText.TextAlignment = TextAlignment.Center;
+            messageText.VerticalAlignment = VerticalAlignment.Center;
+            messageText.Margin = new Thickness(12, 0, 12, 0);
+            Grid.SetRow(messageText, 1);
+            cardContent.Children.Add(messageText);
+
+            StackPanel buttons = BuildButtonRow();
+            Button retryButton = MakeActionButton("ĞŸĞĞ’Ğ¢ĞĞ Ğ˜Ğ¢Ğ¬ Ğ”Ğ•ĞœĞ", true);
+            retryButton.Width = 170;
+            retryButton.IsDefault = true;
+            retryButton.Click += ContinueButtonClick;
+            AutomationProperties.SetName(retryButton, "ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚ÑŒ Ğ´ĞµĞ¼Ğ¾Ğ½ÑÑ‚Ñ€Ğ°Ñ†Ğ¸Ñ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ");
+            buttons.Children.Add(retryButton);
+            preferredFocusButton = retryButton;
+            Grid.SetRow(buttons, 2);
+            cardContent.Children.Add(buttons);
+            FocusPreferredButton();
+        }
+
+        private StackPanel BuildHeader(string title, string subtitle)
+        {
+            var header = new StackPanel();
+            header.Children.Add(MakeText(title, 18, TextColor, semiboldFont, FontWeights.Bold));
+            TextBlock subtitleText = MakeText(
+                subtitle,
+                10.5,
+                MutedColor,
+                regularFont,
+                FontWeights.Normal);
+            subtitleText.Margin = new Thickness(0, 5, 0, 0);
+            header.Children.Add(subtitleText);
+            return header;
+        }
+
+        private static TextBlock MakeText(
+            string text,
+            double size,
+            Color color,
+            FontFamily font,
+            FontWeight weight)
+        {
+            return new TextBlock
+            {
+                Text = text,
+                FontSize = size,
+                FontFamily = font,
+                FontWeight = weight,
+                Foreground = new SolidColorBrush(color),
+                TextWrapping = TextWrapping.Wrap,
+                TextTrimming = TextTrimming.None
+            };
+        }
+
+        private static StackPanel BuildButtonRow()
+        {
+            return new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Bottom
+            };
+        }
+
+        private Button MakeActionButton(string text, bool accentOnHover)
+        {
+            Color baseColor = Color.FromRgb(37, 37, 37);
+            Color hoverColor = accentOnHover ? AccentColor : Color.FromRgb(49, 49, 49);
+            var background = new SolidColorBrush(baseColor);
+            var translate = new TranslateTransform();
+            var button = new Button
+            {
+                Content = text,
+                Height = 38,
+                Padding = new Thickness(13, 0, 13, 0),
+                Background = background,
+                Foreground = new SolidColorBrush(TextColor),
+                BorderThickness = new Thickness(0),
+                FontFamily = semiboldFont,
+                FontSize = 11,
+                FontWeight = FontWeights.Bold,
+                Cursor = Cursors.Hand,
+                Focusable = true,
+                RenderTransform = translate,
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                Template = BuildRoundedButtonTemplate()
+            };
+            button.MouseEnter += delegate
+            {
+                if (!button.IsEnabled)
+                {
+                    return;
+                }
+                AnimateBrush(background, hoverColor, 210);
+                AnimateLift(translate, -1, 240);
+            };
+            button.MouseLeave += delegate
+            {
+                AnimateBrush(background, baseColor, 260);
+                AnimateLift(translate, 0, 300);
+            };
+            button.IsEnabledChanged += delegate
+            {
+                button.Opacity = button.IsEnabled ? 1.0 : 0.45;
+            };
+            return button;
+        }
+
+        private static ControlTemplate BuildRoundedButtonTemplate()
+        {
+            var template = new ControlTemplate(typeof(Button));
+            var border = new FrameworkElementFactory(typeof(Border));
+            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+            border.SetBinding(Border.BackgroundProperty, new Binding("Background")
+            {
+                RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent)
+            });
+            border.SetBinding(Border.PaddingProperty, new Binding("Padding")
+            {
+                RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent)
+            });
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            presenter.SetValue(ContentPresenter.RecognizesAccessKeyProperty, true);
+            border.AppendChild(presenter);
+            template.VisualTree = border;
+            return template;
+        }
+
+        private static void AnimateBrush(SolidColorBrush brush, Color target, int milliseconds)
+        {
+            var animation = new ColorAnimation
+            {
+                To = target,
+                Duration = TimeSpan.FromMilliseconds(milliseconds),
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut }
+            };
+            brush.BeginAnimation(SolidColorBrush.ColorProperty, animation, HandoffBehavior.SnapshotAndReplace);
+        }
+
+        private static void AnimateLift(TranslateTransform transform, double target, int milliseconds)
+        {
+            var animation = new DoubleAnimation
+            {
+                To = target,
+                Duration = TimeSpan.FromMilliseconds(milliseconds),
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut }
+            };
+            transform.BeginAnimation(TranslateTransform.YProperty, animation, HandoffBehavior.SnapshotAndReplace);
+        }
+
+        private void OverlayPreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                HandleEscape();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key != Key.Tab)
+            {
+                return;
+            }
+            UIElement focused = Keyboard.FocusedElement as UIElement;
+            if (focused != null)
+            {
+                FocusNavigationDirection direction =
+                    (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift
+                        ? FocusNavigationDirection.Previous
+                        : FocusNavigationDirection.Next;
+                focused.MoveFocus(new TraversalRequest(direction));
+            }
+            else
+            {
+                FocusPreferredButton();
+            }
+            e.Handled = true;
+        }
+
+        private void FocusPreferredButton()
+        {
+            if (preferredFocusButton == null)
+            {
+                return;
+            }
+            Dispatcher.BeginInvoke(new Action(delegate
+            {
+                if (preferredFocusButton != null && preferredFocusButton.IsVisible)
+                {
+                    preferredFocusButton.Focus();
+                    Keyboard.Focus(preferredFocusButton);
+                }
+            }));
+        }
+
+        private void HideFlow()
+        {
+            state = UpdateState.Hidden;
+            allowOwnerClose = true;
+            preferredFocusButton = null;
+            ResetProgressReferences();
+            Visibility = Visibility.Collapsed;
+        }
+
+        private void RaiseUpdateRequired(SemanticVersion currentVersion, SemanticVersion newVersion)
+        {
+            EventHandler<UpdateRequiredEventArgs> handler = UpdateRequired;
+            if (handler != null)
+            {
+                handler(this, new UpdateRequiredEventArgs(currentVersion.ToString(), newVersion.ToString()));
+            }
+        }
+
+        private bool HasArgument(string expected)
+        {
+            for (int index = 0; index < arguments.Length; index++)
+            {
+                if (string.Equals(arguments[index], expected, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static SemanticVersion GetCurrentVersion()
+        {
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+            if (version == null || version.Major < 0 || version.Minor < 0 || version.Build < 0)
+            {
+                throw new InvalidOperationException("Application assembly version is invalid.");
+            }
+            return new SemanticVersion
+            {
+                Major = version.Major,
+                Minor = version.Minor,
+                Patch = version.Build
+            };
+        }
+
+        private static bool TryParseSemanticVersion(string text, out SemanticVersion version)
+        {
+            version = new SemanticVersion();
+            if (string.IsNullOrEmpty(text) || text.Length > 32)
+            {
+                return false;
+            }
+            string[] parts = text.Split('.');
+            int major;
+            int minor;
+            int patch;
+            if (parts.Length != 3 ||
+                !TryParseVersionPart(parts[0], out major) ||
+                !TryParseVersionPart(parts[1], out minor) ||
+                !TryParseVersionPart(parts[2], out patch))
+            {
+                return false;
+            }
+            version.Major = major;
+            version.Minor = minor;
+            version.Patch = patch;
+            return true;
+        }
+
+        private static bool TryParseVersionPart(string text, out int value)
+        {
+            value = 0;
+            if (string.IsNullOrEmpty(text) ||
+                (text.Length > 1 && text[0] == '0'))
+            {
+                return false;
+            }
+            for (int index = 0; index < text.Length; index++)
+            {
+                if (text[index] < '0' || text[index] > '9')
+                {
+                    return false;
+                }
+            }
+            return int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value);
+        }
+
+        private static bool TryParseStrictInteger(string text, out int value)
+        {
+            value = 0;
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+            for (int index = 0; index < text.Length; index++)
+            {
+                if (text[index] < '0' || text[index] > '9')
+                {
+                    return false;
+                }
+            }
+            return int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value);
+        }
+
+        private static bool TryParseStrictLong(string text, out long value)
+        {
+            value = 0;
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+            for (int index = 0; index < text.Length; index++)
+            {
+                if (text[index] < '0' || text[index] > '9')
+                {
+                    return false;
+                }
+            }
+            return long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value);
+        }
+
+        private static bool IsSha256(string text)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length != 64)
+            {
+                return false;
+            }
+            for (int index = 0; index < text.Length; index++)
+            {
+                char value = text[index];
+                if (!((value >= '0' && value <= '9') ||
+                    (value >= 'a' && value <= 'f') ||
+                    (value >= 'A' && value <= 'F')))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static string BytesToHex(byte[] bytes)
+        {
+            var builder = new StringBuilder(bytes.Length * 2);
+            for (int index = 0; index < bytes.Length; index++)
+            {
+                builder.Append(bytes[index].ToString("X2", CultureInfo.InvariantCulture));
+            }
+            return builder.ToString();
+        }
+
+        private static string DescribeException(Exception exception)
+        {
+            if (exception == null)
+            {
+                return "unknown error";
+            }
+            string message = (exception.Message ?? exception.GetType().Name)
+                .Replace('\r', ' ')
+                .Replace('\n', ' ');
+            if (message.Length > 300)
+            {
+                message = message.Substring(0, 300);
+            }
+            return exception.GetType().Name + ": " + message;
+        }
+
+        private static void Log(string message)
+        {
+            try
+            {
+                string directory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost");
+                Directory.CreateDirectory(directory);
+                string path = Path.Combine(directory, "update.log");
+                string line = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture) +
+                    "  " + message + Environment.NewLine;
+                File.AppendAllText(path, line, new UTF8Encoding(false));
+            }
+            catch
+            {
+            }
+        }
+    }
+}

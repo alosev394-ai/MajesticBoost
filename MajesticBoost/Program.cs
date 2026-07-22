@@ -359,4 +359,1498 @@ namespace MajesticBoost
             knob.Margin = new Thickness(2, 0, 0, 0);
             knob.HorizontalAlignment = HorizontalAlignment.Left;
             knob.VerticalAlignment = VerticalAlignment.Center;
-            knob.Fill = Brush×:òÚ$z{-®éÜj×÷7E&ö6W73°¢&ö÷7E&ö6W72ÒçVÆÃ°¢–b‡&ö6W72ÓÒçVÆÂ¢°¢&WGW&ã°¢Ğ¢G'¢°¢–b‚&ö6W72ä†4W†—FVB¢°¢&ö6W72ä¶–ÆÂ‚“°¢&ö6W72åv—Df÷$W†—Bƒ“°¢Ğ¢Ğ¢6F6‚²Ğ¢f–æÆÇ¢°¢&ö6W72äF—7÷6R‚“°¢Ğ¢Ğ ¢&—fFR7FF–2&ööÂ†4ÆVæ6„&wVÖVçB‡7G&–æuµÒ&wVÖVçG2Â7G&–ærW‡V7FVB¢°¢f÷&V6‚‡7G&–ær&wVÖVçB–â&wVÖVçG2óòæWr7G&–æu³Ò¢°¢–b‡7G&–æräWVÇ2†&wVÖVçBÂW‡V7FVBÂ7G&–æt6ö×&—6öâä÷&F–æÄ–væ÷&T66R’¢°¢&WGW&âG'VS°¢Ğ¢Ğ¢&WGW&âfÇ6S°¢Ğ ¢&—fFR7FF–2'WGFöâÖ¶Uv–æF÷t'WGFöâ‡7G&–ær66W76–&ÆTæÖRÂ&ööÂ—46Æ÷6R¢°¢f"'WGFöâÒæWr'WGFöâ‚“°¢'WGFöâåv–GF‚Ò3°¢'WGFöâä†V–v‡BÒ3°¢f"&6¶w&÷VæD''W6‚ÒæWr6öÆ–D6öÆ÷$''W6‚„6öÆ÷"äg&öÔ&v"ƒÂ#rÂ#rÂ#r’“°¢f"vÇ—„''W6‚ÒæWr6öÆ–D6öÆ÷$''W6‚„6öÆ÷"äg&öÕ&v"ƒ3’Â3’Â3’’“°¢'WGFöâäf÷&Vw&÷VæBÒvÇ—„''W6ƒ°¢'WGFöâä&6¶w&÷VæBÒ&6¶w&÷VæD''W6ƒ°¢'WGFöâä&÷&FW%F†–6¶æW72ÒæWrF†–6¶æW72ƒ“°¢'WGFöâä7W'6÷"Ò7W'6÷'2ä†æC°¢'WGFöâäfö7W5f—7VÅ7G–ÆRÒçVÆÃ°¢'WGFöâåFööÅF—Ò66W76–&ÆTæÖS°¢'WGFöâåFV×ÆFRÒÖ¶T6‡&öÖT'WGFöåFV×ÆFR‚“°¢WFöÖF–öå&÷W'F–W2å6WDæÖR†'WGFöâÂ66W76–&ÆTæÖR“° ¢f"vÇ—„6çf2ÒæWr6çf2‚“°¢vÇ—„6çf2åv–GF‚Ò#C°¢vÇ—„6çf2ä†V–v‡BÒ#C°¢vÇ—„6çf2ä&6¶w&÷VæBÒ''W6†W2åG&ç7&VçC°¢vÇ—„6çf2ä—4†—EFW7Ef—6–&ÆRÒfÇ6S°¢–b†—46Æ÷6R¢°¢f"6Æ÷6TvÇ—‚ÒæWr7—7FVÒåv–æF÷w2å6†W2åF‚‚“°¢6Æ÷6TvÇ—‚äFFÒvVöÖWG'’å'6R‚$ÒbÃbÂ‚Ã‚Ò‚ÃbÂbÃ‚"“°¢6Æ÷6TvÇ—‚å7G&ö¶RÒvÇ—„''W6ƒ°¢6Æ÷6TvÇ—‚å7G&ö¶UF†–6¶æW72Ò#°¢6Æ÷6TvÇ—‚å7G&ö¶U7F'DÆ–æT6ÒVäÆ–æT6å&÷VæC°¢6Æ÷6TvÇ—‚å7G&ö¶TVæDÆ–æT6ÒVäÆ–æT6å&÷VæC°¢vÇ—„6çf2ä6†–ÆG&VâäFB†6Æ÷6TvÇ—‚“°¢Ğ¢VÇ6P¢°¢f"Ö–æ–Ö—¦TvÇ—‚ÒæWr&V7FævÆR‚“°¢Ö–æ–Ö—¦TvÇ—‚åv–GF‚Ò#°¢Ö–æ–Ö—¦TvÇ—‚ä†V–v‡BÒ#°¢Ö–æ–Ö—¦TvÇ—‚å&F—W5‚Ò°¢Ö–æ–Ö—¦TvÇ—‚å&F—W5’Ò°¢Ö–æ–Ö—¦TvÇ—‚äf–ÆÂÒvÇ—„''W6ƒ°¢6çf2å6WDÆVgB†Ö–æ–Ö—¦TvÇ—‚Â"“°¢6çf2å6WEF÷†Ö–æ–Ö—¦TvÇ—‚Âr“°¢vÇ—„6çf2ä6†–ÆG&VâäFB†Ö–æ–Ö—¦TvÇ—‚“°¢Ğ ¢f"vÇ—„†÷7BÒæWrf–Wv&÷‚‚“°¢vÇ—„†÷7Båv–GF‚Ò#°¢vÇ—„†÷7Bä†V–v‡BÒ#°¢vÇ—„†÷7Bå7G&WF6‚Ò7G&WF6‚åVæ–f÷&Ó°¢vÇ—„†÷7Bä6†–ÆBÒvÇ—„6çf3°¢vÇ—„†÷7Bä—4†—EFW7Ef—6–&ÆRÒfÇ6S°¢'WGFöâä6öçFVçBÒvÇ—„†÷7C° ¢f"Æ–gBÒæWrG&ç6ÆFUG&ç6f÷&Ò‚“°¢'WGFöâå&VæFW%G&ç6f÷&ÒÒÆ–gC°¢'WGFöâå&VæFW%G&ç6f÷&Ô÷&–v–âÒæWrö–çBƒãRÂãR“° ¢'WGFöâäÖ÷W6TVçFW"³ÒFVÆVvFP¢°¢æVÂå6WE¤–æFW‚†'WGFöâÂ"“°¢f"6öÆ÷$V6RÒæWr7V&–4V6R²V6–ætÖöFRÒV6–ætÖöFRäV6T–ä÷WBÓ°¢f"Æ–gDV6RÒæWr6–æTV6R²V6–ætÖöFRÒV6–ætÖöFRäV6T–ä÷WBÓ°¢&6¶w&÷VæD''W6‚ä&Vv–äæ–ÖF–öâ€¢6öÆ–D6öÆ÷$''W6‚ä6öÆ÷%&÷W'G’À¢æWr6öÆ÷$æ–ÖF–öâ€¢—46Æ÷6Rò6öÆ÷"äg&öÕ&v"ƒ#3Â#BÂC"’¢6öÆ÷"äg&öÕ&v"ƒCRÂCRÂCR’À¢F–ÖU7âäg&öÔÖ–ÆÆ—6V6öæG2ƒ##’’²V6–ætgVæ7F–öâÒ6öÆ÷$V6RÒ“°¢vÇ—„''W6‚ä&Vv–äæ–ÖF–öâ€¢6öÆ–D6öÆ÷$''W6‚ä6öÆ÷%&÷W'G’À¢æWr6öÆ÷$æ–ÖF–öâ„6öÆ÷'2åv†—FRÂF–ÖU7âäg&öÔÖ–ÆÆ—6V6öæG2ƒ##’’²V6–ætgVæ7F–öâÒ6öÆ÷$V6RÒ“°¢Æ–gBä&Vv–äæ–ÖF–öâ€¢G&ç6ÆFUG&ç6f÷&Òå•&÷W'G’À¢æWrF÷V&ÆTæ–ÖF–öâ‚ÓÂF–ÖU7âäg&öÔÖ–ÆÆ—6V6öæG2ƒ3#’’²V6–ætgVæ7F–öâÒÆ–gDV6RÒ“°¢Ó°¢'WGFöâäÖ÷W6TÆVfR³ÒFVÆVvFP¢°¢æVÂå6WE¤–æFW‚†'WGFöâÂ“°¢f"6öÆ÷$V6RÒæWr7V&–4V6R²V6–ætÖöFRÒV6–ætÖöFRäV6T–ä÷WBÓ°¢f"Æ–gDV6RÒæWr6–æTV6R²V6–ætÖöFRÒV6–ætÖöFRäV6T–ä÷WBÓ°¢&6¶w&÷VæD''W6‚ä&Vv–äæ–ÖF–öâ€¢6öÆ–D6öÆ÷$''W6‚ä6öÆ÷%&÷W'G’À¢æWr6öÆ÷$æ–ÖF–öâ„6öÆ÷"äg&öÔ&v"ƒÂ#rÂ#rÂ#r’ÂF–ÖU7âäg&öÔÖ–ÆÆ—6V6öæG2ƒ#c’’²V6–ætgVæ7F–öâÒ6öÆ÷$V6RÒ“°¢vÇ—„''W6‚ä&Vv–äæ–ÖF–öâ€¢6öÆ–D6öÆ÷$''W6‚ä6öÆ÷%&÷W'G’À¢æWr6öÆ÷$æ–ÖF–öâ„6öÆ÷"äg&öÕ&v"ƒ3’Â3’Â3’’ÂF–ÖU7âäg&öÔÖ–ÆÆ—6V6öæG2ƒ#C’’²V6–ætgVæ7F–öâÒ6öÆ÷$V6RÒ“°¢Æ–gBä&Vv–äæ–ÖF–öâ€¢G&ç6ÆFUG&ç6f÷&Òå•&÷W'G’À¢æWrF÷V&ÆTæ–ÖF–öâƒÂF–ÖU7âäg&öÔÖ–ÆÆ—6V6öæG2ƒ3c’’²V6–ætgVæ7F–öâÒÆ–gDV6RÒ“°¢Ó°¢&WGW&â'WGFöã°¢Ğ ¢&—fFR7FF–26öçG&öÅFV×ÆFRÖ¶UG&ç7&VçD'WGFöåFV×ÆFR‚¢°¢f"FV×ÆFRÒæWr6öçG&öÅFV×ÆFR‡G—Vöb„'WGFöâ’“°¢f"&W6VçFW"ÒæWrg&ÖWv÷&´VÆVÖVçDf7F÷'’‡G—Vöb„6öçFVçE&W6VçFW"’“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"ä†÷&—¦öçFÄÆ–væÖVçE&÷W'G’Â†÷&—¦öçFÄÆ–væÖVçBä6VçFW"“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"åfW'F–6ÄÆ–væÖVçE&÷W'G’ÂfW'F–6ÄÆ–væÖVçBä6VçFW"“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"ä6öçFVçE&÷W'G’ÂæWrFV×ÆFT&–æF–ætW‡FVç6–öâ„6öçFVçD6öçG&öÂä6öçFVçE&÷W'G’’“°¢FV×ÆFRåf—7VÅG&VRÒ&W6VçFW#°¢&WGW&âFV×ÆFS°¢Ğ ¢&—fFR7FF–26öçG&öÅFV×ÆFRÖ¶UG&ç7&VçD6†V6´&÷…FV×ÆFR‚¢°¢f"FV×ÆFRÒæWr6öçG&öÅFV×ÆFR‡G—Vöb„6†V6´&÷‚’“°¢f"&W6VçFW"ÒæWrg&ÖWv÷&´VÆVÖVçDf7F÷'’‡G—Vöb„6öçFVçE&W6VçFW"’“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"ä†÷&—¦öçFÄÆ–væÖVçE&÷W'G’Â†÷&—¦öçFÄÆ–væÖVçBå7G&WF6‚“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"åfW'F–6ÄÆ–væÖVçE&÷W'G’ÂfW'F–6ÄÆ–væÖVçBä6VçFW"“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"ä6öçFVçE&÷W'G’ÂæWrFV×ÆFT&–æF–ætW‡FVç6–öâ„6öçFVçD6öçG&öÂä6öçFVçE&÷W'G’’“°¢FV×ÆFRåf—7VÅG&VRÒ&W6VçFW#°¢&WGW&âFV×ÆFS°¢Ğ ¢&—fFR7FF–26öçG&öÅFV×ÆFRÖ¶T6‡&öÖT'WGFöåFV×ÆFR‚¢°¢f"FV×ÆFRÒæWr6öçG&öÅFV×ÆFR‡G—Vöb„'WGFöâ’“°¢f"&÷&FW"ÒæWrg&ÖWv÷&´VÆVÖVçDf7F÷'’‡G—Vöb„&÷&FW"’“°¢&÷&FW"å6WEfÇVR„&÷&FW"ä6÷&æW%&F—W5&÷W'G’ÂæWr6÷&æW%&F—W2ƒb’“°¢&÷&FW"å6WEfÇVR„&÷&FW"ä&6¶w&÷VæE&÷W'G’ÂæWrFV×ÆFT&–æF–ætW‡FVç6–öâ„6öçG&öÂä&6¶w&÷VæE&÷W'G’’“°¢f"&W6VçFW"ÒæWrg&ÖWv÷&´VÆVÖVçDf7F÷'’‡G—Vöb„6öçFVçE&W6VçFW"’“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"ä†÷&—¦öçFÄÆ–væÖVçE&÷W'G’Â†÷&—¦öçFÄÆ–væÖVçBä6VçFW"“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"åfW'F–6ÄÆ–væÖVçE&÷W'G’ÂfW'F–6ÄÆ–væÖVçBä6VçFW"“°¢&W6VçFW"å6WEfÇVR„6öçFVçE&W6VçFW"ä6öçFVçE&÷W'G’ÂæWrFV×ÆFT&–æF–ætW‡FVç6–öâ„6öçFVçD6öçG&öÂä6öçFVçE&÷W'G’’“°¢&W6VçFW"å6WEfÇVR…FW‡DVÆVÖVçBäf÷&Vw&÷VæE&÷W'G’ÂæWrFV×ÆFT&–æF–ætW‡FVç6–öâ„6öçG&öÂäf÷&Vw&÷VæE&÷W'G’’“°¢&÷&FW"äVæD6†–ÆB‡&W6VçFW"“°¢FV×ÆFRåf—7VÅG&VRÒ&÷&FW#°¢&WGW&âFV×ÆFS°¢Ğ ¢&—fFR7FF–2FW‡D&Æö6²Ö¶UFW‡B‡7G&–ærFW‡BÂF÷V&ÆR6—¦RÂ7G&–ær6öÆ÷"ÂföçEvV–v‡BvV–v‡B¢°¢f"&Æö6²ÒæWrFW‡D&Æö6²‚“°¢&Æö6²åFW‡BÒFW‡C°¢&Æö6²äföçE6—¦RÒ6—¦S°¢&Æö6²äföçEvV–v‡BÒvV–v‡C°¢&Æö6²äf÷&Vw&÷VæBÒ''W6„g&öÒ†6öÆ÷"“°¢FW‡D÷F–öç2å6WEFW‡Df÷&ÖGF–ætÖöFR†&Æö6²ÂFW‡Df÷&ÖGF–ætÖöFRäF—7Æ’“°¢FW‡D÷F–öç2å6WEFW‡E&VæFW&–ætÖöFR†&Æö6²ÂFW‡E&VæFW&–ætÖöFRä6ÆV%G—R“°¢&WGW&â&Æö6³°¢Ğ ¢&—fFR7FF–2föçDfÖ–Ç’ÆöDÖ¦W7F–4föçDfÖ–Ç’‚¢°¢G'¢°¢7G&–ærföçDF—&V7F÷'’Ò7—7FVÒä”òåF‚ä6öÖ&–æR€¢Vçf—&öæÖVçBävWDföÆFW%F‚„Vçf—&öæÖVçBå7V6–ÄföÆFW"äÆö6ÄÆ–6F–öäFF’À¢$Ö¦W7F–4&ö÷7B"À¢$föçG2"“°¢F—&V7F÷'’ä7&VFTF—&V7F÷'’†föçDF—&V7F÷'’“° ¢7G&–ær&VwVÆ$föçBÒ7—7FVÒä”òåF‚ä6öÖ&–æR†föçDF—&V7F÷'’Â%&÷†–Öæ÷fÕ&VwVÆ"çGFb"“°¢–b‚f–ÆRäW†—7G2‡&VwVÆ$föçB’¢°¢W‡G&7DÖ¦W7F–4föçG2†föçDF—&V7F÷'’“°¢Ğ ¢–b„f–ÆRäW†—7G2‡&VwVÆ$föçB’¢°¢7G&–ærF—&V7F÷'•W&’ÒföçDF—&V7F÷'’åG&–ÔVæB…7—7FVÒä”òåF‚äF—&V7F÷'•6W&F÷$6†"Â7—7FVÒä”òåF‚äÇDF—&V7F÷'•6W&F÷$6†"¢²7—7FVÒä”òåF‚äF—&V7F÷'•6W&F÷$6†#°¢&WGW&âæWrföçDfÖ–Ç’†æWrW&’†F—&V7F÷'•W&’ÂW&”¶–æBä'6öÇWFR’Â"âò5&÷†–Öæ÷f"“°¢Ğ¢Ğ¢6F6€¢°¢òòÖ¦W7F–2Ö’æ÷B&R–ç7FÆÆVC²6VvöRT’¶VW2F†RW6&ÆRà¢Ğ ¢&WGW&âæWrföçDfÖ–Ç’‚%6VvöRT’"“°¢Ğ ¢&—fFR7FF–2föçDfÖ–Ç’ÆöDÖ¦W7F–56VÖ–&öÆDföçDfÖ–Ç’‚¢°¢G'¢°¢7G&–ærföçDF—&V7F÷'’Ò7—7FVÒä”òåF‚ä6öÖ&–æR€¢Vçf—&öæÖVçBävWDföÆFW%F‚„Vçf—&öæÖVçBå7V6–ÄföÆFW"äÆö6ÄÆ–6F–öäFF’À¢$Ö¦W7F–4&ö÷7B"À¢$föçG2"“°¢7G&–ær6VÖ–&öÆDföçBÒ7—7FVÒä”òåF‚ä6öÖ&–æR†föçDF—&V7F÷'’Â%&÷†–Öæ÷fÕ6VÖ–&öÆBçGFb"“°¢–b‚f–ÆRäW†—7G2‡6VÖ–&öÆDföçB’¢°¢F—&V7F÷'’ä7&VFTF—&V7F÷'’†föçDF—&V7F÷'’“°¢W‡G&7DÖ¦W7F–4föçG2†föçDF—&V7F÷'’“°¢Ğ ¢–b„f–ÆRäW†—7G2‡6VÖ–&öÆDföçB’¢°¢7G&–ærF—&V7F÷'•W&’ÒföçDF—&V7F÷'’åG&–ÔVæB…7—7FVÒä”òåF‚äF—&V7F÷'•6W&F÷$6†"Â7—7FVÒä”òåF‚äÇDF—&V7F÷'•6W&F÷$6†"¢²7—7FVÒä”òåF‚äF—&V7F÷'•6W&F÷$6†#°¢&WGW&âæWrföçDfÖ–Ç’†æWrW&’†F—&V7F÷'•W&’ÂW&”¶–æBä'6öÇWFR’Â"âò5&÷†–Öæ÷f"“°¢Ğ¢Ğ¢6F6€¢°¢òòW6RF†R6Æ÷6W7B7—7FVÒfÆÆ&6²–bÖ¦W7F–2—2Væf–Æ&ÆRà¢Ğ ¢&WGW&âæWrföçDfÖ–Ç’‚%6VvöRT’6VÖ–&öÆB"“°¢Ğ ¢&—fFR7FF–27G&–ærvWDÆ–6F–öåfW'6–öâ‚¢°¢fW'6–öâfW'6–öâÒ76VÖ&Ç’ävWDW†V7WF–æt76VÖ&Ç’‚’ävWDæÖR‚’åfW'6–öã°¢&WGW&â7G&–æräf÷&ÖB€¢'bâ³Òç³Òç³'Ò"À¢fW'6–öâäÖ¦÷"À¢fW'6–öâäÖ–æ÷"À¢ÖF‚äÖ‚ƒÂfW'6–öâä'V–ÆB’“°¢Ğ ¢&—fFR7FF–2fö–BW‡G&7DÖ¦W7F–4föçG2‡7G&–ærFW7F–æF–öäF—&V7F÷'’¢°¢7G&–ær6%F‚Ò7—7FVÒä”òåF‚ä6öÖ&–æR€¢Vçf—&öæÖVçBävWDföÆFW%F‚„Vçf—&öæÖVçBå7V6–ÄföÆFW"äÆö6ÄÆ–6F–öäFF’À¢$Ö¦W7F–4ÆVæ6†W""À¢'&W6÷W&6W2"À¢&æ6""“°¢–b‚f–ÆRäW†—7G2†6%F‚’¢°¢&WGW&ã°¢Ğ ¢W6–ær‡f"7G&VÒÒæWrf–ÆU7G&VÒ†6%F‚Âf–ÆTÖöFRä÷VâÂf–ÆT66W72å&VBÂf–ÆU6†&Rå&VEw&—FR’¢W6–ær‡f"&VFW"ÒæWr&–æ'•&VFW"‡7G&VÒÂVæ6öF–æråUDc‚’¢°¢&VFW"å&VET–çC3"‚“°¢V–çB†VFW%6—¦RÒ&VFW"å&VET–çC3"‚“°¢&VFW"å&VET–çC3"‚“°¢V–çB§6öäÆVæwF‚Ò&VFW"å&VET–çC3"‚“°¢–b†§6öäÆVæwF‚ÓÒÇÂ§6öäÆVæwF‚âcB¢#B¢#B¢°¢&WGW&ã°¢Ğ ¢7G&–ær†VFW"ÒVæ6öF–æråUDc‚ävWE7G&–ær‡&VFW"å&VD'—FW2‚†–çB–§6öäÆVæwF‚’“°¢ÆöærFFöfg6WBÒ„Â²†VFW%6—¦S°¢f"GFW&âÒæWr&VvW‚€¢%&÷†–Öæ÷fÒƒóÇvV–v‡Cä&Æ6·Ä&öÆGÅ&VwVÆ'Å6VÖ–&öÆB’Õµâ"%ÅÅÒµÂçGFb"#¥Ç²"'6—¦R"#¢ƒóÇ6—¦SåÆB²’Â"&öfg6WB"#¢""ƒóÆöfg6WCåÆB²’"""À¢&VvW„÷F–öç2ä7VÇGW&T–çf&–çB“° ¢f÷&V6‚„ÖF6‚ÖF6‚–âGFW&âäÖF6†W2††VFW"’¢°¢–çB6—¦S°¢Æöæröfg6WC°¢–b‚–çBåG'•'6R†ÖF6‚äw&÷W5²'6—¦R%ÒåfÇVRÂ÷WB6—¦R¢ÇÂÆöæråG'•'6R†ÖF6‚äw&÷W5²&öfg6WB%ÒåfÇVRÂ÷WBöfg6WB¢ÇÂ6—¦RÃÒ ¢ÇÂFFöfg6WB²öfg6WB²6—¦Râ7G&VÒäÆVæwF‚¢°¢6öçF–çVS°¢Ğ ¢7G&–ærF&vWEF‚Ò7—7FVÒä”òåF‚ä6öÖ&–æR€¢FW7F–æF–öäF—&V7F÷'’À¢%&÷†–Öæ÷fÒ"²ÖF6‚äw&÷W5²'vV–v‡B%ÒåfÇVR²"çGFb"“°¢7G&VÒå÷6—F–öâÒFFöfg6WB²öfg6WC°¢'—FUµÒ'—FW2Ò&VFW"å&VD'—FW2‡6—¦R“°¢–b†'—FW2äÆVæwF‚ÓÒ6—¦R¢°¢f–ÆRåw&—FTÆÄ'—FW2‡F&vWEF‚Â'—FW2“°¢Ğ¢Ğ¢Ğ¢Ğ ¢&—fFR7FF–2''W6‚Ö¶TÆ–æV$''W6‚‡7G&–ærg&öÒÂ7G&–ærFòÂF÷V&ÆRævÆR¢°¢F÷V&ÆR&F–ç2ÒævÆR¢ÖF‚å’òƒã°¢F÷V&ÆR‚ÒÖF‚ä6÷2‡&F–ç2’¢ãS°¢F÷V&ÆR’ÒÖF‚å6–â‡&F–ç2’¢ãS°¢f"''W6‚ÒæWrÆ–æV$w&F–VçD''W6‚‚“°¢''W6‚å7F'Eö–çBÒæWrö–çBƒãRÒ‚ÂãRÒ’“°¢''W6‚äVæEö–çBÒæWrö–çBƒãR²‚ÂãR²’“°¢''W6‚äw&F–VçE7F÷2äFB†æWrw&F–VçE7F÷‚„6öÆ÷"”6öÆ÷$6öçfW'FW"ä6öçfW'Dg&öÕ7G&–ær†g&öÒ’Â’“°¢''W6‚äw&F–VçE7F÷2äFB†æWrw&F–VçE7F÷‚„6öÆ÷"”6öÆ÷$6öçfW'FW"ä6öçfW'Dg&öÕ7G&–ær‡Fò’Â’“°¢''W6‚äg&VW¦R‚“°¢&WGW&â''W6ƒ°¢Ğ ¢&—fFR7FF–2''W6‚''W6„g&öÒ‡7G&–ær6öÆ÷"¢°¢f"''W6‚ÒæWr6öÆ–D6öÆ÷$''W6‚‚„6öÆ÷"”6öÆ÷$6öçfW'FW"ä6öçfW'Dg&öÕ7G&–ær†6öÆ÷"’“°¢''W6‚äg&VW¦R‚“°¢&WGW&â''W6ƒ°¢Ğ ¢&—fFR7FF–2–ÖvU6÷W&6R'V–ÆEv–æF÷t–6öâ‚¢°¢f"w&÷WÒæWrG&v–ætw&÷W‚“°¢w&÷Wä6†–ÆG&VâäFB†æWrvVöÖWG'”G&v–ær€¢''W6„g&öÒ‚"4dc##""’À¢æWrVâ„''W6„g&öÒ‚"4ddSƒ3T"’ÂãR’À¢æWr&V7FævÆTvVöÖWG'’†æWr&V7BƒÂÂ3Â3’Â‚Â‚’’“°¢w&÷Wä6†–ÆG&VâäFB†æWrvVöÖWG'”G&v–ær€¢Ö¶TÆ–æV$''W6‚‚"4dddddddb"Â"4dddc”#r"Â“’À¢çVÆÂÀ¢vVöÖWG'’å'6R‚$ÒbÃR2Ã’Ã‚Ã#2ÂbÃ#rÂ#"Ã#22#2Ã‚#"ÃbÃR¢"’’“°¢w&÷Wä6†–ÆG&VâäFB†æWrvVöÖWG'”G&v–ær€¢''W6„g&öÒ‚"4dddcd#Sr"’À¢çVÆÂÀ¢vVöÖWG'’å'6R‚$Ò2Ã#B22Ã#‚RÃ3bÃ32rÃ3’Ã#‚’Ã#B¢"’’“°¢f"–ÖvRÒæWrG&v–æt–ÖvR†w&÷W“°¢–ÖvRäg&VW¦R‚“°¢&WGW&â–ÖvS°¢Ğ¢Ğ§Ğ
+            knob.Fill = Brushes.White;
+            var knobTranslation = new TranslateTransform();
+            knob.RenderTransform = knobTranslation;
+            track.Child = knob;
+            content.Children.Add(track);
+
+            toggle.Tag = new PreferenceToggleVisuals
+            {
+                TrackBrush = trackBrush,
+                KnobTranslation = knobTranslation
+            };
+            toggle.Content = content;
+            toggle.Checked += PreferenceToggleChanged;
+            toggle.Unchecked += PreferenceToggleChanged;
+            toggle.MouseEnter += delegate { UpdatePreferenceToggle(toggle, true); };
+            toggle.MouseLeave += delegate { UpdatePreferenceToggle(toggle, true); };
+            return toggle;
+        }
+
+        private void PreferenceToggleChanged(object sender, RoutedEventArgs e)
+        {
+            var toggle = sender as CheckBox;
+            if (toggle != null)
+            {
+                UpdatePreferenceToggle(toggle, true);
+            }
+            if (preferencesLoaded)
+            {
+                SaveBoostPreferences();
+                if (boostActive)
+                {
+                    RefreshActiveBoostMaintenance();
+                }
+            }
+        }
+
+        private static void UpdatePreferenceToggle(CheckBox toggle, bool animate)
+        {
+            var visuals = toggle.Tag as PreferenceToggleVisuals;
+            if (visuals == null)
+            {
+                return;
+            }
+
+            bool isChecked = toggle.IsChecked == true;
+            Color targetColor = isChecked
+                ? Color.FromRgb(232, 28, 90)
+                : (toggle.IsMouseOver ? Color.FromRgb(52, 52, 52) : Color.FromRgb(37, 37, 37));
+            double targetX = isChecked ? 16 : 0;
+            if (!animate)
+            {
+                visuals.TrackBrush.BeginAnimation(SolidColorBrush.ColorProperty, null);
+                visuals.KnobTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+                visuals.TrackBrush.Color = targetColor;
+                visuals.KnobTranslation.X = targetX;
+                return;
+            }
+
+            var ease = new CubicEase { EasingMode = EasingMode.EaseInOut };
+            visuals.TrackBrush.BeginAnimation(
+                SolidColorBrush.ColorProperty,
+                new ColorAnimation(targetColor, TimeSpan.FromMilliseconds(200)) { EasingFunction = ease });
+            visuals.KnobTranslation.BeginAnimation(
+                TranslateTransform.XProperty,
+                new DoubleAnimation(targetX, TimeSpan.FromMilliseconds(200)) { EasingFunction = ease });
+        }
+
+        private void LoadBoostPreferences()
+        {
+            var values = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                string path = GetPreferencesPath();
+                if (File.Exists(path))
+                {
+                    foreach (string line in File.ReadAllLines(path, Encoding.UTF8))
+                    {
+                        int separator = line.IndexOf('=');
+                        bool parsed;
+                        if (separator > 0 && bool.TryParse(line.Substring(separator + 1).Trim(), out parsed))
+                        {
+                            values[line.Substring(0, separator).Trim()] = parsed;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            keepDiscordToggle.IsChecked = GetPreference(values, "KeepDiscord");
+            keepEpicToggle.IsChecked = GetPreference(values, "KeepEpic");
+            keepSteamToggle.IsChecked = GetPreference(values, "KeepSteam");
+        }
+
+        private void SaveBoostPreferences()
+        {
+            try
+            {
+                string path = GetPreferencesPath();
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                File.WriteAllLines(
+                    path,
+                    new[]
+                    {
+                        "KeepDiscord=" + (keepDiscordToggle.IsChecked == true),
+                        "KeepEpic=" + (keepEpicToggle.IsChecked == true),
+                        "KeepSteam=" + (keepSteamToggle.IsChecked == true)
+                    },
+                    new UTF8Encoding(false));
+            }
+            catch { }
+        }
+
+        private static bool GetPreference(Dictionary<string, bool> values, string name)
+        {
+            bool value;
+            return values.TryGetValue(name, out value) && value;
+        }
+
+        private static string GetPreferencesPath()
+        {
+            return System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MajesticBoost",
+                "boost-preferences.ini");
+        }
+
+        private Canvas BuildStarField()
+        {
+            var canvas = new Canvas();
+            canvas.Width = 176;
+            canvas.Height = 176;
+            canvas.Opacity = 0;
+            canvas.IsHitTestVisible = false;
+
+            var random = new Random(2407);
+            for (int index = 0; index < 18; index++)
+            {
+                var star = new Rectangle();
+                star.Width = 3 + random.NextDouble() * 8;
+                star.Height = index % 4 == 0 ? 1.7 : 1.15;
+                star.RadiusX = star.Height / 2;
+                star.RadiusY = star.Height / 2;
+                star.Fill = index % 3 == 0 ? BrushFrom("#FFE81C5A") : BrushFrom("#FFFFA6C1");
+                star.Opacity = 0.28 + random.NextDouble() * 0.58;
+                star.RenderTransformOrigin = new Point(0.5, 0.5);
+                var transforms = new TransformGroup();
+                transforms.Children.Add(new RotateTransform(-31));
+                transforms.Children.Add(new TranslateTransform());
+                star.RenderTransform = transforms;
+                Canvas.SetLeft(star, 15 + random.NextDouble() * 155);
+                Canvas.SetTop(star, 4 + random.NextDouble() * 154);
+                canvas.Children.Add(star);
+                stars.Add(star);
+            }
+            return canvas;
+        }
+
+        private Grid BuildRocket()
+        {
+            var host = new Grid();
+            host.Width = 106;
+            host.Height = 112;
+            host.HorizontalAlignment = HorizontalAlignment.Center;
+            host.VerticalAlignment = VerticalAlignment.Center;
+            host.RenderTransformOrigin = new Point(0.5, 0.5);
+
+            rocketScale = new ScaleTransform(1, 1);
+            flightTranslation = new TranslateTransform(0, 0);
+            floatTranslation = new TranslateTransform(0, 0);
+            var transforms = new TransformGroup();
+            transforms.Children.Add(rocketScale);
+            transforms.Children.Add(new RotateTransform(43));
+            transforms.Children.Add(flightTranslation);
+            transforms.Children.Add(floatTranslation);
+            host.RenderTransform = transforms;
+
+            flameLayer = BuildStaticFlame();
+            flameLayer.Opacity = 0;
+            host.Children.Add(flameLayer);
+
+            grayRocketLayer = BuildRocketLayer(false);
+            grayRocketLayer.Opacity = 1;
+            host.Children.Add(grayRocketLayer);
+
+            colorRocketLayer = BuildRocketLayer(true);
+            colorRocketLayer.Opacity = 0;
+            host.Children.Add(colorRocketLayer);
+            return host;
+        }
+
+        private Grid BuildStaticFlame()
+        {
+            var grid = new Grid();
+            grid.Width = 72;
+            grid.Height = 103;
+            grid.HorizontalAlignment = HorizontalAlignment.Center;
+            grid.VerticalAlignment = VerticalAlignment.Center;
+            grid.IsHitTestVisible = false;
+
+            var outer = new System.Windows.Shapes.Path();
+            outer.Data = Geometry.Parse("M 24,68 C 18,82 24,96 36,102 C 48,96 54,82 48,68 Z");
+            outer.Fill = MakeLinearBrush("#FFFFD166", "#FFFF4D5A", 90);
+            outer.Effect = new DropShadowEffect
+            {
+                BlurRadius = 13,
+                ShadowDepth = 0,
+                Opacity = 0.88,
+                Color = Color.FromRgb(255, 83, 70)
+            };
+            grid.Children.Add(outer);
+
+            var inner = new System.Windows.Shapes.Path();
+            inner.Data = Geometry.Parse("M 30,71 C 27,82 31,91 36,96 C 41,91 45,82 42,71 Z");
+            inner.Fill = MakeLinearBrush("#FFFFFFFF", "#FFFFBE45", 90);
+            grid.Children.Add(inner);
+            return grid;
+        }
+
+        private Canvas BuildRocketLayer(bool useColor)
+        {
+            var canvas = new Canvas();
+            canvas.Width = 72;
+            canvas.Height = 103;
+            canvas.HorizontalAlignment = HorizontalAlignment.Center;
+            canvas.VerticalAlignment = VerticalAlignment.Center;
+            canvas.IsHitTestVisible = false;
+
+            var leftFin = new System.Windows.Shapes.Path();
+            leftFin.Data = Geometry.Parse("M 19,51 L 7,70 L 22,65 Z");
+            leftFin.Fill = useColor
+                ? MakeLinearBrush("#FFFF4A83", "#FFA40F3B", 90)
+                : MakeLinearBrush("#FF9AA1AB", "#FF606873", 90);
+            canvas.Children.Add(leftFin);
+
+            var rightFin = new System.Windows.Shapes.Path();
+            rightFin.Data = Geometry.Parse("M 53,51 L 65,70 L 50,65 Z");
+            rightFin.Fill = useColor
+                ? MakeLinearBrush("#FFE81C5A", "#FF731D3A", 90)
+                : MakeLinearBrush("#FF9AA1AB", "#FF59616D", 90);
+            canvas.Children.Add(rightFin);
+
+            var body = new System.Windows.Shapes.Path();
+            body.Data = Geometry.Parse("M 36,3 C 22,15 18,35 18,57 C 18,67 25,74 36,79 C 47,74 54,67 54,57 C 54,35 50,15 36,3 Z");
+            body.Fill = useColor
+                ? MakeLinearBrush("#FFFFFFFF", "#FFD9C6CD", 32)
+                : MakeLinearBrush("#FFD1D5DB", "#FF737B87", 32);
+            body.Stroke = useColor ? BrushFrom("#D9FFFFFF") : BrushFrom("#FFBBC0C8");
+            body.StrokeThickness = 1;
+            canvas.Children.Add(body);
+
+            var bodyShade = new System.Windows.Shapes.Path();
+            bodyShade.Data = Geometry.Parse("M 36,3 C 48,17 51,36 50,58 C 48,66 43,72 36,79 C 47,74 54,67 54,57 C 54,35 50,15 36,3 Z");
+            bodyShade.Fill = useColor ? BrushFrom("#503C1722") : BrushFrom("#35545A64");
+            canvas.Children.Add(bodyShade);
+
+            var window = new Ellipse();
+            window.Width = 18;
+            window.Height = 18;
+            Canvas.SetLeft(window, 27);
+            Canvas.SetTop(window, 27);
+            window.Fill = useColor
+                ? MakeLinearBrush("#FFFFA4C2", "#FFE81C5A", 45)
+                : MakeLinearBrush("#FFB5BBC3", "#FF68717C", 45);
+            window.Stroke = useColor ? BrushFrom("#FFFFFFFF") : BrushFrom("#FFD4D7DC");
+            window.StrokeThickness = 2;
+            if (useColor)
+            {
+                window.Effect = new DropShadowEffect
+                {
+                    BlurRadius = 9,
+                    ShadowDepth = 0,
+                    Opacity = 0.7,
+                    Color = Color.FromRgb(232, 28, 90)
+                };
+            }
+            canvas.Children.Add(window);
+
+            var seam = new Line();
+            seam.X1 = 23;
+            seam.Y1 = 57;
+            seam.X2 = 49;
+            seam.Y2 = 57;
+            seam.Stroke = useColor ? BrushFrom("#668C4A61") : BrushFrom("#66656D78");
+            seam.StrokeThickness = 1;
+            canvas.Children.Add(seam);
+            return canvas;
+        }
+
+        private void BoostButtonMouseEnter(object sender, MouseEventArgs e)
+        {
+            if (animationRunning)
+            {
+                return;
+            }
+            AnimateRocketScale(1.08, 155);
+            if (!boostActive)
+            {
+                AnimateRocketColor(true, 180);
+            }
+        }
+
+        private void BoostButtonMouseLeave(object sender, MouseEventArgs e)
+        {
+            if (animationRunning)
+            {
+                return;
+            }
+            AnimateRocketScale(1, 180);
+            if (!boostActive)
+            {
+                AnimateRocketColor(false, 210);
+                flameLayer.Opacity = 0;
+            }
+        }
+
+        private void BoostButtonClick(object sender, RoutedEventArgs e)
+        {
+            ToggleBoost();
+        }
+
+        private void ToggleBoost()
+        {
+            if (animationRunning)
+            {
+                return;
+            }
+
+            if (boostActive)
+            {
+                StartBoostDeactivation();
+            }
+            else
+            {
+                StartBoost();
+            }
+        }
+
+        private void StartBoost()
+        {
+            StopActiveBoostMaintenance();
+            animationRunning = true;
+            departureFinished = false;
+            boostReady = false;
+            boostButton.IsEnabled = false;
+            AnimateRocketColor(true, 110);
+            AnimateRocketScale(1.08, 100);
+            flameLayer.Opacity = 1;
+            caption.Text = "ĞĞšĞ¢Ğ˜Ğ’Ğ˜Ğ Ğ£Ğ® BOOST...";
+            caption.Foreground = BrushFrom("#FFFF8BAF");
+
+            if (!LaunchBoostScript())
+            {
+                HandleBoostFailure("BOOST ĞĞ• Ğ—ĞĞŸĞ£Ğ©Ğ•Ğ");
+                return;
+            }
+
+            PlayDeparture();
+        }
+
+        private bool LaunchBoostScript()
+        {
+            if (demoMode)
+            {
+                var demoTimer = new DispatcherTimer();
+                demoTimer.Interval = TimeSpan.FromMilliseconds(950);
+                demoTimer.Tick += delegate
+                {
+                    demoTimer.Stop();
+                    MarkBoostReady();
+                };
+                demoTimer.Start();
+                return true;
+            }
+
+            try
+            {
+                string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                string scriptPath = System.IO.Path.Combine(baseDirectory, "Game-Boost.ps1");
+                if (!File.Exists(scriptPath))
+                {
+                    throw new FileNotFoundException("Game-Boost.ps1 Ğ½Ğµ Ğ½Ğ°Ğ¹Ğ´ĞµĞ½ Ñ€ÑĞ´Ğ¾Ğ¼ Ñ Ğ¿Ñ€Ğ¸Ğ»Ğ¾Ğ¶ĞµĞ½Ğ¸ĞµĞ¼.", scriptPath);
+                }
+
+                readinessSignalPath = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(),
+                    "MajesticBoost-ready-" + Process.GetCurrentProcess().Id + ".flag");
+                if (File.Exists(readinessSignalPath))
+                {
+                    File.Delete(readinessSignalPath);
+                }
+
+                string powershell = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.System),
+                    "WindowsPowerShell\\v1.0\\powershell.exe");
+                var scriptArguments = new StringBuilder();
+                scriptArguments.Append("-NoProfile -ExecutionPolicy Bypass -File \"");
+                scriptArguments.Append(scriptPath);
+                scriptArguments.Append("\"");
+                if (keepDiscordToggle == null || keepDiscordToggle.IsChecked != true)
+                {
+                    scriptArguments.Append(" -CloseDiscord");
+                }
+                if (keepEpicToggle == null || keepEpicToggle.IsChecked != true)
+                {
+                    scriptArguments.Append(" -CloseEpic");
+                }
+                if (keepSteamToggle == null || keepSteamToggle.IsChecked != true)
+                {
+                    scriptArguments.Append(" -CloseSteam");
+                }
+                scriptArguments.Append(" -ReadySignalPath \"");
+                scriptArguments.Append(readinessSignalPath);
+                scriptArguments.Append("\"");
+
+                var startInfo = new ProcessStartInfo();
+                startInfo.FileName = powershell;
+                startInfo.Arguments = scriptArguments.ToString();
+                startInfo.WorkingDirectory = baseDirectory;
+                startInfo.UseShellExecute = false;
+                startInfo.CreateNoWindow = true;
+                startInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                StopBoostProcess();
+                boostProcess = Process.Start(startInfo);
+
+                readinessDeadline = DateTime.Now.AddSeconds(20);
+                readinessTimer = new DispatcherTimer();
+                readinessTimer.Interval = TimeSpan.FromMilliseconds(120);
+                readinessTimer.Tick += ReadinessTimerTick;
+                readinessTimer.Start();
+                return true;
+            }
+            catch
+            {
+                StopBoostProcess();
+                return false;
+            }
+        }
+
+        private void ReadinessTimerTick(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(readinessSignalPath) && File.Exists(readinessSignalPath))
+            {
+                readinessTimer.Stop();
+                TryDeleteReadinessSignal();
+                MarkBoostReady();
+                return;
+            }
+
+            bool processFailed = false;
+            try
+            {
+                processFailed = boostProcess != null && boostProcess.HasExited && boostProcess.ExitCode != 0;
+            }
+            catch (InvalidOperationException) { }
+            if (processFailed || DateTime.Now >= readinessDeadline)
+            {
+                readinessTimer.Stop();
+                HandleBoostFailure("BOOST ĞĞ• Ğ—ĞĞŸĞ£Ğ©Ğ•Ğ");
+            }
+        }
+
+        private void PlayDeparture()
+        {
+            var duration = TimeSpan.FromMilliseconds(620);
+            var x = MakeEaseAnimation(0, 152, duration, EasingMode.EaseIn);
+            var y = MakeEaseAnimation(0, -108, duration, EasingMode.EaseIn);
+            var opacity = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(560));
+            opacity.BeginTime = TimeSpan.FromMilliseconds(60);
+            opacity.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn };
+            x.Completed += delegate
+            {
+                departureFinished = true;
+                if (boostReady)
+                {
+                    PlayReturn();
+                }
+            };
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, x);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, y);
+            rocket.BeginAnimation(UIElement.OpacityProperty, opacity);
+        }
+
+        private void MarkBoostReady()
+        {
+            if (boostReady || boostActive)
+            {
+                return;
+            }
+            boostReady = true;
+            StartStarfield();
+            caption.Text = "BOOST ĞĞšĞ¢Ğ˜Ğ’Ğ•Ğ";
+            caption.Foreground = BrushFrom("#FFE81C5A");
+            if (departureFinished)
+            {
+                PlayReturn();
+            }
+        }
+
+        private void PlayReturn()
+        {
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+            rocket.BeginAnimation(UIElement.OpacityProperty, null);
+            flightTranslation.X = -152;
+            flightTranslation.Y = 104;
+            rocket.Opacity = 0;
+
+            var duration = TimeSpan.FromMilliseconds(760);
+            var x = MakeEaseAnimation(-152, 0, duration, EasingMode.EaseOut);
+            var y = MakeEaseAnimation(104, 0, duration, EasingMode.EaseOut);
+            var opacity = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(470));
+            opacity.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            x.Completed += delegate
+            {
+                flightTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+                flightTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+                rocket.BeginAnimation(UIElement.OpacityProperty, null);
+                flightTranslation.X = 0;
+                flightTranslation.Y = 0;
+                rocket.Opacity = 1;
+                SetRocketScaleImmediately(boostButton.IsMouseOver ? 1.08 : 1);
+                boostActive = true;
+                animationRunning = false;
+                boostButton.IsEnabled = true;
+                SetBoostAutomationState(true);
+                StartActiveBoostMaintenance();
+                StartRocketFloat();
+            };
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, x);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, y);
+            rocket.BeginAnimation(UIElement.OpacityProperty, opacity);
+        }
+
+        private void HandleBoostFailure(string message)
+        {
+            if (readinessTimer != null)
+            {
+                readinessTimer.Stop();
+            }
+            TryDeleteReadinessSignal();
+            StopActiveBoostMaintenance();
+            StopBoostProcess();
+            boostReady = false;
+            departureFinished = false;
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+            rocket.BeginAnimation(UIElement.OpacityProperty, null);
+            flightTranslation.X = 0;
+            flightTranslation.Y = 0;
+            rocket.Opacity = 1;
+            flameLayer.Opacity = 0;
+            AnimateRocketColor(false, 180);
+            AnimateRocketScale(1, 160);
+            caption.Text = message;
+            caption.Foreground = BrushFrom("#FFFF667A");
+            animationRunning = false;
+            boostButton.IsEnabled = true;
+        }
+
+        private void StartBoostDeactivation()
+        {
+            animationRunning = true;
+            boostButton.IsEnabled = false;
+            boostActive = false;
+            StopActiveBoostMaintenance();
+            StopBoostProcess();
+            StopRocketFloat();
+            caption.Text = "ĞĞ¢ĞšĞ›Ğ®Ğ§ĞĞ® BOOST...";
+            caption.Foreground = BrushFrom("#FFFF8BAF");
+            flameLayer.Opacity = 1;
+            AnimateRocketColor(true, 100);
+            AnimateRocketScale(1.08, 100);
+
+            var duration = TimeSpan.FromMilliseconds(620);
+            var x = MakeEaseAnimation(0, 152, duration, EasingMode.EaseIn);
+            var y = MakeEaseAnimation(0, -108, duration, EasingMode.EaseIn);
+            var opacity = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(560));
+            opacity.BeginTime = TimeSpan.FromMilliseconds(60);
+            opacity.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn };
+            x.Completed += delegate { PlayDeactivationReturn(); };
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, x);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, y);
+            rocket.BeginAnimation(UIElement.OpacityProperty, opacity);
+        }
+
+        private void PlayDeactivationReturn()
+        {
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+            rocket.BeginAnimation(UIElement.OpacityProperty, null);
+            flightTranslation.X = -152;
+            flightTranslation.Y = 104;
+            rocket.Opacity = 0;
+            flameLayer.Opacity = 0;
+            SetRocketColorImmediately(false);
+            StopStarfield();
+
+            var duration = TimeSpan.FromMilliseconds(760);
+            var x = MakeEaseAnimation(-152, 0, duration, EasingMode.EaseOut);
+            var y = MakeEaseAnimation(104, 0, duration, EasingMode.EaseOut);
+            var opacity = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(470));
+            opacity.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            x.Completed += delegate
+            {
+                flightTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+                flightTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+                rocket.BeginAnimation(UIElement.OpacityProperty, null);
+                flightTranslation.X = 0;
+                flightTranslation.Y = 0;
+                rocket.Opacity = 1;
+                boostActive = false;
+                boostReady = false;
+                departureFinished = false;
+                animationRunning = false;
+                boostButton.IsEnabled = true;
+                caption.Text = "ĞĞĞ–ĞœĞ˜, Ğ§Ğ¢ĞĞ‘Ğ« ĞĞšĞ¢Ğ˜Ğ’Ğ˜Ğ ĞĞ’ĞĞ¢Ğ¬";
+                caption.Foreground = BrushFrom("#FF8E8E8E");
+                SetBoostAutomationState(false);
+
+                bool isHovered = boostButton.IsMouseOver;
+                SetRocketScaleImmediately(isHovered ? 1.08 : 1);
+                AnimateRocketColor(isHovered, 180);
+            };
+            flightTranslation.BeginAnimation(TranslateTransform.XProperty, x);
+            flightTranslation.BeginAnimation(TranslateTransform.YProperty, y);
+            rocket.BeginAnimation(UIElement.OpacityProperty, opacity);
+        }
+
+        private void StartStarfield()
+        {
+            if (starField.Opacity > 0.5)
+            {
+                return;
+            }
+            var appear = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(320));
+            starField.BeginAnimation(UIElement.OpacityProperty, appear);
+
+            for (int index = 0; index < stars.Count; index++)
+            {
+                var transforms = (TransformGroup)stars[index].RenderTransform;
+                var translation = (TranslateTransform)transforms.Children[1];
+                double durationMs = 1050 + (index % 6) * 180;
+                var x = new DoubleAnimation(66, -112, TimeSpan.FromMilliseconds(durationMs));
+                var y = new DoubleAnimation(-44, 74, TimeSpan.FromMilliseconds(durationMs));
+                x.BeginTime = TimeSpan.FromMilliseconds((index % 9) * 115);
+                y.BeginTime = x.BeginTime;
+                x.RepeatBehavior = RepeatBehavior.Forever;
+                y.RepeatBehavior = RepeatBehavior.Forever;
+                translation.BeginAnimation(TranslateTransform.XProperty, x);
+                translation.BeginAnimation(TranslateTransform.YProperty, y);
+            }
+        }
+
+        private void StopStarfield()
+        {
+            var disappear = new DoubleAnimation(0, TimeSpan.FromMilliseconds(220));
+            disappear.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            disappear.Completed += delegate
+            {
+                starField.BeginAnimation(UIElement.OpacityProperty, null);
+                starField.Opacity = 0;
+                foreach (FrameworkElement star in stars)
+                {
+                    var transforms = (TransformGroup)star.RenderTransform;
+                    var translation = (TranslateTransform)transforms.Children[1];
+                    translation.BeginAnimation(TranslateTransform.XProperty, null);
+                    translation.BeginAnimation(TranslateTransform.YProperty, null);
+                    translation.X = 0;
+                    translation.Y = 0;
+                }
+            };
+            starField.BeginAnimation(UIElement.OpacityProperty, disappear);
+        }
+
+        private void StartRocketFloat()
+        {
+            var y = new DoubleAnimation(-3.5, 3.5, TimeSpan.FromMilliseconds(1250));
+            y.AutoReverse = true;
+            y.RepeatBehavior = RepeatBehavior.Forever;
+            y.EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut };
+            var x = new DoubleAnimation(-1.6, 1.6, TimeSpan.FromMilliseconds(1650));
+            x.AutoReverse = true;
+            x.RepeatBehavior = RepeatBehavior.Forever;
+            x.EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut };
+            floatTranslation.BeginAnimation(TranslateTransform.YProperty, y);
+            floatTranslation.BeginAnimation(TranslateTransform.XProperty, x);
+        }
+
+        private void StopRocketFloat()
+        {
+            floatTranslation.BeginAnimation(TranslateTransform.XProperty, null);
+            floatTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+            floatTranslation.X = 0;
+            floatTranslation.Y = 0;
+        }
+
+        private void SetRocketColorImmediately(bool colorized)
+        {
+            colorRocketLayer.BeginAnimation(UIElement.OpacityProperty, null);
+            grayRocketLayer.BeginAnimation(UIElement.OpacityProperty, null);
+            colorRocketLayer.Opacity = colorized ? 1 : 0;
+            grayRocketLayer.Opacity = colorized ? 0 : 1;
+        }
+
+        private void SetRocketScaleImmediately(double scale)
+        {
+            rocketScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            rocketScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            rocketScale.ScaleX = scale;
+            rocketScale.ScaleY = scale;
+        }
+
+        private void StartActiveBoostMaintenance()
+        {
+            AdvanceActiveMaintenanceGeneration();
+            if (activeBoostTimer == null)
+            {
+                activeBoostTimer = new DispatcherTimer();
+                activeBoostTimer.Interval = TimeSpan.FromSeconds(30);
+                activeBoostTimer.Tick += delegate { QueueActiveBoostMaintenance(); };
+            }
+            activeBoostTimer.Start();
+            QueueActiveBoostMaintenance();
+        }
+
+        private void RefreshActiveBoostMaintenance()
+        {
+            AdvanceActiveMaintenanceGeneration();
+            QueueActiveBoostMaintenance();
+        }
+
+        private void StopActiveBoostMaintenance()
+        {
+            if (activeBoostTimer != null)
+            {
+                activeBoostTimer.Stop();
+            }
+            lock (activeMaintenanceSync)
+            {
+                Interlocked.Increment(ref activeMaintenanceGeneration);
+                TryDeleteActiveBoostDemoSignal();
+            }
+        }
+
+        private void QueueActiveBoostMaintenance()
+        {
+            if (!boostActive || animationRunning)
+            {
+                return;
+            }
+            if (Interlocked.CompareExchange(ref activeMaintenancePending, 1, 0) != 0)
+            {
+                return;
+            }
+
+            int generation = ReadActiveMaintenanceGeneration();
+            bool closeDiscord = keepDiscordToggle == null || keepDiscordToggle.IsChecked != true;
+            bool closeEpic = keepEpicToggle == null || keepEpicToggle.IsChecked != true;
+            bool closeSteam = keepSteamToggle == null || keepSteamToggle.IsChecked != true;
+            Task.Run(delegate
+            {
+                try
+                {
+                    RunActiveBoostMaintenance(generation, closeDiscord, closeEpic, closeSteam);
+                }
+                catch (Exception ex)
+                {
+                    AppendActiveBoostLog("Active maintenance error: " + ex.Message);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref activeMaintenancePending, 0);
+                    if (generation != ReadActiveMaintenanceGeneration())
+                    {
+                        try
+                        {
+                            Dispatcher.BeginInvoke(new Action(delegate
+                            {
+                                if (boostActive && !animationRunning)
+                                {
+                                    QueueActiveBoostMaintenance();
+                                }
+                            }));
+                        }
+                        catch (InvalidOperationException) { }
+                        catch (TaskCanceledException) { }
+                    }
+                }
+            });
+        }
+
+        private void RunActiveBoostMaintenance(
+            int generation,
+            bool closeDiscord,
+            bool closeEpic,
+            bool closeSteam)
+        {
+            if (!IsActiveMaintenanceGeneration(generation))
+            {
+                return;
+            }
+
+            if (demoMode)
+            {
+                lock (activeMaintenanceSync)
+                {
+                    if (IsActiveMaintenanceGeneration(generation))
+                    {
+                        File.WriteAllText(
+                            GetActiveBoostDemoSignalPath(),
+                            DateTime.UtcNow.ToString("o"),
+                            new UTF8Encoding(false));
+                    }
+                }
+                return;
+            }
+
+            var processesToStop = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "SteelSeriesMoments",
+                "NVIDIA Overlay",
+                "nvsphelper64",
+                "wallpaper32",
+                "wallpaper64",
+                "WidgetService",
+                "Widgets",
+                "CrossDeviceService"
+            };
+            if (closeDiscord)
+            {
+                processesToStop.Add("Discord");
+            }
+            if (closeEpic)
+            {
+                processesToStop.Add("EpicGamesLauncher");
+                processesToStop.Add("EpicWebHelper");
+                processesToStop.Add("EpicOnlineServicesUserHelper");
+            }
+            if (closeSteam)
+            {
+                processesToStop.Add("steam");
+                processesToStop.Add("steamwebhelper");
+                processesToStop.Add("GameOverlayUI");
+            }
+
+            foreach (string processName in processesToStop)
+            {
+                if (!IsActiveMaintenanceGeneration(generation))
+                {
+                    return;
+                }
+                Process[] processes;
+                try
+                {
+                    processes = Process.GetProcessesByName(processName);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (Process process in processes)
+                {
+                    try
+                    {
+                        bool stopped = false;
+                        int processId = 0;
+                        string actualName = null;
+                        lock (activeMaintenanceSync)
+                        {
+                            if (!IsActiveMaintenanceGeneration(generation))
+                            {
+                                continue;
+                            }
+                            processId = process.Id;
+                            actualName = process.ProcessName;
+                            process.Kill();
+                            stopped = true;
+                        }
+                        if (stopped)
+                        {
+                            AppendActiveBoostLog(
+                                "Stopped " + actualName + " (PID " + processId + ") during active Boost.");
+                        }
+                    }
+                    catch { }
+                    finally
+                    {
+                        process.Dispose();
+                    }
+                }
+            }
+
+            foreach (string gameName in new[] { "GTA5", "GTA5_Enhanced" })
+            {
+                if (!IsActiveMaintenanceGeneration(generation))
+                {
+                    return;
+                }
+                Process[] games;
+                try
+                {
+                    games = Process.GetProcessesByName(gameName);
+                }
+                catch
+                {
+                    continue;
+                }
+                foreach (Process game in games)
+                {
+                    try
+                    {
+                        bool priorityChanged = false;
+                        string priorityMessage = null;
+                        lock (activeMaintenanceSync)
+                        {
+                            if (!IsActiveMaintenanceGeneration(generation))
+                            {
+                                continue;
+                            }
+                            if (game.PriorityClass != ProcessPriorityClass.High)
+                            {
+                                game.PriorityClass = ProcessPriorityClass.High;
+                                priorityMessage =
+                                    "Set " + game.ProcessName + " (PID " + game.Id +
+                                    ") priority to High during active Boost.";
+                                priorityChanged = true;
+                            }
+                        }
+                        if (priorityChanged)
+                        {
+                            AppendActiveBoostLog(priorityMessage);
+                        }
+                    }
+                    catch { }
+                    finally
+                    {
+                        game.Dispose();
+                    }
+                }
+            }
+        }
+
+        private int ReadActiveMaintenanceGeneration()
+        {
+            return Interlocked.CompareExchange(ref activeMaintenanceGeneration, 0, 0);
+        }
+
+        private int AdvanceActiveMaintenanceGeneration()
+        {
+            lock (activeMaintenanceSync)
+            {
+                return Interlocked.Increment(ref activeMaintenanceGeneration);
+            }
+        }
+
+        private bool IsActiveMaintenanceGeneration(int generation)
+        {
+            return generation == ReadActiveMaintenanceGeneration();
+        }
+
+        private static void AppendActiveBoostLog(string message)
+        {
+            try
+            {
+                string directory = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost");
+                Directory.CreateDirectory(directory);
+                File.AppendAllText(
+                    System.IO.Path.Combine(directory, "Game-Boost.last.log"),
+                    "[" + DateTime.Now.ToString("o") + "] " + message + Environment.NewLine,
+                    new UTF8Encoding(false));
+            }
+            catch { }
+        }
+
+        private static string GetActiveBoostDemoSignalPath()
+        {
+            return System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(),
+                "MajesticBoost-demo-monitor-" + Process.GetCurrentProcess().Id + ".flag");
+        }
+
+        private static void TryDeleteActiveBoostDemoSignal()
+        {
+            try
+            {
+                string path = GetActiveBoostDemoSignalPath();
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch { }
+        }
+
+        private void SetBoostAutomationState(bool active)
+        {
+            AutomationProperties.SetName(
+                boostButton,
+                active ? "ĞÑ‚ĞºĞ»ÑÑ‡Ğ¸Ñ‚ÑŒ Boost Ğ¿Ñ€Ğ¾Ğ¸Ğ·Ğ²Ğ¾Ğ´Ğ¸Ñ‚ĞµĞ»ÑŒĞ½Ğ¾ÑÑ‚Ğ¸" : "ĞĞºÑ‚Ğ¸Ğ²Ğ¸Ñ€Ğ¾Ğ²Ğ°Ñ‚ÑŒ Boost Ğ¿Ñ€Ğ¾Ğ¸Ğ·Ğ²Ğ¾Ğ´Ğ¸Ñ‚ĞµĞ»ÑŒĞ½Ğ¾ÑÑ‚Ğ¸");
+            AutomationProperties.SetHelpText(
+                boostButton,
+                active
+                    ? "ĞÑÑ‚Ğ°Ğ½Ğ°Ğ²Ğ»Ğ¸Ğ²Ğ°ĞµÑ‚ Ğ°ĞºÑ‚Ğ¸Ğ²Ğ½Ñ‹Ğ¹ ĞºĞ¾Ğ½Ñ‚Ñ€Ğ¾Ğ»ÑŒ Ñ„Ğ¾Ğ½Ğ¾Ğ²Ñ‹Ñ… Ğ¿Ñ€Ğ¾Ñ†ĞµÑÑĞ¾Ğ². ĞŸÑ€Ğ¸Ğ¼ĞµĞ½Ñ‘Ğ½Ğ½Ñ‹Ğµ ÑĞ¸ÑÑ‚ĞµĞ¼Ğ½Ñ‹Ğµ Ğ¸Ğ·Ğ¼ĞµĞ½ĞµĞ½Ğ¸Ñ Ğ½Ğµ Ğ¾Ñ‚ĞºĞ°Ñ‚Ñ‹Ğ²Ğ°ÑÑ‚ÑÑ."
+                    : "ĞÑ‚ĞºĞ»ÑÑ‡Ğ°ĞµÑ‚ Ğ»Ğ¸ÑˆĞ½Ğ¸Ğµ Ñ„Ğ¾Ğ½Ğ¾Ğ²Ñ‹Ğµ Ğ¿Ñ€Ğ¾Ñ†ĞµÑÑÑ‹, Ğ¿Ğ¾Ğ´Ğ´ĞµÑ€Ğ¶Ğ¸Ğ²Ğ°ĞµÑ‚ Ğ¿Ñ€Ğ¸Ğ¾Ñ€Ğ¸Ñ‚ĞµÑ‚ Ğ¸Ğ³Ñ€Ñ‹ Ğ¸ Ğ·Ğ°Ğ¿ÑƒÑĞºĞ°ĞµÑ‚ Majestic.");
+        }
+
+        private void AnimateRocketColor(bool colorized, int milliseconds)
+        {
+            double colorTarget = colorized ? 1 : 0;
+            double grayTarget = colorized ? 0 : 1;
+            var colorAnimation = new DoubleAnimation(colorTarget, TimeSpan.FromMilliseconds(milliseconds));
+            var grayAnimation = new DoubleAnimation(grayTarget, TimeSpan.FromMilliseconds(milliseconds));
+            colorAnimation.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            grayAnimation.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            colorRocketLayer.BeginAnimation(UIElement.OpacityProperty, colorAnimation);
+            grayRocketLayer.BeginAnimation(UIElement.OpacityProperty, grayAnimation);
+        }
+
+        private void AnimateRocketScale(double target, int milliseconds)
+        {
+            var x = new DoubleAnimation(target, TimeSpan.FromMilliseconds(milliseconds));
+            var y = new DoubleAnimation(target, TimeSpan.FromMilliseconds(milliseconds));
+            x.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            y.EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            rocketScale.BeginAnimation(ScaleTransform.ScaleXProperty, x);
+            rocketScale.BeginAnimation(ScaleTransform.ScaleYProperty, y);
+        }
+
+        private static DoubleAnimation MakeEaseAnimation(double from, double to, TimeSpan duration, EasingMode mode)
+        {
+            var animation = new DoubleAnimation(from, to, duration);
+            animation.EasingFunction = new CubicEase { EasingMode = mode };
+            return animation;
+        }
+
+        private void WindowKeyDown(object sender, KeyEventArgs e)
+        {
+            if (updateOverlay != null && updateOverlay.ConsumesApplicationInput)
+            {
+                if (e.Key == Key.Escape)
+                {
+                    updateOverlay.HandleEscape();
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (optimizationOverlay != null && optimizationOverlay.IsFlowVisible)
+            {
+                if (e.Key == Key.Escape)
+                {
+                    optimizationOverlay.HandleEscape();
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Escape)
+            {
+                Close();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter || e.Key == Key.Space)
+            {
+                if (Keyboard.FocusedElement is ButtonBase)
+                {
+                    return;
+                }
+                ToggleBoost();
+                e.Handled = true;
+            }
+        }
+
+        private async void BoostWindowLoaded(object sender, RoutedEventArgs e)
+        {
+            bool canContinue = true;
+            if (updateOverlay != null)
+            {
+                canContinue = await updateOverlay.CheckForUpdatesAsync();
+            }
+            if (!canContinue)
+            {
+                return;
+            }
+
+            boostButton.IsEnabled = true;
+            if (optimizationOverlay != null)
+            {
+                optimizationOverlay.ShowIfRequired();
+            }
+        }
+
+        private void BoostWindowClosing(object sender, CancelEventArgs e)
+        {
+            if (updateOverlay != null && updateOverlay.ShouldCancelWindowClose())
+            {
+                e.Cancel = true;
+                return;
+            }
+            if (optimizationOverlay != null && optimizationOverlay.ShouldCancelWindowClose())
+            {
+                e.Cancel = true;
+            }
+        }
+
+        private void WindowMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+            var element = e.OriginalSource as DependencyObject;
+            while (element != null)
+            {
+                if (element is ButtonBase)
+                {
+                    return;
+                }
+                element = VisualTreeHelper.GetParent(element);
+            }
+            try { DragMove(); }
+            catch (InvalidOperationException) { }
+        }
+
+        private void WindowClosed(object sender, EventArgs e)
+        {
+            boostActive = false;
+            if (readinessTimer != null)
+            {
+                readinessTimer.Stop();
+            }
+            StopActiveBoostMaintenance();
+            TryDeleteReadinessSignal();
+            StopBoostProcess();
+        }
+
+        private void TryDeleteReadinessSignal()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(readinessSignalPath) && File.Exists(readinessSignalPath))
+                {
+                    File.Delete(readinessSignalPath);
+                }
+            }
+            catch { }
+        }
+
+        private void StopBoostProcess()
+        {
+            Process process = boostProcess;
+            boostProcess = null;
+            if (process == null)
+            {
+                return;
+            }
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    process.WaitForExit(1000);
+                }
+            }
+            catch { }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        private static bool HasLaunchArgument(string[] arguments, string expected)
+        {
+            foreach (string argument in arguments ?? new string[0])
+            {
+                if (string.Equals(argument, expected, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static Button MakeWindowButton(string accessibleName, bool isClose)
+        {
+            var button = new Button();
+            button.Width = 30;
+            button.Height = 30;
+            var backgroundBrush = new SolidColorBrush(Color.FromArgb(0, 27, 27, 27));
+            var glyphBrush = new SolidColorBrush(Color.FromRgb(139, 139, 139));
+            button.Foreground = glyphBrush;
+            button.Background = backgroundBrush;
+            button.BorderThickness = new Thickness(0);
+            button.Cursor = Cursors.Hand;
+            button.FocusVisualStyle = null;
+            button.ToolTip = accessibleName;
+            button.Template = MakeChromeButtonTemplate();
+            AutomationProperties.SetName(button, accessibleName);
+
+            var glyphCanvas = new Canvas();
+            glyphCanvas.Width = 24;
+            glyphCanvas.Height = 24;
+            glyphCanvas.Background = Brushes.Transparent;
+            glyphCanvas.IsHitTestVisible = false;
+            if (isClose)
+            {
+                var closeGlyph = new System.Windows.Shapes.Path();
+                closeGlyph.Data = Geometry.Parse("M 6,6 L 18,18 M 18,6 L 6,18");
+                closeGlyph.Stroke = glyphBrush;
+                closeGlyph.StrokeThickness = 2;
+                closeGlyph.StrokeStartLineCap = PenLineCap.Round;
+                closeGlyph.StrokeEndLineCap = PenLineCap.Round;
+                glyphCanvas.Children.Add(closeGlyph);
+            }
+            else
+            {
+                var minimizeGlyph = new Rectangle();
+                minimizeGlyph.Width = 20;
+                minimizeGlyph.Height = 2;
+                minimizeGlyph.RadiusX = 1;
+                minimizeGlyph.RadiusY = 1;
+                minimizeGlyph.Fill = glyphBrush;
+                Canvas.SetLeft(minimizeGlyph, 2);
+                Canvas.SetTop(minimizeGlyph, 17);
+                glyphCanvas.Children.Add(minimizeGlyph);
+            }
+
+            var glyphHost = new Viewbox();
+            glyphHost.Width = 20;
+            glyphHost.Height = 20;
+            glyphHost.Stretch = Stretch.Uniform;
+            glyphHost.Child = glyphCanvas;
+            glyphHost.IsHitTestVisible = false;
+            button.Content = glyphHost;
+
+            var lift = new TranslateTransform();
+            button.RenderTransform = lift;
+            button.RenderTransformOrigin = new Point(0.5, 0.5);
+
+            button.MouseEnter += delegate
+            {
+                Panel.SetZIndex(button, 2);
+                var colorEase = new CubicEase { EasingMode = EasingMode.EaseInOut };
+                var liftEase = new SineEase { EasingMode = EasingMode.EaseInOut };
+                backgroundBrush.BeginAnimation(
+                    SolidColorBrush.ColorProperty,
+                    new ColorAnimation(
+                        isClose ? Color.FromRgb(231, 24, 42) : Color.FromRgb(45, 45, 45),
+                        TimeSpan.FromMilliseconds(220)) { EasingFunction = colorEase });
+                glyphBrush.BeginAnimation(
+                    SolidColorBrush.ColorProperty,
+                    new ColorAnimation(Colors.White, TimeSpan.FromMilliseconds(220)) { EasingFunction = colorEase });
+                lift.BeginAnimation(
+                    TranslateTransform.YProperty,
+                    new DoubleAnimation(-1, TimeSpan.FromMilliseconds(320)) { EasingFunction = liftEase });
+            };
+            button.MouseLeave += delegate
+            {
+                Panel.SetZIndex(button, 0);
+                var colorEase = new CubicEase { EasingMode = EasingMode.EaseInOut };
+                var liftEase = new SineEase { EasingMode = EasingMode.EaseInOut };
+                backgroundBrush.BeginAnimation(
+                    SolidColorBrush.ColorProperty,
+                    new ColorAnimation(Color.FromArgb(0, 27, 27, 27), TimeSpan.FromMilliseconds(260)) { EasingFunction = colorEase });
+                glyphBrush.BeginAnimation(
+                    SolidColorBrush.ColorProperty,
+                    new ColorAnimation(Color.FromRgb(139, 139, 139), TimeSpan.FromMilliseconds(240)) { EasingFunction = colorEase });
+                lift.BeginAnimation(
+                    TranslateTransform.YProperty,
+                    new DoubleAnimation(0, TimeSpan.FromMilliseconds(360)) { EasingFunction = liftEase });
+            };
+            return button;
+        }
+
+        private static ControlTemplate MakeTransparentButtonTemplate()
+        {
+            var template = new ControlTemplate(typeof(Button));
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
+            template.VisualTree = presenter;
+            return template;
+        }
+
+        private static ControlTemplate MakeTransparentCheckBoxTemplate()
+        {
+            var template = new ControlTemplate(typeof(CheckBox));
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
+            presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
+            template.VisualTree = presenter;
+            return template;
+        }
+
+        private static ControlTemplate MakeChromeButtonTemplate()
+        {
+            var template = new ControlTemplate(typeof(Button));
+            var border = new FrameworkElementFactory(typeof(Border));
+            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
+            presenter.SetValue(TextElement.ForegroundProperty, new TemplateBindingExtension(Control.ForegroundProperty));
+            border.AppendChild(presenter);
+            template.VisualTree = border;
+            return template;
+        }
+
+        private static TextBlock MakeText(string text, double size, string color, FontWeight weight)
+        {
+            var block = new TextBlock();
+            block.Text = text;
+            block.FontSize = size;
+            block.FontWeight = weight;
+            block.Foreground = BrushFrom(color);
+            TextOptions.SetTextFormattingMode(block, TextFormattingMode.Display);
+            TextOptions.SetTextRenderingMode(block, TextRenderingMode.ClearType);
+            return block;
+        }
+
+        private static FontFamily LoadMajesticFontFamily()
+        {
+            try
+            {
+                string fontDirectory = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost",
+                    "Fonts");
+                Directory.CreateDirectory(fontDirectory);
+
+                string regularFont = System.IO.Path.Combine(fontDirectory, "ProximaNova-Regular.ttf");
+                if (!File.Exists(regularFont))
+                {
+                    ExtractMajesticFonts(fontDirectory);
+                }
+
+                if (File.Exists(regularFont))
+                {
+                    string directoryUri = fontDirectory.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+                        + System.IO.Path.DirectorySeparatorChar;
+                    return new FontFamily(new Uri(directoryUri, UriKind.Absolute), "./#Proxima Nova");
+                }
+            }
+            catch
+            {
+                // Majestic may not be installed; Segoe UI keeps the app usable.
+            }
+
+            return new FontFamily("Segoe UI");
+        }
+
+        private static FontFamily LoadMajesticSemiboldFontFamily()
+        {
+            try
+            {
+                string fontDirectory = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost",
+                    "Fonts");
+                string semiboldFont = System.IO.Path.Combine(fontDirectory, "ProximaNova-Semibold.ttf");
+                if (!File.Exists(semiboldFont))
+                {
+                    Directory.CreateDirectory(fontDirectory);
+                    ExtractMajesticFonts(fontDirectory);
+                }
+
+                if (File.Exists(semiboldFont))
+                {
+                    string directoryUri = fontDirectory.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+                        + System.IO.Path.DirectorySeparatorChar;
+                    return new FontFamily(new Uri(directoryUri, UriKind.Absolute), "./#Proxima Nova");
+                }
+            }
+            catch
+            {
+                // Use the closest system fallback if Majestic is unavailable.
+            }
+
+            return new FontFamily("Segoe UI Semibold");
+        }
+
+        private static string GetApplicationVersion()
+        {
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+            return string.Format(
+                "v. {0}.{1}.{2}",
+                version.Major,
+                version.Minor,
+                Math.Max(0, version.Build));
+        }
+
+        private static void ExtractMajesticFonts(string destinationDirectory)
+        {
+            string asarPath = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MajesticLauncher",
+                "resources",
+                "app.asar");
+            if (!File.Exists(asarPath))
+            {
+                return;
+            }
+
+            using (var stream = new FileStream(asarPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var reader = new BinaryReader(stream, Encoding.UTF8))
+            {
+                reader.ReadUInt32();
+                uint headerSize = reader.ReadUInt32();
+                reader.ReadUInt32();
+                uint jsonLength = reader.ReadUInt32();
+                if (jsonLength == 0 || jsonLength > 64 * 1024 * 1024)
+                {
+                    return;
+                }
+
+                string header = Encoding.UTF8.GetString(reader.ReadBytes((int)jsonLength));
+                long dataOffset = 8L + headerSize;
+                var pattern = new Regex(
+                    @"ProximaNova-(?<weight>Black|Bold|Regular|Semibold)-[^""\\]+\.ttf"":\{""size"":(?<size>\d+),""offset"":""(?<offset>\d+)""",
+                    RegexOptions.CultureInvariant);
+
+                foreach (Match match in pattern.Matches(header))
+                {
+                    int size;
+                    long offset;
+                    if (!int.TryParse(match.Groups["size"].Value, out size)
+                        || !long.TryParse(match.Groups["offset"].Value, out offset)
+                        || size <= 0
+                        || dataOffset + offset + size > stream.Length)
+                    {
+                        continue;
+                    }
+
+                    string targetPath = System.IO.Path.Combine(
+                        destinationDirectory,
+                        "ProximaNova-" + match.Groups["weight"].Value + ".ttf");
+                    stream.Position = dataOffset + offset;
+                    byte[] bytes = reader.ReadBytes(size);
+                    if (bytes.Length == size)
+                    {
+                        File.WriteAllBytes(targetPath, bytes);
+                    }
+                }
+            }
+        }
+
+        private static Brush MakeLinearBrush(string from, string to, double angle)
+        {
+            double radians = angle * Math.PI / 180.0;
+            double x = Math.Cos(radians) * 0.5;
+            double y = Math.Sin(radians) * 0.5;
+            var brush = new LinearGradientBrush();
+            brush.StartPoint = new Point(0.5 - x, 0.5 - y);
+            brush.EndPoint = new Point(0.5 + x, 0.5 + y);
+            brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString(from), 0));
+            brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString(to), 1));
+            brush.Freeze();
+            return brush;
+        }
+
+        private static Brush BrushFrom(string color)
+        {
+            var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+            brush.Freeze();
+            return brush;
+        }
+
+        private static ImageSource BuildWindowIcon()
+        {
+            var group = new DrawingGroup();
+            group.Children.Add(new GeometryDrawing(
+                BrushFrom("#FF1B1B1B"),
+                new Pen(BrushFrom("#FFE81C5A"), 1.5),
+                new RectangleGeometry(new Rect(1, 1, 30, 30), 8, 8)));
+            group.Children.Add(new GeometryDrawing(
+                MakeLinearBrush("#FFFFFFFF", "#FFFF9AB7", 90),
+                null,
+                Geometry.Parse("M 16,5 C 10,10 9,18 10,23 L 16,27 L 22,23 C 23,18 22,10 16,5 Z")));
+            group.Children.Add(new GeometryDrawing(
+                BrushFrom("#FFFF6B57"),
+                null,
+                Geometry.Parse("M 13,24 C 13,28 15,30 16,31 C 17,30 19,28 19,24 Z")));
+            var image = new DrawingImage(group);
+            image.Freeze();
+            return image;
+        }
+    }
+}

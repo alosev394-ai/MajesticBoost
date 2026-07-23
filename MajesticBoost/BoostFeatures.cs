@@ -132,6 +132,7 @@ namespace MajesticBoost
         public DateTime? EndedUtc;
         public long AvailableMemoryStartBytes;
         public long AvailableMemoryEndBytes;
+        public int ManagedMemoryMaintenanceCycles;
         public string GameName;
         public string StopReason;
         public List<BoostActionRecord> Actions;
@@ -236,6 +237,89 @@ namespace MajesticBoost
             {
                 return false;
             }
+        }
+    }
+
+    internal sealed class ActiveMemoryMaintenanceResult
+    {
+        public bool MemorySnapshotAvailable;
+        public bool Collected;
+        public long TotalMemoryBytes;
+        public long AvailableMemoryBytes;
+        public long ManagedHeapBeforeBytes;
+        public long ManagedHeapAfterBytes;
+    }
+
+    internal static class ActiveMemoryMaintenanceService
+    {
+        public const int IntervalSeconds = 120;
+        public const long MinimumAvailableMemoryBytes = 1024L * 1024L * 1024L;
+        public const long ManagedHeapThresholdBytes = 32L * 1024L * 1024L;
+
+        public static long GetNextDueTimestamp(long nowTimestamp)
+        {
+            long intervalTicks = Stopwatch.Frequency * (long)IntervalSeconds;
+            if (nowTimestamp > long.MaxValue - intervalTicks)
+            {
+                return long.MaxValue;
+            }
+            return nowTimestamp + intervalTicks;
+        }
+
+        public static bool IsDue(long nowTimestamp, long dueTimestamp)
+        {
+            return dueTimestamp > 0 && nowTimestamp >= dueTimestamp;
+        }
+
+        public static long GetAvailableMemoryThreshold(long totalMemoryBytes)
+        {
+            if (totalMemoryBytes <= 0)
+            {
+                return MinimumAvailableMemoryBytes;
+            }
+            return Math.Max(MinimumAvailableMemoryBytes, totalMemoryBytes / 8L);
+        }
+
+        public static bool ShouldCollect(
+            long totalMemoryBytes,
+            long availableMemoryBytes,
+            long managedHeapBytes)
+        {
+            bool systemMemoryPressure =
+                totalMemoryBytes > 0 &&
+                availableMemoryBytes >= 0 &&
+                availableMemoryBytes <= GetAvailableMemoryThreshold(totalMemoryBytes);
+            return systemMemoryPressure || managedHeapBytes >= ManagedHeapThresholdBytes;
+        }
+
+        public static ActiveMemoryMaintenanceResult Run()
+        {
+            var result = new ActiveMemoryMaintenanceResult();
+            result.ManagedHeapBeforeBytes = GC.GetTotalMemory(false);
+
+            long totalMemoryBytes;
+            long availableMemoryBytes;
+            result.MemorySnapshotAvailable =
+                BoostSystemMetrics.TryGetMemory(out totalMemoryBytes, out availableMemoryBytes);
+            result.TotalMemoryBytes = totalMemoryBytes;
+            result.AvailableMemoryBytes = availableMemoryBytes;
+
+            if (!ShouldCollect(
+                totalMemoryBytes,
+                availableMemoryBytes,
+                result.ManagedHeapBeforeBytes))
+            {
+                result.ManagedHeapAfterBytes = result.ManagedHeapBeforeBytes;
+                return result;
+            }
+
+            GC.Collect(
+                GC.MaxGeneration,
+                GCCollectionMode.Optimized,
+                false);
+            result.Collected = true;
+            result.ManagedHeapAfterBytes = GC.GetTotalMemory(false);
+            return result;
         }
     }
 
@@ -825,6 +909,8 @@ namespace MajesticBoost
                 report.AvailableMemoryStartBytes.ToString(CultureInfo.InvariantCulture));
             lines.Add("AvailableMemoryEndBytes=" +
                 report.AvailableMemoryEndBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("ManagedMemoryMaintenanceCycles=" +
+                report.ManagedMemoryMaintenanceCycles.ToString(CultureInfo.InvariantCulture));
             lines.Add("GameName=" + Encode(report.GameName));
             lines.Add("StopReason=" + Encode(report.StopReason));
 
@@ -921,6 +1007,11 @@ namespace MajesticBoost
             if (TryParseLong(values, "AvailableMemoryEndBytes", out longValue))
             {
                 report.AvailableMemoryEndBytes = longValue;
+            }
+            int memoryMaintenanceCycles;
+            if (TryParseInt(values, "ManagedMemoryMaintenanceCycles", out memoryMaintenanceCycles))
+            {
+                report.ManagedMemoryMaintenanceCycles = Math.Max(0, memoryMaintenanceCycles);
             }
             DateTime dateValue;
             if (TryParseDate(values, "EndedUtc", out dateValue))

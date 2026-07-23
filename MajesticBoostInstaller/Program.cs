@@ -20,8 +20,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Installer for Majestic Boost")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.1.0")]
-[assembly: AssemblyFileVersion("1.6.1.0")]
+[assembly: AssemblyVersion("1.6.2.0")]
+[assembly: AssemblyFileVersion("1.6.2.0")]
 
 namespace MajesticBoostSetup
 {
@@ -158,7 +158,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.6.1";
+        public const string ProductVersion = "1.6.2";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);
@@ -1914,12 +1914,6 @@ namespace MajesticBoostSetup
             }
 
             DrawContent(e.Graphics, Rectangle.Round(buttonBounds), glyph);
-
-            if (Focused && ShowFocusCues)
-            {
-                Rectangle focusBounds = Rectangle.Inflate(ClientRectangle, -4, -4);
-                ControlPaint.DrawFocusRectangle(e.Graphics, focusBounds, glyph, fill);
-            }
         }
 
         protected abstract void DrawContent(Graphics graphics, Rectangle bounds, Color glyphColor);
@@ -2127,7 +2121,8 @@ namespace MajesticBoostSetup
                 | TextFormatFlags.NoPadding
                 | TextFormatFlags.EndEllipsis);
 
-            float trackLeft = Width - 36F;
+            // Keep a two-pixel inset so antialiasing never clips the rounded cap.
+            float trackLeft = Width - 38F;
             float trackTop = (Height - 20F) * 0.5F;
             RectangleF trackBounds = new RectangleF(trackLeft, trackTop, 36F, 20F);
             Color trackColor = currentTrackColor;
@@ -2163,13 +2158,6 @@ namespace MajesticBoostSetup
             using (var knobBrush = new SolidBrush(knobColor))
             {
                 e.Graphics.FillEllipse(knobBrush, knobBounds);
-            }
-
-            if (Focused && ShowFocusCues)
-            {
-                Rectangle focusBounds = Rectangle.Round(trackBounds);
-                focusBounds.Inflate(-2, -2);
-                ControlPaint.DrawFocusRectangle(e.Graphics, focusBounds, textColor, parentColor);
             }
         }
 

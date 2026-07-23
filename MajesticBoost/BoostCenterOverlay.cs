@@ -7,6 +7,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
@@ -38,6 +39,40 @@ namespace MajesticBoost
             public TranslateTransform KnobTranslation;
         }
 
+        private sealed class ScrollAnimationProxy : FrameworkElement
+        {
+            public static readonly DependencyProperty OffsetProperty =
+                DependencyProperty.Register(
+                    "Offset",
+                    typeof(double),
+                    typeof(ScrollAnimationProxy),
+                    new PropertyMetadata(0.0, OffsetChanged));
+
+            private readonly Action<double> applyOffset;
+
+            public ScrollAnimationProxy(Action<double> apply)
+            {
+                applyOffset = apply;
+            }
+
+            public double Offset
+            {
+                get { return (double)GetValue(OffsetProperty); }
+                set { SetValue(OffsetProperty, value); }
+            }
+
+            private static void OffsetChanged(
+                DependencyObject sender,
+                DependencyPropertyChangedEventArgs args)
+            {
+                var proxy = sender as ScrollAnimationProxy;
+                if (proxy != null && proxy.applyOffset != null)
+                {
+                    proxy.applyOffset((double)args.NewValue);
+                }
+            }
+        }
+
         private static readonly Color BackgroundColor = Color.FromRgb(22, 22, 22);
         private static readonly Color SurfaceColor = Color.FromRgb(27, 27, 27);
         private static readonly Color HoverColor = Color.FromRgb(45, 45, 45);
@@ -56,15 +91,26 @@ namespace MajesticBoost
         private readonly FontFamily semiboldFont;
         private readonly Grid contentRoot;
         private readonly StackPanel pageContent;
+        private readonly ScrollViewer pageScroller;
+        private readonly ScrollAnimationProxy scrollAnimationProxy;
         private readonly StackPanel footerButtons;
         private TextBlock subtitle;
         private readonly Dictionary<CenterPage, Button> tabButtons =
             new Dictionary<CenterPage, Button>();
         private readonly Dictionary<CenterPage, Border> tabIndicators =
             new Dictionary<CenterPage, Border>();
+        private readonly Dictionary<CenterPage, ScaleTransform> tabIndicatorScales =
+            new Dictionary<CenterPage, ScaleTransform>();
         private readonly TranslateTransform entranceTranslation;
+        private readonly TranslateTransform subtitleTranslation =
+            new TranslateTransform();
+        private readonly TranslateTransform pageTranslation =
+            new TranslateTransform();
+        private readonly TranslateTransform footerTranslation =
+            new TranslateTransform();
 
         private CenterPage currentPage;
+        private CenterPage renderedPage;
         private BoostPreflightReport preflight;
         private BoostSessionReport sessionReport;
         private BoostCenterSettings settings = new BoostCenterSettings();
@@ -80,6 +126,11 @@ namespace MajesticBoost
         private TextBlock benchmarkNoticeDetailBlock;
         private Border benchmarkProgressFill;
         private Button benchmarkButton;
+        private double smoothScrollTarget;
+        private int smoothScrollGeneration;
+        private bool smoothScrollAnimating;
+        private int pageTransitionGeneration;
+        private bool pageTransitionAnimating;
 
         public BoostCenterOverlay(
             FontFamily normalFont,
@@ -120,23 +171,37 @@ namespace MajesticBoost
 
             pageContent = new StackPanel
             {
-                Margin = new Thickness(0, 8, 0, 8)
+                Margin = new Thickness(0, 8, 4, 8),
+                UseLayoutRounding = true,
+                SnapsToDevicePixels = true,
+                ClipToBounds = false
             };
-            var scroller = new ScrollViewer
+            pageScroller = new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                CanContentScroll = true,
-                Content = pageContent
+                CanContentScroll = false,
+                Content = pageContent,
+                RenderTransform = pageTranslation
             };
-            Grid.SetRow(scroller, 2);
-            contentRoot.Children.Add(scroller);
+            pageScroller.Resources[typeof(ScrollBar)] = MakeMajesticVerticalScrollBarStyle();
+            scrollAnimationProxy = new ScrollAnimationProxy(
+                delegate(double offset) { pageScroller.ScrollToVerticalOffset(offset); });
+            pageScroller.PreviewMouseWheel += PageScrollerPreviewMouseWheel;
+            pageScroller.PreviewKeyDown += delegate { CancelSmoothMouseWheelScroll(); };
+            pageScroller.AddHandler(
+                Thumb.DragStartedEvent,
+                new DragStartedEventHandler(
+                    delegate { CancelSmoothMouseWheelScroll(); }));
+            Grid.SetRow(pageScroller, 2);
+            contentRoot.Children.Add(pageScroller);
 
             footerButtons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Bottom
+                VerticalAlignment = VerticalAlignment.Bottom,
+                RenderTransform = footerTranslation
             };
             Grid.SetRow(footerButtons, 3);
             contentRoot.Children.Add(footerButtons);
@@ -321,6 +386,7 @@ namespace MajesticBoost
                 regularFont,
                 FontWeights.Normal);
             subtitle.Margin = new Thickness(0, 4, 0, 0);
+            subtitle.RenderTransform = subtitleTranslation;
             AutomationProperties.SetLiveSetting(subtitle, AutomationLiveSetting.Polite);
             Grid.SetRow(subtitle, 1);
             header.Children.Add(subtitle);
@@ -362,6 +428,7 @@ namespace MajesticBoost
                 BorderBrush = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Cursor = Cursors.Hand,
+                FocusVisualStyle = null,
                 Template = MakeFlatButtonTemplate(0)
             };
             AutomationProperties.SetName(button, title.ToLowerInvariant());
@@ -374,13 +441,17 @@ namespace MajesticBoost
                 Height = 2,
                 Background = new SolidColorBrush(AccentColor),
                 Opacity = 0,
-                HorizontalAlignment = HorizontalAlignment.Stretch
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                RenderTransformOrigin = new Point(0.5, 0.5)
             };
+            var indicatorScale = new ScaleTransform(0.72, 1);
+            indicator.RenderTransform = indicatorScale;
             Grid.SetRow(indicator, 1);
             host.Children.Add(indicator);
 
             tabButtons[page] = button;
             tabIndicators[page] = indicator;
+            tabIndicatorScales[page] = indicatorScale;
             tabs.Children.Add(host);
         }
 
@@ -390,7 +461,7 @@ namespace MajesticBoost
             Visibility = Visibility.Visible;
             IsHitTestVisible = true;
             RenderCurrentPage();
-            UpdateTabs();
+            UpdateTabs(false);
 
             if (SystemParameters.ClientAreaAnimation)
             {
@@ -425,6 +496,8 @@ namespace MajesticBoost
             {
                 return;
             }
+            CancelPageTransitionAnimations();
+            CancelSmoothMouseWheelScroll();
             if (!SystemParameters.ClientAreaAnimation)
             {
                 FinishClose();
@@ -457,21 +530,43 @@ namespace MajesticBoost
             {
                 return;
             }
+
+            FinishPageTransitionImmediately();
+            CenterPage previousPage = renderedPage;
             currentPage = page;
             requireBoostDecision = false;
-            RenderCurrentPage();
-            UpdateTabs();
-            FocusPreferredButton();
+            UpdateTabs(true);
+
+            if (!SystemParameters.ClientAreaAnimation)
+            {
+                RenderCurrentPage();
+                FocusPreferredButton();
+                return;
+            }
+
+            BeginPageTransition(previousPage, page);
         }
 
-        private void UpdateTabs()
+        private void UpdateTabs(bool animate)
         {
             foreach (KeyValuePair<CenterPage, Button> pair in tabButtons)
             {
                 bool selected = pair.Key == currentPage;
-                pair.Value.Foreground = new SolidColorBrush(
-                    selected ? TextColor : MutedColor);
-                tabIndicators[pair.Key].Opacity = selected ? 1 : 0;
+                Color targetColor = selected ? TextColor : MutedColor;
+                var foreground = pair.Value.Foreground as SolidColorBrush;
+                if (foreground == null)
+                {
+                    foreground = new SolidColorBrush(targetColor);
+                    pair.Value.Foreground = foreground;
+                }
+                AnimateTabColor(foreground, targetColor, animate);
+
+                AnimateTabIndicator(
+                    tabIndicators[pair.Key],
+                    tabIndicatorScales[pair.Key],
+                    selected ? 1 : 0,
+                    selected ? 1 : 0.72,
+                    animate);
                 AutomationProperties.SetHelpText(
                     pair.Value,
                     selected ? "Выбрано" : "Открыть раздел");
@@ -481,8 +576,311 @@ namespace MajesticBoost
             }
         }
 
+        private void BeginPageTransition(
+            CenterPage previousPage,
+            CenterPage nextPage)
+        {
+            if (previousPage == nextPage)
+            {
+                RenderCurrentPage();
+                FocusPreferredButton();
+                return;
+            }
+
+            CancelSmoothMouseWheelScroll();
+            int direction = (int)nextPage > (int)previousPage ? 1 : -1;
+            int generation = ++pageTransitionGeneration;
+            pageTransitionAnimating = true;
+            pageScroller.IsHitTestVisible = false;
+            footerButtons.IsHitTestVisible = false;
+            FocusSelectedTab(nextPage);
+
+            AnimatePageVisual(
+                subtitle,
+                subtitleTranslation,
+                0,
+                -direction * 12,
+                90,
+                EasingMode.EaseIn,
+                null);
+            AnimatePageVisual(
+                footerButtons,
+                footerTranslation,
+                0,
+                -direction * 18,
+                90,
+                EasingMode.EaseIn,
+                null);
+            AnimatePageVisual(
+                pageScroller,
+                pageTranslation,
+                0,
+                -direction * 18,
+                90,
+                EasingMode.EaseIn,
+                delegate
+                {
+                    if (!pageTransitionAnimating ||
+                        generation != pageTransitionGeneration)
+                    {
+                        return;
+                    }
+
+                    renderedPage = currentPage;
+                    RenderCurrentPageCore();
+                    PreparePageVisual(
+                        subtitle,
+                        subtitleTranslation,
+                        direction * 12);
+                    PreparePageVisual(
+                        footerButtons,
+                        footerTranslation,
+                        direction * 18);
+                    PreparePageVisual(
+                        pageScroller,
+                        pageTranslation,
+                        direction * 18);
+
+                    AnimatePageVisual(
+                        subtitle,
+                        subtitleTranslation,
+                        1,
+                        0,
+                        130,
+                        EasingMode.EaseOut,
+                        null);
+                    AnimatePageVisual(
+                        footerButtons,
+                        footerTranslation,
+                        1,
+                        0,
+                        130,
+                        EasingMode.EaseOut,
+                        null);
+                    AnimatePageVisual(
+                        pageScroller,
+                        pageTranslation,
+                        1,
+                        0,
+                        130,
+                        EasingMode.EaseOut,
+                        delegate
+                        {
+                            if (!pageTransitionAnimating ||
+                                generation != pageTransitionGeneration)
+                            {
+                                return;
+                            }
+
+                            pageTransitionAnimating = false;
+                            ResetPageTransitionVisuals();
+                            FocusPreferredButton();
+                        });
+                });
+        }
+
+        private void FinishPageTransitionImmediately()
+        {
+            if (!pageTransitionAnimating)
+            {
+                return;
+            }
+
+            CancelPageTransitionAnimations();
+            if (renderedPage != currentPage)
+            {
+                renderedPage = currentPage;
+                RenderCurrentPageCore();
+            }
+        }
+
+        private void CancelPageTransitionAnimations()
+        {
+            ++pageTransitionGeneration;
+            pageTransitionAnimating = false;
+            ResetPageTransitionVisuals();
+        }
+
+        private void ResetPageTransitionVisuals()
+        {
+            ResetPageVisual(subtitle, subtitleTranslation);
+            ResetPageVisual(footerButtons, footerTranslation);
+            ResetPageVisual(pageScroller, pageTranslation);
+            pageScroller.IsHitTestVisible = true;
+            footerButtons.IsHitTestVisible = true;
+        }
+
+        private static void PreparePageVisual(
+            FrameworkElement element,
+            TranslateTransform translation,
+            double offset)
+        {
+            element.BeginAnimation(UIElement.OpacityProperty, null);
+            translation.BeginAnimation(TranslateTransform.XProperty, null);
+            element.Opacity = 0;
+            translation.X = offset;
+        }
+
+        private static void ResetPageVisual(
+            FrameworkElement element,
+            TranslateTransform translation)
+        {
+            element.BeginAnimation(UIElement.OpacityProperty, null);
+            translation.BeginAnimation(TranslateTransform.XProperty, null);
+            element.Opacity = 1;
+            translation.X = 0;
+        }
+
+        private static void AnimatePageVisual(
+            FrameworkElement element,
+            TranslateTransform translation,
+            double targetOpacity,
+            double targetOffset,
+            int milliseconds,
+            EasingMode easingMode,
+            EventHandler completed)
+        {
+            double startOpacity = element.Opacity;
+            double startOffset = translation.X;
+            element.BeginAnimation(UIElement.OpacityProperty, null);
+            translation.BeginAnimation(TranslateTransform.XProperty, null);
+            element.Opacity = targetOpacity;
+            translation.X = targetOffset;
+
+            var opacityAnimation = new DoubleAnimation(
+                startOpacity,
+                targetOpacity,
+                TimeSpan.FromMilliseconds(milliseconds))
+            {
+                EasingFunction = new CubicEase { EasingMode = easingMode },
+                FillBehavior = FillBehavior.Stop
+            };
+            if (completed != null)
+            {
+                opacityAnimation.Completed += completed;
+            }
+
+            element.BeginAnimation(
+                UIElement.OpacityProperty,
+                opacityAnimation,
+                HandoffBehavior.SnapshotAndReplace);
+            translation.BeginAnimation(
+                TranslateTransform.XProperty,
+                new DoubleAnimation(
+                    startOffset,
+                    targetOffset,
+                    TimeSpan.FromMilliseconds(milliseconds))
+                {
+                    EasingFunction = new CubicEase { EasingMode = easingMode },
+                    FillBehavior = FillBehavior.Stop
+                },
+                HandoffBehavior.SnapshotAndReplace);
+        }
+
+        private static void AnimateTabColor(
+            SolidColorBrush brush,
+            Color target,
+            bool animate)
+        {
+            Color start = brush.Color;
+            brush.BeginAnimation(SolidColorBrush.ColorProperty, null);
+            brush.Color = target;
+            if (!animate ||
+                !SystemParameters.ClientAreaAnimation ||
+                start == target)
+            {
+                return;
+            }
+
+            brush.BeginAnimation(
+                SolidColorBrush.ColorProperty,
+                new ColorAnimation(
+                    start,
+                    target,
+                    TimeSpan.FromMilliseconds(200))
+                {
+                    EasingFunction = new CubicEase
+                    {
+                        EasingMode = EasingMode.EaseInOut
+                    },
+                    FillBehavior = FillBehavior.Stop
+                },
+                HandoffBehavior.SnapshotAndReplace);
+        }
+
+        private static void AnimateTabIndicator(
+            Border indicator,
+            ScaleTransform scale,
+            double targetOpacity,
+            double targetScale,
+            bool animate)
+        {
+            double startOpacity = indicator.Opacity;
+            double startScale = scale.ScaleX;
+            indicator.BeginAnimation(UIElement.OpacityProperty, null);
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            indicator.Opacity = targetOpacity;
+            scale.ScaleX = targetScale;
+
+            if (!animate || !SystemParameters.ClientAreaAnimation)
+            {
+                return;
+            }
+
+            indicator.BeginAnimation(
+                UIElement.OpacityProperty,
+                new DoubleAnimation(
+                    startOpacity,
+                    targetOpacity,
+                    TimeSpan.FromMilliseconds(200))
+                {
+                    EasingFunction = new CubicEase
+                    {
+                        EasingMode = EasingMode.EaseInOut
+                    },
+                    FillBehavior = FillBehavior.Stop
+                },
+                HandoffBehavior.SnapshotAndReplace);
+            scale.BeginAnimation(
+                ScaleTransform.ScaleXProperty,
+                new DoubleAnimation(
+                    startScale,
+                    targetScale,
+                    TimeSpan.FromMilliseconds(200))
+                {
+                    EasingFunction = new CubicEase
+                    {
+                        EasingMode = EasingMode.EaseInOut
+                    },
+                    FillBehavior = FillBehavior.Stop
+                },
+                HandoffBehavior.SnapshotAndReplace);
+        }
+
+        private void FocusSelectedTab(CenterPage page)
+        {
+            Button selectedTab;
+            if (tabButtons.TryGetValue(page, out selectedTab) &&
+                selectedTab.IsEnabled &&
+                selectedTab.IsVisible)
+            {
+                selectedTab.Focus();
+                Keyboard.Focus(selectedTab);
+            }
+        }
+
         private void RenderCurrentPage()
         {
+            CancelPageTransitionAnimations();
+            renderedPage = currentPage;
+            RenderCurrentPageCore();
+        }
+
+        private void RenderCurrentPageCore()
+        {
+            CancelSmoothMouseWheelScroll();
+            pageScroller.ScrollToVerticalOffset(0);
+            smoothScrollTarget = 0;
             pageContent.Children.Clear();
             footerButtons.Children.Clear();
             preferredFocusButton = null;
@@ -1047,15 +1445,21 @@ namespace MajesticBoost
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Cursor = Cursors.Hand,
+                FocusVisualStyle = null,
                 Template = MakeTransparentCheckBoxTemplate(),
                 IsChecked = isChecked
             };
             AutomationProperties.SetName(toggle, title.ToLowerInvariant());
             AutomationProperties.SetHelpText(toggle, detail);
 
-            var content = new Grid();
+            var content = new Grid
+            {
+                UseLayoutRounding = true,
+                SnapsToDevicePixels = true,
+                ClipToBounds = false
+            };
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
@@ -1091,7 +1495,11 @@ namespace MajesticBoost
                 CornerRadius = new CornerRadius(10),
                 Background = trackBrush,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 4, 0),
+                UseLayoutRounding = true,
+                SnapsToDevicePixels = true,
+                ClipToBounds = false
             };
             Grid.SetColumn(track, 1);
             Grid.SetRowSpan(track, 2);
@@ -1100,12 +1508,14 @@ namespace MajesticBoost
             {
                 Width = 16,
                 Height = 16,
-                Margin = new Thickness(2, 0, 0, 0),
+                Margin = new Thickness(3, 0, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center,
-                Fill = Brushes.White
+                Fill = Brushes.White,
+                UseLayoutRounding = true,
+                SnapsToDevicePixels = true
             };
-            var knobTranslation = new TranslateTransform(isChecked ? 16 : 0, 0);
+            var knobTranslation = new TranslateTransform(isChecked ? 14 : 0, 0);
             knob.RenderTransform = knobTranslation;
             track.Child = knob;
             content.Children.Add(track);
@@ -1160,7 +1570,7 @@ namespace MajesticBoost
             Color targetColor = active
                 ? AccentColor
                 : (toggle.IsMouseOver ? HoverColor : ButtonColor);
-            double targetX = active ? 16 : 0;
+            double targetX = active ? 14 : 0;
             if (!SystemParameters.ClientAreaAnimation)
             {
                 visuals.TrackBrush.BeginAnimation(SolidColorBrush.ColorProperty, null);
@@ -1242,6 +1652,7 @@ namespace MajesticBoost
                 FontSize = 10,
                 FontWeight = FontWeights.Bold,
                 Cursor = Cursors.Hand,
+                FocusVisualStyle = null,
                 Template = MakeFlatButtonTemplate(6),
                 Content = text
             };
@@ -1283,21 +1694,6 @@ namespace MajesticBoost
             presenter.SetValue(TextBlock.ForegroundProperty, new TemplateBindingExtension(Control.ForegroundProperty));
             chrome.AppendChild(presenter);
             template.VisualTree = chrome;
-
-            var focus = new Trigger
-            {
-                Property = UIElement.IsKeyboardFocusedProperty,
-                Value = true
-            };
-            focus.Setters.Add(new Setter(
-                Border.BorderBrushProperty,
-                new SolidColorBrush(AccentColor),
-                "Chrome"));
-            focus.Setters.Add(new Setter(
-                Border.BorderThicknessProperty,
-                new Thickness(2),
-                "Chrome"));
-            template.Triggers.Add(focus);
             return template;
         }
 
@@ -1305,10 +1701,9 @@ namespace MajesticBoost
         {
             var template = new ControlTemplate(typeof(CheckBox));
             var border = new FrameworkElementFactory(typeof(Border));
-            border.Name = "FocusChrome";
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
             border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
-            border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(0));
 
             var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
             presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
@@ -1316,18 +1711,191 @@ namespace MajesticBoost
             presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
             border.AppendChild(presenter);
             template.VisualTree = border;
-
-            var focus = new Trigger
-            {
-                Property = UIElement.IsKeyboardFocusedProperty,
-                Value = true
-            };
-            focus.Setters.Add(new Setter(
-                Border.BorderBrushProperty,
-                new SolidColorBrush(AccentColor),
-                "FocusChrome"));
-            template.Triggers.Add(focus);
             return template;
+        }
+
+        private static Style MakeMajesticVerticalScrollBarStyle()
+        {
+            const string xaml =
+                "<Style xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" " +
+                "xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\" " +
+                "TargetType=\"{x:Type ScrollBar}\">" +
+                "<Setter Property=\"Width\" Value=\"9\"/>" +
+                "<Setter Property=\"MinWidth\" Value=\"9\"/>" +
+                "<Setter Property=\"Background\" Value=\"Transparent\"/>" +
+                "<Setter Property=\"BorderThickness\" Value=\"0\"/>" +
+                "<Setter Property=\"Focusable\" Value=\"False\"/>" +
+                "<Setter Property=\"Template\">" +
+                "<Setter.Value>" +
+                "<ControlTemplate TargetType=\"{x:Type ScrollBar}\">" +
+                "<Grid Background=\"Transparent\" SnapsToDevicePixels=\"True\">" +
+                "<Track x:Name=\"PART_Track\" IsDirectionReversed=\"True\" Focusable=\"False\">" +
+                "<Track.DecreaseRepeatButton>" +
+                "<RepeatButton Command=\"{x:Static ScrollBar.PageUpCommand}\" " +
+                "Focusable=\"False\" IsTabStop=\"False\" Opacity=\"0\">" +
+                "<RepeatButton.Template>" +
+                "<ControlTemplate TargetType=\"{x:Type RepeatButton}\">" +
+                "<Border Background=\"Transparent\"/>" +
+                "</ControlTemplate>" +
+                "</RepeatButton.Template>" +
+                "</RepeatButton>" +
+                "</Track.DecreaseRepeatButton>" +
+                "<Track.Thumb>" +
+                "<Thumb Width=\"5\" MinHeight=\"32\" HorizontalAlignment=\"Center\" " +
+                "Background=\"#494949\" Focusable=\"False\">" +
+                "<Thumb.Template>" +
+                "<ControlTemplate TargetType=\"{x:Type Thumb}\">" +
+                "<Border x:Name=\"ThumbChrome\" Background=\"{TemplateBinding Background}\" " +
+                "CornerRadius=\"2.5\"/>" +
+                "<ControlTemplate.Triggers>" +
+                "<Trigger Property=\"IsMouseOver\" Value=\"True\">" +
+                "<Setter TargetName=\"ThumbChrome\" Property=\"Background\" Value=\"#606060\"/>" +
+                "</Trigger>" +
+                "<Trigger Property=\"IsDragging\" Value=\"True\">" +
+                "<Setter TargetName=\"ThumbChrome\" Property=\"Background\" Value=\"#E81C5A\"/>" +
+                "</Trigger>" +
+                "<Trigger Property=\"IsEnabled\" Value=\"False\">" +
+                "<Setter TargetName=\"ThumbChrome\" Property=\"Opacity\" Value=\"0.35\"/>" +
+                "</Trigger>" +
+                "</ControlTemplate.Triggers>" +
+                "</ControlTemplate>" +
+                "</Thumb.Template>" +
+                "</Thumb>" +
+                "</Track.Thumb>" +
+                "<Track.IncreaseRepeatButton>" +
+                "<RepeatButton Command=\"{x:Static ScrollBar.PageDownCommand}\" " +
+                "Focusable=\"False\" IsTabStop=\"False\" Opacity=\"0\">" +
+                "<RepeatButton.Template>" +
+                "<ControlTemplate TargetType=\"{x:Type RepeatButton}\">" +
+                "<Border Background=\"Transparent\"/>" +
+                "</ControlTemplate>" +
+                "</RepeatButton.Template>" +
+                "</RepeatButton>" +
+                "</Track.IncreaseRepeatButton>" +
+                "</Track>" +
+                "</Grid>" +
+                "</ControlTemplate>" +
+                "</Setter.Value>" +
+                "</Setter>" +
+                "</Style>";
+
+            return (Style)XamlReader.Parse(xaml);
+        }
+
+        private void PageScrollerPreviewMouseWheel(
+            object sender,
+            MouseWheelEventArgs args)
+        {
+            if (args.Delta == 0 ||
+                pageScroller.ScrollableHeight <= 0 ||
+                SystemParameters.WheelScrollLines == 0)
+            {
+                return;
+            }
+
+            double baseTarget = smoothScrollAnimating
+                ? smoothScrollTarget
+                : pageScroller.VerticalOffset;
+            double target = CalculateSmoothScrollTarget(
+                pageScroller.VerticalOffset,
+                smoothScrollTarget,
+                args.Delta,
+                pageScroller.ScrollableHeight,
+                pageScroller.ViewportHeight,
+                SystemParameters.WheelScrollLines,
+                smoothScrollAnimating);
+            if (Math.Abs(target - baseTarget) < 0.01)
+            {
+                return;
+            }
+
+            args.Handled = true;
+            double currentOffset = pageScroller.VerticalOffset;
+            int generation = ++smoothScrollGeneration;
+            smoothScrollTarget = target;
+
+            scrollAnimationProxy.BeginAnimation(
+                ScrollAnimationProxy.OffsetProperty,
+                null);
+            scrollAnimationProxy.Offset = currentOffset;
+
+            if (!SystemParameters.ClientAreaAnimation)
+            {
+                scrollAnimationProxy.Offset = target;
+                smoothScrollAnimating = false;
+                return;
+            }
+
+            smoothScrollAnimating = true;
+            var animation = new DoubleAnimation(
+                currentOffset,
+                target,
+                TimeSpan.FromMilliseconds(175))
+            {
+                EasingFunction = new CubicEase
+                {
+                    EasingMode = EasingMode.EaseOut
+                },
+                FillBehavior = FillBehavior.Stop
+            };
+            animation.Completed += delegate
+            {
+                if (generation != smoothScrollGeneration)
+                {
+                    return;
+                }
+
+                scrollAnimationProxy.BeginAnimation(
+                    ScrollAnimationProxy.OffsetProperty,
+                    null);
+                scrollAnimationProxy.Offset = target;
+                smoothScrollAnimating = false;
+            };
+            scrollAnimationProxy.BeginAnimation(
+                ScrollAnimationProxy.OffsetProperty,
+                animation,
+                HandoffBehavior.SnapshotAndReplace);
+        }
+
+        internal static double CalculateSmoothScrollTarget(
+            double currentOffset,
+            double pendingTarget,
+            int wheelDelta,
+            double scrollableHeight,
+            double viewportHeight,
+            int wheelScrollLines,
+            bool isAnimating)
+        {
+            double upperBound = Math.Max(0, scrollableHeight);
+            double origin = isAnimating ? pendingTarget : currentOffset;
+            if (wheelDelta == 0 || upperBound <= 0 || wheelScrollLines == 0)
+            {
+                return Math.Max(0, Math.Min(upperBound, origin));
+            }
+
+            double step = wheelScrollLines < 0
+                ? Math.Max(48, viewportHeight * 0.82)
+                : Math.Max(36, Math.Min(96, wheelScrollLines * 18.0));
+            double target = origin -
+                (((double)wheelDelta / Mouse.MouseWheelDeltaForOneLine) * step);
+            return Math.Max(0, Math.Min(upperBound, target));
+        }
+
+        private void CancelSmoothMouseWheelScroll()
+        {
+            if (!smoothScrollAnimating)
+            {
+                return;
+            }
+
+            double currentOffset = pageScroller.VerticalOffset;
+            ++smoothScrollGeneration;
+            scrollAnimationProxy.BeginAnimation(
+                ScrollAnimationProxy.OffsetProperty,
+                null);
+            scrollAnimationProxy.Offset = currentOffset;
+            smoothScrollTarget = currentOffset;
+            smoothScrollAnimating = false;
         }
 
         private static void AnimateBrush(

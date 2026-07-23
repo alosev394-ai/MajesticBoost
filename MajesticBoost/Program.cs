@@ -25,8 +25,8 @@ using System.Windows.Threading;
 [assembly: AssemblyDescription("Animated Max FPS launcher for Majestic")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.1.0")]
-[assembly: AssemblyFileVersion("1.6.1.0")]
+[assembly: AssemblyVersion("1.6.2.0")]
+[assembly: AssemblyFileVersion("1.6.2.0")]
 
 namespace MajesticBoost
 {
@@ -36,6 +36,9 @@ namespace MajesticBoost
         private static void Main(string[] args)
         {
             var application = new Application();
+            var focusVisualStyle = new Style(typeof(Control));
+            focusVisualStyle.Setters.Add(new Setter(Control.TemplateProperty, null));
+            application.Resources[SystemParameters.FocusVisualStyleKey] = focusVisualStyle;
             application.ShutdownMode = ShutdownMode.OnMainWindowClose;
             application.Run(new BoostWindow(args));
         }
@@ -87,7 +90,10 @@ namespace MajesticBoost
         private DateTime readinessDeadline;
         private int activeMaintenanceGeneration;
         private int activeMaintenancePending;
+        private int activeMemoryMaintenanceCycles;
+        private int benchmarkCaptureActive;
         private int preflightGeneration;
+        private long nextMemoryMaintenanceTimestamp;
         private readonly object activeMaintenanceSync = new object();
         private bool animationRunning;
         private bool departureFinished;
@@ -432,10 +438,13 @@ namespace MajesticBoost
                 "Если включено, Majestic Boost не будет закрывать эту программу перед запуском игры.");
 
             var content = new Grid();
-            content.Width = 300;
             content.Height = 30;
+            content.HorizontalAlignment = HorizontalAlignment.Stretch;
+            content.UseLayoutRounding = true;
+            content.SnapsToDevicePixels = true;
+            content.ClipToBounds = false;
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
 
             var label = MakeText(text, 10.5, "#FFBDBDBD", FontWeights.SemiBold);
             label.FontFamily = LoadMajesticSemiboldFontFamily();
@@ -451,15 +460,21 @@ namespace MajesticBoost
             track.Background = trackBrush;
             track.HorizontalAlignment = HorizontalAlignment.Right;
             track.VerticalAlignment = VerticalAlignment.Center;
+            track.Margin = new Thickness(0, 0, 4, 0);
+            track.UseLayoutRounding = true;
+            track.SnapsToDevicePixels = true;
+            track.ClipToBounds = false;
             Grid.SetColumn(track, 1);
 
             var knob = new Ellipse();
             knob.Width = 16;
             knob.Height = 16;
-            knob.Margin = new Thickness(2, 0, 0, 0);
+            knob.Margin = new Thickness(3, 0, 0, 0);
             knob.HorizontalAlignment = HorizontalAlignment.Left;
             knob.VerticalAlignment = VerticalAlignment.Center;
             knob.Fill = Brushes.White;
+            knob.UseLayoutRounding = true;
+            knob.SnapsToDevicePixels = true;
             var knobTranslation = new TranslateTransform();
             knob.RenderTransform = knobTranslation;
             track.Child = knob;
@@ -507,7 +522,7 @@ namespace MajesticBoost
             Color targetColor = isChecked
                 ? Color.FromRgb(232, 28, 90)
                 : (toggle.IsMouseOver ? Color.FromRgb(52, 52, 52) : Color.FromRgb(37, 37, 37));
-            double targetX = isChecked ? 16 : 0;
+            double targetX = isChecked ? 14 : 0;
             if (!animate)
             {
                 visuals.TrackBrush.BeginAnimation(SolidColorBrush.ColorProperty, null);
@@ -547,9 +562,10 @@ namespace MajesticBoost
             }
             catch { }
 
-            keepDiscordToggle.IsChecked = GetPreference(values, "KeepDiscord");
-            keepEpicToggle.IsChecked = GetPreference(values, "KeepEpic");
-            keepSteamToggle.IsChecked = GetPreference(values, "KeepSteam");
+            // These three choices are session-only and always start disabled.
+            keepDiscordToggle.IsChecked = false;
+            keepEpicToggle.IsChecked = false;
+            keepSteamToggle.IsChecked = false;
             centerSettings.AutoBoost = GetPreference(values, "AutoBoost");
             centerSettings.CheckBeforeBoost = values.ContainsKey("CheckBeforeBoost")
                 ? GetPreference(values, "CheckBeforeBoost")
@@ -570,9 +586,6 @@ namespace MajesticBoost
                     path,
                     new[]
                     {
-                        "KeepDiscord=" + (keepDiscordToggle.IsChecked == true),
-                        "KeepEpic=" + (keepEpicToggle.IsChecked == true),
-                        "KeepSteam=" + (keepSteamToggle.IsChecked == true),
                         "AutoBoost=" + centerSettings.AutoBoost,
                         "CheckBeforeBoost=" + centerSettings.CheckBeforeBoost,
                         "KeepOneDrive=" + centerSettings.KeepOneDrive,
@@ -1318,7 +1331,16 @@ namespace MajesticBoost
 
         private void StartActiveBoostMaintenance()
         {
-            AdvanceActiveMaintenanceGeneration();
+            int generation = AdvanceActiveMaintenanceGeneration();
+            lock (activeMaintenanceSync)
+            {
+                if (IsActiveMaintenanceGeneration(generation))
+                {
+                    nextMemoryMaintenanceTimestamp =
+                        ActiveMemoryMaintenanceService.GetNextDueTimestamp(
+                            Stopwatch.GetTimestamp());
+                }
+            }
             if (activeBoostTimer == null)
             {
                 activeBoostTimer = new DispatcherTimer();
@@ -1344,6 +1366,7 @@ namespace MajesticBoost
             lock (activeMaintenanceSync)
             {
                 Interlocked.Increment(ref activeMaintenanceGeneration);
+                nextMemoryMaintenanceTimestamp = 0;
                 TryDeleteActiveBoostDemoSignal();
             }
             RestoreOwnedGamePriorities();
@@ -1414,6 +1437,8 @@ namespace MajesticBoost
                 }
                 return;
             }
+
+            RunActiveMemoryMaintenance(generation);
 
             foreach (string gameName in new[] { "GTA5", "GTA5_Enhanced" })
             {
@@ -1538,6 +1563,54 @@ namespace MajesticBoost
             }
         }
 
+        private void RunActiveMemoryMaintenance(int generation)
+        {
+            long nowTimestamp = Stopwatch.GetTimestamp();
+            lock (activeMaintenanceSync)
+            {
+                if (!IsActiveMaintenanceGeneration(generation) ||
+                    !ActiveMemoryMaintenanceService.IsDue(
+                        nowTimestamp,
+                        nextMemoryMaintenanceTimestamp))
+                {
+                    return;
+                }
+
+                // Always schedule from "now": delayed ticks are skipped rather than replayed.
+                nextMemoryMaintenanceTimestamp =
+                    ActiveMemoryMaintenanceService.GetNextDueTimestamp(nowTimestamp);
+                if (Interlocked.CompareExchange(ref benchmarkCaptureActive, 0, 0) != 0)
+                {
+                    return;
+                }
+            }
+
+            if (!IsActiveMaintenanceGeneration(generation) ||
+                Interlocked.CompareExchange(ref benchmarkCaptureActive, 0, 0) != 0)
+            {
+                return;
+            }
+
+            ActiveMemoryMaintenanceResult result = ActiveMemoryMaintenanceService.Run();
+            if (!result.Collected)
+            {
+                return;
+            }
+
+            lock (activeMaintenanceSync)
+            {
+                if (!IsActiveMaintenanceGeneration(generation))
+                {
+                    return;
+                }
+                Interlocked.Increment(ref activeMemoryMaintenanceCycles);
+            }
+            AppendActiveBoostLog(
+                "Optimized Majestic Boost managed heap under memory pressure: " +
+                result.ManagedHeapBeforeBytes + " -> " +
+                result.ManagedHeapAfterBytes + " bytes.");
+        }
+
         private void RestoreOwnedGamePriorities()
         {
             List<TrackedGamePriority> tracked;
@@ -1650,6 +1723,7 @@ namespace MajesticBoost
             {
                 CompleteCurrentSession("Interrupted", "Начата новая сессия Boost.");
             }
+            Interlocked.Exchange(ref activeMemoryMaintenanceCycles, 0);
             currentSession = BoostSessionReport.Start(trigger);
             currentSession.AddAction(
                 "ПАМЯТЬ ДО ЗАПУСКА",
@@ -1792,6 +1866,17 @@ namespace MajesticBoost
             {
                 return;
             }
+            int memoryMaintenanceCycles =
+                Interlocked.CompareExchange(ref activeMemoryMaintenanceCycles, 0, 0);
+            currentSession.ManagedMemoryMaintenanceCycles = memoryMaintenanceCycles;
+            if (memoryMaintenanceCycles > 0)
+            {
+                currentSession.AddAction(
+                    "ОБСЛУЖИВАНИЕ ПАМЯТИ",
+                    "Собственная управляемая память Majestic Boost оптимизирована " +
+                    memoryMaintenanceCycles + " раз.",
+                    BoostActionOutcome.Changed);
+            }
             currentSession.Complete(status, reason);
             currentSession.AddAction(
                 "ПАМЯТЬ ПОСЛЕ СЕССИИ",
@@ -1923,6 +2008,7 @@ namespace MajesticBoost
                         item == null ? 0 : item.Percent);
                 }
             });
+            Interlocked.Exchange(ref benchmarkCaptureActive, 1);
 
             try
             {
@@ -1984,6 +2070,7 @@ namespace MajesticBoost
             }
             finally
             {
+                Interlocked.Exchange(ref benchmarkCaptureActive, 0);
                 benchmarkCancellation.Dispose();
                 benchmarkCancellation = null;
             }
@@ -2305,6 +2392,7 @@ namespace MajesticBoost
                 BorderThickness = new Thickness(0),
                 Cursor = Cursors.Hand,
                 ToolTip = "Центр Boost",
+                FocusVisualStyle = null,
                 Template = MakeChromeButtonTemplate()
             };
             AutomationProperties.SetName(button, "Открыть центр Boost");
@@ -2459,10 +2547,9 @@ namespace MajesticBoost
         {
             var template = new ControlTemplate(typeof(Button));
             var border = new FrameworkElementFactory(typeof(Border));
-            border.Name = "focusBorder";
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
             border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
-            border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(0));
             border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
             var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
             presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
@@ -2470,16 +2557,6 @@ namespace MajesticBoost
             presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
             border.AppendChild(presenter);
             template.VisualTree = border;
-            var focus = new Trigger
-            {
-                Property = UIElement.IsKeyboardFocusedProperty,
-                Value = true
-            };
-            focus.Setters.Add(new Setter(
-                Border.BorderBrushProperty,
-                BrushFrom("#FFF4F4F4"),
-                "focusBorder"));
-            template.Triggers.Add(focus);
             return template;
         }
 
@@ -2487,10 +2564,9 @@ namespace MajesticBoost
         {
             var template = new ControlTemplate(typeof(CheckBox));
             var border = new FrameworkElementFactory(typeof(Border));
-            border.Name = "focusBorder";
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
             border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
-            border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(0));
             border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
             var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
             presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
@@ -2498,16 +2574,6 @@ namespace MajesticBoost
             presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
             border.AppendChild(presenter);
             template.VisualTree = border;
-            var focus = new Trigger
-            {
-                Property = UIElement.IsKeyboardFocusedProperty,
-                Value = true
-            };
-            focus.Setters.Add(new Setter(
-                Border.BorderBrushProperty,
-                BrushFrom("#FFF4F4F4"),
-                "focusBorder"));
-            template.Triggers.Add(focus);
             return template;
         }
 
@@ -2515,7 +2581,6 @@ namespace MajesticBoost
         {
             var template = new ControlTemplate(typeof(Button));
             var border = new FrameworkElementFactory(typeof(Border));
-            border.Name = "focusBorder";
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
             border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
             border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
@@ -2527,16 +2592,6 @@ namespace MajesticBoost
             presenter.SetValue(TextElement.ForegroundProperty, new TemplateBindingExtension(Control.ForegroundProperty));
             border.AppendChild(presenter);
             template.VisualTree = border;
-            var focus = new Trigger
-            {
-                Property = UIElement.IsKeyboardFocusedProperty,
-                Value = true
-            };
-            focus.Setters.Add(new Setter(
-                Border.BorderBrushProperty,
-                BrushFrom("#FFF4F4F4"),
-                "focusBorder"));
-            template.Triggers.Add(focus);
             return template;
         }
 

@@ -132,7 +132,6 @@ namespace MajesticBoost
         public DateTime? EndedUtc;
         public long AvailableMemoryStartBytes;
         public long AvailableMemoryEndBytes;
-        public int ManagedMemoryMaintenanceCycles;
         public string GameName;
         public string StopReason;
         public List<BoostActionRecord> Actions;
@@ -237,89 +236,6 @@ namespace MajesticBoost
             {
                 return false;
             }
-        }
-    }
-
-    internal sealed class ActiveMemoryMaintenanceResult
-    {
-        public bool MemorySnapshotAvailable;
-        public bool Collected;
-        public long TotalMemoryBytes;
-        public long AvailableMemoryBytes;
-        public long ManagedHeapBeforeBytes;
-        public long ManagedHeapAfterBytes;
-    }
-
-    internal static class ActiveMemoryMaintenanceService
-    {
-        public const int IntervalSeconds = 120;
-        public const long MinimumAvailableMemoryBytes = 1024L * 1024L * 1024L;
-        public const long ManagedHeapThresholdBytes = 32L * 1024L * 1024L;
-
-        public static long GetNextDueTimestamp(long nowTimestamp)
-        {
-            long intervalTicks = Stopwatch.Frequency * (long)IntervalSeconds;
-            if (nowTimestamp > long.MaxValue - intervalTicks)
-            {
-                return long.MaxValue;
-            }
-            return nowTimestamp + intervalTicks;
-        }
-
-        public static bool IsDue(long nowTimestamp, long dueTimestamp)
-        {
-            return dueTimestamp > 0 && nowTimestamp >= dueTimestamp;
-        }
-
-        public static long GetAvailableMemoryThreshold(long totalMemoryBytes)
-        {
-            if (totalMemoryBytes <= 0)
-            {
-                return MinimumAvailableMemoryBytes;
-            }
-            return Math.Max(MinimumAvailableMemoryBytes, totalMemoryBytes / 8L);
-        }
-
-        public static bool ShouldCollect(
-            long totalMemoryBytes,
-            long availableMemoryBytes,
-            long managedHeapBytes)
-        {
-            bool systemMemoryPressure =
-                totalMemoryBytes > 0 &&
-                availableMemoryBytes >= 0 &&
-                availableMemoryBytes <= GetAvailableMemoryThreshold(totalMemoryBytes);
-            return systemMemoryPressure || managedHeapBytes >= ManagedHeapThresholdBytes;
-        }
-
-        public static ActiveMemoryMaintenanceResult Run()
-        {
-            var result = new ActiveMemoryMaintenanceResult();
-            result.ManagedHeapBeforeBytes = GC.GetTotalMemory(false);
-
-            long totalMemoryBytes;
-            long availableMemoryBytes;
-            result.MemorySnapshotAvailable =
-                BoostSystemMetrics.TryGetMemory(out totalMemoryBytes, out availableMemoryBytes);
-            result.TotalMemoryBytes = totalMemoryBytes;
-            result.AvailableMemoryBytes = availableMemoryBytes;
-
-            if (!ShouldCollect(
-                totalMemoryBytes,
-                availableMemoryBytes,
-                result.ManagedHeapBeforeBytes))
-            {
-                result.ManagedHeapAfterBytes = result.ManagedHeapBeforeBytes;
-                return result;
-            }
-
-            GC.Collect(
-                GC.MaxGeneration,
-                GCCollectionMode.Optimized,
-                false);
-            result.Collected = true;
-            result.ManagedHeapAfterBytes = GC.GetTotalMemory(false);
-            return result;
         }
     }
 
@@ -460,4 +376,773 @@ namespace MajesticBoost
             }
             else if (string.Equals(normalized, "Active", StringComparison.OrdinalIgnoreCase))
             {
-                sevç^µ¶‰žËkºwµçD¤°(€€€€€€€€€€€€€€€€€€€€‰5…©•ÍÑ¥	½½ÍÐˆ¤ì(€€€€€€€€€€€ô(€€€€€€€ô((€€€€€€€ÁÕ‰±¥ŒÍÑ…Ñ¥ŒÍÑÉ¥¹œM•ÍÍ¥½¹Í¥É•Ñ½Éä(€€€€€€€ì(€€€€€€€€€€€•ÐìÉ•ÑÕÉ¸A…Ñ ¹½µ‰¥¹”¡MÑ…Ñ•¥É•Ñ½Éä°€‰M•ÍÍ¥½¹Ìˆ¤ìô(€€€€€€€ô((€€€€€€€ÁÕ‰±¥ŒÍÑ…Ñ¥ŒÙ½¥M…Ù”¡	½½ÍÑM•ÍÍ¥½¹I•Á½ÉÐÉ•Á½ÉÐ¤(€€€€€€€ì(€€€€€€€€€€€¥˜€¡É•Á½ÉÐ€ôô¹Õ±°ñðÍÑÉ¥¹œ¹%Í9Õ±±=É]¡¥Ñ•MÁ…”¡É•Á½ÉÐ¹M•ÍÍ¥½¹%¤¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•ÑÕÉ¸ì(€€€€€€€€€€€ô((€€€€€€€€€€€¥É•Ñ½Éä¹É•…Ñ•¥É•Ñ½Éä¡M•ÍÍ¥½¹Í¥É•Ñ½Éä¤ì(€€€€€€€€€€€ÍÑÉ¥¹œ½¹Ñ•¹Ð€ôM•É¥…±¥é”¡É•Á½ÉÐ¤ì(€€€€€€€€€€€ÍÑÉ¥¹œÍ•ÍÍ¥½¹A…Ñ €ôA…Ñ ¹½µ‰¥¹” (€€€€€€€€€€€€€€€M•ÍÍ¥½¹Í¥É•Ñ½Éä°(€€€€€€€€€€€€€€€€‰Í•ÍÍ¥½¸´ˆ€¬É•Á½ÉÐ¹M•ÍÍ¥½¹%€¬€ˆ¹É•Á½ÉÐˆ¤ì(€€€€€€€€€€€]É¥Ñ•±±Q•áÑÑ½µ¥Œ¡Í•ÍÍ¥½¹A…Ñ °½¹Ñ•¹Ð¤ì(€€€€€€€€€€€]É¥Ñ•±±Q•áÑÑ½µ¥Œ¡A…Ñ ¹½µ‰¥¹”¡MÑ…Ñ•¥É•Ñ½Éä°€‰±…ÍÐµÍ•ÍÍ¥½¸¹É•Á½ÉÐˆ¤°½¹Ñ•¹Ð¤ì(€€€€€€€€€€€AÉÕ¹•=±‘I•Á½ÉÑÌ ¤ì(€€€€€€€ô((€€€€€€€ÁÕ‰±¥ŒÍÑ…Ñ¥Œ	½½ÍÑM•ÍÍ¥½¹I•Á½ÉÐ1½…‘1…ÍÐ ¤(€€€€€€€ì(€€€€€€€€€€€ÍÑÉ¥¹œÁ…Ñ €ôA…Ñ ¹½µ‰¥¹”¡MÑ…Ñ•¥É•Ñ½Éä°€‰±…ÍÐµÍ•ÍÍ¥½¸¹É•Á½ÉÐˆ¤ì(€€€€€€€€€€€É•ÑÕÉ¸1½…¡Á…Ñ ¤ì(€€€€€€€ô((€€€€€€€ÁÕ‰±¥ŒÍÑ…Ñ¥Œ	½½ÍÑM•ÍÍ¥½¹I•Á½ÉÐ1½…¡ÍÑÉ¥¹œÁ…Ñ ¤(€€€€€€€ì(€€€€€€€€€€€ÑÉä(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€Ù…È™¥±”€ô¹•Ü¥±•%¹™¼¡Á…Ñ ¤ì(€€€€€€€€€€€€€€€¥˜€ …™¥±”¹á¥ÍÑÌñð™¥±”¹1•¹Ñ €ðô€Àñð™¥±”¹1•¹Ñ €ø5…áI•Á½ÉÑ	åÑ•Ì¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€É•ÑÕÉ¸¹Õ±°ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€É•ÑÕÉ¸•Í•É¥…±¥é”¡¥±”¹I•…‘±±1¥¹•Ì¡Á…Ñ °¹½‘¥¹œ¹UQà¤¤ì(€€€€€€€€€€€ô(€€€€€€€€€€€…Ñ (€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•ÑÕÉ¸¹Õ±°ì(€€€€€€€€€€€ô(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥ŒÍÑÉ¥¹œM•É¥…±¥é”¡	½½ÍÑM•ÍÍ¥½¹I•Á½ÉÐÉ•Á½ÉÐ¤(€€€€€€€ì(€€€€€€€€€€€Ù…È±¥¹•Ì€ô¹•Ü1¥ÍÐñÍÑÉ¥¹œø ¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰Y•ÉÍ¥½¸ôˆ€¬É•Á½ÉÐ¹Y•ÉÍ¥½¸¹Q½MÑÉ¥¹œ¡Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰M•ÍÍ¥½¹%ôˆ€¬¹½‘”¡É•Á½ÉÐ¹M•ÍÍ¥½¹%¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰QÉ¥•Èôˆ€¬¹½‘”¡É•Á½ÉÐ¹QÉ¥•È¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰MÑ…ÑÕÌôˆ€¬¹½‘”¡É•Á½ÉÐ¹MÑ…ÑÕÌ¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰MÑ…ÉÑ•‘UÑŒôˆ€¬É•Á½ÉÐ¹MÑ…ÉÑ•‘UÑŒ¹Q½MÑÉ¥¹œ ‰¼ˆ°Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰¹‘•‘UÑŒôˆ€¬€¡É•Á½ÉÐ¹¹‘•‘UÑŒ¹!…ÍY…±Õ”(€€€€€€€€€€€€€€€€üÉ•Á½ÉÐ¹¹‘•‘UÑŒ¹Y…±Õ”¹Q½MÑÉ¥¹œ ‰¼ˆ°Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤(€€€€€€€€€€€€€€€€èÍÑÉ¥¹œ¹µÁÑä¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰Ù…¥±…‰±•5•µ½ÉåMÑ…ÉÑ	åÑ•Ìôˆ€¬(€€€€€€€€€€€€€€€É•Á½ÉÐ¹Ù…¥±…‰±•5•µ½ÉåMÑ…ÉÑ	åÑ•Ì¹Q½MÑÉ¥¹œ¡Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰Ù…¥±…‰±•5•µ½Éå¹‘	åÑ•Ìôˆ€¬(€€€€€€€€€€€€€€€É•Á½ÉÐ¹Ù…¥±…‰±•5•µ½Éå¹‘	åÑ•Ì¹Q½MÑÉ¥¹œ¡Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰5…¹…•‘5•µ½Éå5…¥¹Ñ•¹…¹•å±•Ìôˆ€¬(€€€€€€€€€€€€€€€É•Á½ÉÐ¹5…¹…•‘5•µ½Éå5…¥¹Ñ•¹…¹•å±•Ì¹Q½MÑÉ¥¹œ¡Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰…µ•9…µ”ôˆ€¬¹½‘”¡É•Á½ÉÐ¹…µ•9…µ”¤¤ì(€€€€€€€€€€€±¥¹•Ì¹‘ ‰MÑ½ÁI•…Í½¸ôˆ€¬¹½‘”¡É•Á½ÉÐ¹MÑ½ÁI•…Í½¸¤¤ì((€€€€€€€€€€€¥˜€¡É•Á½ÉÐ¹A•É™½Éµ…¹”€„ô¹Õ±°¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰A•É™½Éµ…¹•Ù…¥±…‰±”ôˆ€¬É•Á½ÉÐ¹A•É™½Éµ…¹”¹Ù…¥±…‰±”¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰A•É™½Éµ…¹•ÉÉ½Èôˆ€¬¹½‘”¡É•Á½ÉÐ¹A•É™½Éµ…¹”¹ÉÉ½È¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰A•É™½Éµ…¹•…ÁÑÕÉ•‘UÑŒôˆ€¬(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹…ÁÑÕÉ•‘UÑŒ¹Q½MÑÉ¥¹œ ‰¼ˆ°Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰Ù•É…•ÁÌôˆ€¬(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹Ù•É…•ÁÌ¹Q½MÑÉ¥¹œ ‰Hˆ°Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰=¹•A•É•¹Ñ1½ÝÁÌôˆ€¬(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹=¹•A•É•¹Ñ1½ÝÁÌ¹Q½MÑÉ¥¹œ ‰Hˆ°Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰@äÕÉ…µ•Q¥µ•5Ìôˆ€¬(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹@äÕÉ…µ•Q¥µ•5Ì¹Q½MÑÉ¥¹œ ‰Hˆ°Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰@äåÉ…µ•Q¥µ•5Ìôˆ€¬(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹@äåÉ…µ•Q¥µ•5Ì¹Q½MÑÉ¥¹œ ‰Hˆ°Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰É…µ•Ìôˆ€¬(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹É…µ•Ì¹Q½MÑÉ¥¹œ¡Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰É…µ•Í=Ù•ÈÔÁ5Ìôˆ€¬(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹É…µ•Í=Ù•ÈÔÁ5Ì¹Q½MÑÉ¥¹œ¡Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰É…µ•Í=Ù•ÈÄÀÁ5Ìôˆ€¬(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹É…µ•Í=Ù•ÈÄÀÁ5Ì¹Q½MÑÉ¥¹œ¡Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰A•É™½Éµ…¹•AÉ½•ÍÌôˆ€¬¹½‘”¡É•Á½ÉÐ¹A•É™½Éµ…¹”¹AÉ½•ÍÍ9…µ”¤¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰A•É™½Éµ…¹•ÍÙA…Ñ ôˆ€¬¹½‘”¡É•Á½ÉÐ¹A•É™½Éµ…¹”¹ÍÙA…Ñ ¤¤ì(€€€€€€€€€€€ô((€€€€€€€€€€€™½É•… €¡	½½ÍÑÑ¥½¹I•½É…Ñ¥½¸¥¸É•Á½ÉÐ¹Ñ¥½¹Ì€üü¹•Ü1¥ÍÐñ	½½ÍÑÑ¥½¹I•½Éø ¤¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€ÍÑÉ¥¹œÁ…å±½…€ôÍÑÉ¥¹œ¹)½¥¸ (€€€€€€€€€€€€€€€€€€€€‰qÐˆ°(€€€€€€€€€€€€€€€€€€€¹•Ýmt(€€€€€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€€€€€…Ñ¥½¸¹Q¥µ•ÍÑ…µÁUÑŒ¹Q½MÑÉ¥¹œ ‰¼ˆ°Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”¤°(€€€€€€€€€€€€€€€€€€€€€€€…Ñ¥½¸¹=ÕÑ½µ”¹Q½MÑÉ¥¹œ ¤°(€€€€€€€€€€€€€€€€€€€€€€€…Ñ¥½¸¹Q¥Ñ±”€üüÍÑÉ¥¹œ¹µÁÑä°(€€€€€€€€€€€€€€€€€€€€€€€…Ñ¥½¸¹•Ñ…¥°€üüÍÑÉ¥¹œ¹µÁÑä(€€€€€€€€€€€€€€€€€€€ô¤ì(€€€€€€€€€€€€€€€±¥¹•Ì¹‘ ‰Ñ¥½¸ôˆ€¬¹½‘”¡Á…å±½…¤¤ì(€€€€€€€€€€€ô(€€€€€€€€€€€É•ÑÕÉ¸ÍÑÉ¥¹œ¹)½¥¸¡¹Ù¥É½¹µ•¹Ð¹9•Ý1¥¹”°±¥¹•Ì¹Q½ÉÉ…ä ¤¤€¬¹Ù¥É½¹µ•¹Ð¹9•Ý1¥¹”ì(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥Œ	½½ÍÑM•ÍÍ¥½¹I•Á½ÉÐ•Í•É¥…±¥é”¡ÍÑÉ¥¹mt±¥¹•Ì¤(€€€€€€€ì(€€€€€€€€€€€Ù…ÈÙ…±Õ•Ì€ô¹•Ü¥Ñ¥½¹…ÉäñÍÑÉ¥¹œ°ÍÑÉ¥¹œø¡MÑÉ¥¹½µÁ…É•È¹=É‘¥¹…±%¹½É•…Í”¤ì(€€€€€€€€€€€Ù…È…Ñ¥½¹Y…±Õ•Ì€ô¹•Ü1¥ÍÐñÍÑÉ¥¹œø ¤ì(€€€€€€€€€€€™½É•… €¡ÍÑÉ¥¹œ±¥¹”¥¸±¥¹•Ì¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€¥¹ÐÍ•Á…É…Ñ½È€ô±¥¹”¹%¹‘•á=˜ œôœ¤ì(€€€€€€€€€€€€€€€¥˜€¡Í•Á…É…Ñ½È€ðô€À¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€½¹Ñ¥¹Õ”ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€ÍÑÉ¥¹œ­•ä€ô±¥¹”¹MÕ‰ÍÑÉ¥¹œ À°Í•Á…É…Ñ½È¤ì(€€€€€€€€€€€€€€€ÍÑÉ¥¹œÙ…±Õ”€ô±¥¹”¹MÕ‰ÍÑÉ¥¹œ¡Í•Á…É…Ñ½È€¬€Ä¤ì(€€€€€€€€€€€€€€€¥˜€¡ÍÑÉ¥¹œ¹ÅÕ…±Ì¡­•ä°€‰Ñ¥½¸ˆ°MÑÉ¥¹½µÁ…É¥Í½¸¹=É‘¥¹…±%¹½É•…Í”¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€…Ñ¥½¹Y…±Õ•Ì¹‘¡Ù…±Õ”¤ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€•±Í”(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€Ù…±Õ•Ím­•åt€ôÙ…±Õ”ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€ô((€€€€€€€€€€€¥¹ÐÙ•ÉÍ¥½¸ì(€€€€€€€€€€€¥˜€ …QÉåA…ÉÍ•%¹Ð¡Ù…±Õ•Ì°€‰Y•ÉÍ¥½¸ˆ°½ÕÐÙ•ÉÍ¥½¸¤ñðÙ•ÉÍ¥½¸€„ô€Ä¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•ÑÕÉ¸¹Õ±°ì(€€€€€€€€€€€ô((€€€€€€€€€€€…Ñ•Q¥µ”ÍÑ…ÉÑ•‘UÑŒì(€€€€€€€€€€€¥˜€ …QÉåA…ÉÍ•…Ñ”¡Ù…±Õ•Ì°€‰MÑ…ÉÑ•‘UÑŒˆ°½ÕÐÍÑ…ÉÑ•‘UÑŒ¤¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•ÑÕÉ¸¹Õ±°ì(€€€€€€€€€€€ô((€€€€€€€€€€€Ù…ÈÉ•Á½ÉÐ€ô¹•Ü	½½ÍÑM•ÍÍ¥½¹I•Á½ÉÐ(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€Y•ÉÍ¥½¸€ôÙ•ÉÍ¥½¸°(€€€€€€€€€€€€€€€M•ÍÍ¥½¹%€ô•½‘”¡•ÑY…±Õ”¡Ù…±Õ•Ì°€‰M•ÍÍ¥½¹%ˆ¤¤°(€€€€€€€€€€€€€€€QÉ¥•È€ô•½‘”¡•ÑY…±Õ”¡Ù…±Õ•Ì°€‰QÉ¥•Èˆ¤¤°(€€€€€€€€€€€€€€€MÑ…ÑÕÌ€ô•½‘”¡•ÑY…±Õ”¡Ù…±Õ•Ì°€‰MÑ…ÑÕÌˆ¤¤°(€€€€€€€€€€€€€€€MÑ…ÉÑ•‘UÑŒ€ôÍÑ…ÉÑ•‘UÑŒ°(€€€€€€€€€€€€€€€…µ•9…µ”€ô•½‘”¡•ÑY…±Õ”¡Ù…±Õ•Ì°€‰…µ•9…µ”ˆ¤¤°(€€€€€€€€€€€€€€€MÑ½ÁI•…Í½¸€ô•½‘”¡•ÑY…±Õ”¡Ù…±Õ•Ì°€‰MÑ½ÁI•…Í½¸ˆ¤¤(€€€€€€€€€€€ôì(€€€€€€€€€€€±½¹œ±½¹Y…±Õ”ì(€€€€€€€€€€€¥˜€¡QÉåA…ÉÍ•1½¹œ¡Ù…±Õ•Ì°€‰Ù…¥±…‰±•5•µ½ÉåMÑ…ÉÑ	åÑ•Ìˆ°½ÕÐ±½¹Y…±Õ”¤¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•Á½ÉÐ¹Ù…¥±…‰±•5•µ½ÉåMÑ…ÉÑ	åÑ•Ì€ô±½¹Y…±Õ”ì(€€€€€€€€€€€ô(€€€€€€€€€€€¥˜€¡QÉåA…ÉÍ•1½¹œ¡Ù…±Õ•Ì°€‰Ù…¥±…‰±•5•µ½Éå¹‘	åÑ•Ìˆ°½ÕÐ±½¹Y…±Õ”¤¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•Á½ÉÐ¹Ù…¥±…‰±•5•µ½Éå¹‘	åÑ•Ì€ô±½¹Y…±Õ”ì(€€€€€€€€€€€ô(€€€€€€€€€€€¥¹Ðµ•µ½Éå5…¥¹Ñ•¹…¹•å±•Ìì(€€€€€€€€€€€¥˜€¡QÉåA…ÉÍ•%¹Ð¡Ù…±Õ•Ì°€‰5…¹…•‘5•µ½Éå5…¥¹Ñ•¹…¹•å±•Ìˆ°½ÕÐµ•µ½Éå5…¥¹Ñ•¹…¹•å±•Ì¤¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•Á½ÉÐ¹5…¹…•‘5•µ½Éå5…¥¹Ñ•¹…¹•å±•Ì€ô5…Ñ ¹5…à À°µ•µ½Éå5…¥¹Ñ•¹…¹•å±•Ì¤ì(€€€€€€€€€€€ô(€€€€€€€€€€€…Ñ•Q¥µ”‘…Ñ•Y…±Õ”ì(€€€€€€€€€€€¥˜€¡QÉåA…ÉÍ•…Ñ”¡Ù…±Õ•Ì°€‰¹‘•‘UÑŒˆ°½ÕÐ‘…Ñ•Y…±Õ”¤¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•Á½ÉÐ¹¹‘•‘UÑŒ€ô‘…Ñ•Y…±Õ”ì(€€€€€€€€€€€ô((€€€€€€€€€€€‰½½°Á•É™½Éµ…¹•Ù…¥±…‰±”ì(€€€€€€€€€€€¥˜€¡‰½½°¹QÉåA…ÉÍ”¡•ÑY…±Õ”¡Ù…±Õ•Ì°€‰A•É™½Éµ…¹•Ù…¥±…‰±”ˆ¤°½ÕÐÁ•É™½Éµ…¹•Ù…¥±…‰±”¤¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”€ô¹•Ü	½½ÍÑA•É™½Éµ…¹•I•ÍÕ±Ð(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€Ù…¥±…‰±”€ôÁ•É™½Éµ…¹•Ù…¥±…‰±”°(€€€€€€€€€€€€€€€€€€€ÉÉ½È€ô•½‘”¡•ÑY…±Õ”¡Ù…±Õ•Ì°€‰A•É™½Éµ…¹•ÉÉ½Èˆ¤¤°(€€€€€€€€€€€€€€€€€€€AÉ½•ÍÍ9…µ”€ô•½‘”¡•ÑY…±Õ”¡Ù…±Õ•Ì°€‰A•É™½Éµ…¹•AÉ½•ÍÌˆ¤¤°(€€€€€€€€€€€€€€€€€€€ÍÙA…Ñ €ô•½‘”¡•ÑY…±Õ”¡Ù…±Õ•Ì°€‰A•É™½Éµ…¹•ÍÙA…Ñ ˆ¤¤(€€€€€€€€€€€€€€€ôì(€€€€€€€€€€€€€€€¥˜€¡QÉåA…ÉÍ•…Ñ”¡Ù…±Õ•Ì°€‰A•É™½Éµ…¹•…ÁÑÕÉ•‘UÑŒˆ°½ÕÐ‘…Ñ•Y…±Õ”¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹…ÁÑÕÉ•‘UÑŒ€ô‘…Ñ•Y…±Õ”ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹Ù•É…•ÁÌ€ôA…ÉÍ•½Õ‰±”¡Ù…±Õ•Ì°€‰Ù•É…•ÁÌˆ¤ì(€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹=¹•A•É•¹Ñ1½ÝÁÌ€ôA…ÉÍ•½Õ‰±”¡Ù…±Õ•Ì°€‰=¹•A•É•¹Ñ1½ÝÁÌˆ¤ì(€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹@äÕÉ…µ•Q¥µ•5Ì€ôA…ÉÍ•½Õ‰±”¡Ù…±Õ•Ì°€‰@äÕÉ…µ•Q¥µ•5Ìˆ¤ì(€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹@äåÉ…µ•Q¥µ•5Ì€ôA…ÉÍ•½Õ‰±”¡Ù…±Õ•Ì°€‰@äåÉ…µ•Q¥µ•5Ìˆ¤ì(€€€€€€€€€€€€€€€¥¹Ð¥¹ÑY…±Õ”ì(€€€€€€€€€€€€€€€¥˜€¡QÉåA…ÉÍ•%¹Ð¡Ù…±Õ•Ì°€‰É…µ•Ìˆ°½ÕÐ¥¹ÑY…±Õ”¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹É…µ•Ì€ô¥¹ÑY…±Õ”ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€¥˜€¡QÉåA…ÉÍ•%¹Ð¡Ù…±Õ•Ì°€‰É…µ•Í=Ù•ÈÔÁ5Ìˆ°½ÕÐ¥¹ÑY…±Õ”¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹É…µ•Í=Ù•ÈÔÁ5Ì€ô¥¹ÑY…±Õ”ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€¥˜€¡QÉåA…ÉÍ•%¹Ð¡Ù…±Õ•Ì°€‰É…µ•Í=Ù•ÈÄÀÁ5Ìˆ°½ÕÐ¥¹ÑY…±Õ”¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€É•Á½ÉÐ¹A•É™½Éµ…¹”¹É…µ•Í=Ù•ÈÄÀÁ5Ì€ô¥¹ÑY…±Õ”ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€ô((€€€€€€€€€€€™½É•… €¡ÍÑÉ¥¹œ•¹½‘•¥¸…Ñ¥½¹Y…±Õ•Ì¤(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€ÍÑÉ¥¹œÁ…å±½…€ô•½‘”¡•¹½‘•¤ì(€€€€€€€€€€€€€€€ÍÑÉ¥¹mtÁ…ÉÑÌ€ôÁ…å±½…¹MÁ±¥Ð¡¹•Ýmtì€qÐœô°€Ð¤ì(€€€€€€€€€€€€€€€¥˜€¡Á…ÉÑÌ¹1•¹Ñ €„ô€Ð¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€½¹Ñ¥¹Õ”ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€…Ñ•Q¥µ”Ñ¥µ•ÍÑ…µÀì(€€€€€€€€€€€€€€€	½½ÍÑÑ¥½¹=ÕÑ½µ”½ÕÑ½µ”ì(€€€€€€€€€€€€€€€¥˜€ ……Ñ•Q¥µ”¹QÉåA…ÉÍ” (€€€€€€€€€€€€€€€€€€€€€€€Á…ÉÑÍlÁt°(€€€€€€€€€€€€€€€€€€€€€€€Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”°(€€€€€€€€€€€€€€€€€€€€€€€…Ñ•Q¥µ•MÑå±•Ì¹I½Õ¹‘ÑÉ¥Á-¥¹°(€€€€€€€€€€€€€€€€€€€€€€€½ÕÐÑ¥µ•ÍÑ…µÀ¤ñð(€€€€€€€€€€€€€€€€€€€€…¹Õ´¹QÉåA…ÉÍ”¡Á…ÉÑÍlÅt°ÑÉÕ”°½ÕÐ½ÕÑ½µ”¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€½¹Ñ¥¹Õ”ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€É•Á½ÉÐ¹Ñ¥½¹Ì¹‘¡¹•Ü	½½ÍÑÑ¥½¹I•½É(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€Q¥µ•ÍÑ…µÁUÑŒ€ôÑ¥µ•ÍÑ…µÀ°(€€€€€€€€€€€€€€€€€€€=ÕÑ½µ”€ô½ÕÑ½µ”°(€€€€€€€€€€€€€€€€€€€Q¥Ñ±”€ôÁ…ÉÑÍlÉt°(€€€€€€€€€€€€€€€€€€€•Ñ…¥°€ôÁ…ÉÑÍlÍt(€€€€€€€€€€€€€€€ô¤ì(€€€€€€€€€€€ô(€€€€€€€€€€€É•ÑÕÉ¸É•Á½ÉÐì(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥ŒÙ½¥]É¥Ñ•±±Q•áÑÑ½µ¥Œ¡ÍÑÉ¥¹œ‘•ÍÑ¥¹…Ñ¥½¸°ÍÑÉ¥¹œ½¹Ñ•¹Ð¤(€€€€€€€ì(€€€€€€€€€€€ÍÑÉ¥¹œ‘¥É•Ñ½Éä€ôA…Ñ ¹•Ñ¥É•Ñ½Éå9…µ”¡‘•ÍÑ¥¹…Ñ¥½¸¤ì(€€€€€€€€€€€¥É•Ñ½Éä¹É•…Ñ•¥É•Ñ½Éä¡‘¥É•Ñ½Éä¤ì(€€€€€€€€€€€ÍÑÉ¥¹œÑ•µÁ½É…Éä€ôA…Ñ ¹½µ‰¥¹” (€€€€€€€€€€€€€€€‘¥É•Ñ½Éä°(€€€€€€€€€€€€€€€€ˆ¸ˆ€¬A…Ñ ¹•Ñ¥±•9…µ”¡‘•ÍÑ¥¹…Ñ¥½¸¤€¬€ˆ¸ˆ€¬Õ¥¹9•ÝÕ¥ ¤¹Q½MÑÉ¥¹œ ‰8ˆ¤€¬€ˆ¹ÑµÀˆ¤ì(€€€€€€€€€€€ÍÑÉ¥¹œ‰…­ÕÀ€ôÑ•µÁ½É…Éä€¬€ˆ¹‰…¬ˆì(€€€€€€€€€€€ÑÉä(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€‰åÑ•mt‰åÑ•Ì€ô¹•ÜUQá¹½‘¥¹œ¡™…±Í”¤¹•Ñ	åÑ•Ì¡½¹Ñ•¹Ð€üüÍÑÉ¥¹œ¹µÁÑä¤ì(€€€€€€€€€€€€€€€ÕÍ¥¹œ€¡Ù…ÈÍÑÉ•…´€ô¹•Ü¥±•MÑÉ•…´ (€€€€€€€€€€€€€€€€€€€Ñ•µÁ½É…Éä°(€€€€€€€€€€€€€€€€€€€¥±•5½‘”¹É•…Ñ•9•Ü°(€€€€€€€€€€€€€€€€€€€¥±••ÍÌ¹]É¥Ñ”°(€€€€€€€€€€€€€€€€€€€¥±•M¡…É”¹9½¹”°(€€€€€€€€€€€€€€€€€€€€ÐÀäØ°(€€€€€€€€€€€€€€€€€€€¥±•=ÁÑ¥½¹Ì¹]É¥Ñ•Q¡É½Õ ¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€ÍÑÉ•…´¹]É¥Ñ”¡‰åÑ•Ì°€À°‰åÑ•Ì¹1•¹Ñ ¤ì(€€€€€€€€€€€€€€€€€€€ÍÑÉ•…´¹±ÕÍ ¡ÑÉÕ”¤ì(€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€¥˜€¡¥±”¹á¥ÍÑÌ¡‘•ÍÑ¥¹…Ñ¥½¸¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€¥±”¹I•Á±…”¡Ñ•µÁ½É…Éä°‘•ÍÑ¥¹…Ñ¥½¸°‰…­ÕÀ°ÑÉÕ”¤ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€•±Í”(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€¥±”¹5½Ù”¡Ñ•µÁ½É…Éä°‘•ÍÑ¥¹…Ñ¥½¸¤ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€ô(€€€€€€€€€€€™¥¹…±±ä(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€QÉå•±•Ñ”¡Ñ•µÁ½É…Éä¤ì(€€€€€€€€€€€€€€€QÉå•±•Ñ”¡‰…­ÕÀ¤ì(€€€€€€€€€€€ô(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥ŒÙ½¥AÉÕ¹•=±‘I•Á½ÉÑÌ ¤(€€€€€€€ì(€€€€€€€€€€€ÑÉä(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€Ù…È‘¥É•Ñ½Éä€ô¹•Ü¥É•Ñ½Éå%¹™¼¡M•ÍÍ¥½¹Í¥É•Ñ½Éä¤ì(€€€€€€€€€€€€€€€¥±•%¹™½mtÉ•Á½ÉÑÌ€ô‘¥É•Ñ½Éä¹•Ñ¥±•Ì ‰Í•ÍÍ¥½¸´¨¹É•Á½ÉÐˆ¤(€€€€€€€€€€€€€€€€€€€€¹=É‘•É	å•Í•¹‘¥¹œ¡™¥±”€ôø™¥±”¹1…ÍÑ]É¥Ñ•Q¥µ•UÑŒ¤(€€€€€€€€€€€€€€€€€€€€¹Q½ÉÉ…ä ¤ì(€€€€€€€€€€€€€€€™½È€¡¥¹Ð¥¹‘•à€ô5…áI•Á½ÉÑÌì¥¹‘•à€ðÉ•Á½ÉÑÌ¹1•¹Ñ ì¥¹‘•à¬¬¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€ÍÑÉ¥¹œ™Õ±±A…Ñ €ôA…Ñ ¹•ÑÕ±±A…Ñ ¡É•Á½ÉÑÍm¥¹‘•át¹Õ±±9…µ”¤ì(€€€€€€€€€€€€€€€€€€€ÍÑÉ¥¹œÉ•ÅÕ¥É•‘AÉ•™¥à€ôA…Ñ ¹•ÑÕ±±A…Ñ ¡M•ÍÍ¥½¹Í¥É•Ñ½Éä¤(€€€€€€€€€€€€€€€€€€€€€€€€¹QÉ¥µ¹¡A…Ñ ¹¥É•Ñ½ÉåM•Á…É…Ñ½É¡…È°A…Ñ ¹±Ñ¥É•Ñ½ÉåM•Á…É…Ñ½É¡…È¤€¬(€€€€€€€€€€€€€€€€€€€€€€€A…Ñ ¹¥É•Ñ½ÉåM•Á…É…Ñ½É¡…Èì(€€€€€€€€€€€€€€€€€€€¥˜€¡™Õ±±A…Ñ ¹MÑ…ÉÑÍ]¥Ñ ¡É•ÅÕ¥É•‘AÉ•™¥à°MÑÉ¥¹½µÁ…É¥Í½¸¹=É‘¥¹…±%¹½É•…Í”¤¤(€€€€€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€€€€€QÉå•±•Ñ”¡™Õ±±A…Ñ ¤ì(€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€ô(€€€€€€€€€€€…Ñ ìô(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥ŒÍÑÉ¥¹œ¹½‘”¡ÍÑÉ¥¹œÙ…±Õ”¤(€€€€€€€ì(€€€€€€€€€€€É•ÑÕÉ¸½¹Ù•ÉÐ¹Q½	…Í”ØÑMÑÉ¥¹œ (€€€€€€€€€€€€€€€¹½‘¥¹œ¹UQà¹•Ñ	åÑ•Ì¡Ù…±Õ”€üüÍÑÉ¥¹œ¹µÁÑä¤¤ì(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥ŒÍÑÉ¥¹œ•½‘”¡ÍÑÉ¥¹œÙ…±Õ”¤(€€€€€€€ì(€€€€€€€€€€€ÑÉä(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€¥˜€¡ÍÑÉ¥¹œ¹%Í9Õ±±=ÉµÁÑä¡Ù…±Õ”¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€É•ÑÕÉ¸ÍÑÉ¥¹œ¹µÁÑäì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€É•ÑÕÉ¸¹½‘¥¹œ¹UQà¹•ÑMÑÉ¥¹œ¡½¹Ù•ÉÐ¹É½µ	…Í”ØÑMÑÉ¥¹œ¡Ù…±Õ”¤¤ì(€€€€€€€€€€€ô(€€€€€€€€€€€…Ñ (€€€€€€€€€€€ì(€€€€€€€€€€€€€€€É•ÑÕÉ¸ÍÑÉ¥¹œ¹µÁÑäì(€€€€€€€€€€€ô(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥ŒÍÑÉ¥¹œ•ÑY…±Õ” (€€€€€€€€€€€%¥Ñ¥½¹…ÉäñÍÑÉ¥¹œ°ÍÑÉ¥¹œøÙ…±Õ•Ì°(€€€€€€€€€€€ÍÑÉ¥¹œ­•ä¤(€€€€€€€ì(€€€€€€€€€€€ÍÑÉ¥¹œÙ…±Õ”ì(€€€€€€€€€€€É•ÑÕÉ¸Ù…±Õ•Ì¹QÉå•ÑY…±Õ”¡­•ä°½ÕÐÙ…±Õ”¤€üÙ…±Õ”€èÍÑÉ¥¹œ¹µÁÑäì(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥Œ‰½½°QÉåA…ÉÍ•%¹Ð (€€€€€€€€€€€%¥Ñ¥½¹…ÉäñÍÑÉ¥¹œ°ÍÑÉ¥¹œøÙ…±Õ•Ì°(€€€€€€€€€€€ÍÑÉ¥¹œ­•ä°(€€€€€€€€€€€½ÕÐ¥¹ÐÙ…±Õ”¤(€€€€€€€ì(€€€€€€€€€€€É•ÑÕÉ¸¥¹Ð¹QÉåA…ÉÍ” (€€€€€€€€€€€€€€€•ÑY…±Õ”¡Ù…±Õ•Ì°­•ä¤°(€€€€€€€€€€€€€€€9Õµ‰•ÉMÑå±•Ì¹%¹Ñ••È°(€€€€€€€€€€€€€€€Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”°(€€€€€€€€€€€€€€€½ÕÐÙ…±Õ”¤ì(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥Œ‰½½°QÉåA…ÉÍ•1½¹œ (€€€€€€€€€€€%¥Ñ¥½¹…ÉäñÍÑÉ¥¹œ°ÍÑÉ¥¹œøÙ…±Õ•Ì°(€€€€€€€€€€€ÍÑÉ¥¹œ­•ä°(€€€€€€€€€€€½ÕÐ±½¹œÙ…±Õ”¤(€€€€€€€ì(€€€€€€€€€€€É•ÑÕÉ¸±½¹œ¹QÉåA…ÉÍ” (€€€€€€€€€€€€€€€•ÑY…±Õ”¡Ù…±Õ•Ì°­•ä¤°(€€€€€€€€€€€€€€€9Õµ‰•ÉMÑå±•Ì¹%¹Ñ••È°(€€€€€€€€€€€€€€€Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”°(€€€€€€€€€€€€€€€½ÕÐÙ…±Õ”¤ì(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥Œ‰½½°QÉåA…ÉÍ•…Ñ” (€€€€€€€€€€€%¥Ñ¥½¹…ÉäñÍÑÉ¥¹œ°ÍÑÉ¥¹œøÙ…±Õ•Ì°(€€€€€€€€€€€ÍÑÉ¥¹œ­•ä°(€€€€€€€€€€€½ÕÐ…Ñ•Q¥µ”Ù…±Õ”¤(€€€€€€€ì(€€€€€€€€€€€É•ÑÕÉ¸…Ñ•Q¥µ”¹QÉåA…ÉÍ” (€€€€€€€€€€€€€€€•ÑY…±Õ”¡Ù…±Õ•Ì°­•ä¤°(€€€€€€€€€€€€€€€Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”°(€€€€€€€€€€€€€€€…Ñ•Q¥µ•MÑå±•Ì¹I½Õ¹‘ÑÉ¥Á-¥¹°(€€€€€€€€€€€€€€€½ÕÐÙ…±Õ”¤ì(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥Œ‘½Õ‰±”A…ÉÍ•½Õ‰±” (€€€€€€€€€€€%¥Ñ¥½¹…ÉäñÍÑÉ¥¹œ°ÍÑÉ¥¹œøÙ…±Õ•Ì°(€€€€€€€€€€€ÍÑÉ¥¹œ­•ä¤(€€€€€€€ì(€€€€€€€€€€€‘½Õ‰±”Ù…±Õ”ì(€€€€€€€€€€€É•ÑÕÉ¸‘½Õ‰±”¹QÉåA…ÉÍ” (€€€€€€€€€€€€€€€•ÑY…±Õ”¡Ù…±Õ•Ì°­•ä¤°(€€€€€€€€€€€€€€€9Õµ‰•ÉMÑå±•Ì¹±½…Ð°(€€€€€€€€€€€€€€€Õ±ÑÕÉ•%¹™¼¹%¹Ù…É¥…¹ÑÕ±ÑÕÉ”°(€€€€€€€€€€€€€€€½ÕÐÙ…±Õ”¤(€€€€€€€€€€€€€€€€üÙ…±Õ”(€€€€€€€€€€€€€€€€è€Àì(€€€€€€€ô((€€€€€€€ÁÉ¥Ù…Ñ”ÍÑ…Ñ¥ŒÙ½¥QÉå•±•Ñ”¡ÍÑÉ¥¹œÁ…Ñ ¤(€€€€€€€ì(€€€€€€€€€€€ÑÉä(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€¥˜€ …ÍÑÉ¥¹œ¹%Í9Õ±±=ÉµÁÑä¡Á…Ñ ¤€˜˜¥±”¹á¥ÍÑÌ¡Á…Ñ ¤¤(€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€€€€¥±”¹•±•Ñ”¡Á…Ñ ¤ì(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€ô(€€€€€€€€€€€…Ñ ìô(€€€€€€€ô(€€€ô)ô
+                severity = BoostCheckSeverity.Pass;
+                detail = "Ð¡Ð¸ÑÑ‚ÐµÐ¼Ð½Ð°Ñ Ð¾Ð¿Ñ‚Ð¸Ð¼Ð¸Ð·Ð°Ñ†Ð¸Ñ Ð¿Ñ€Ð¸Ð¼ÐµÐ½ÐµÐ½Ð°, Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ð°Ñ ÐºÐ¾Ð¿Ð¸Ñ Ð´Ð¾ÑÑ‚ÑƒÐ¿Ð½Ð°.";
+            }
+            else if (string.Equals(normalized, "NotApplied", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(normalized, "None", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(normalized, "Restored", StringComparison.OrdinalIgnoreCase))
+            {
+                severity = BoostCheckSeverity.Info;
+                detail = "Ð¡Ð¸ÑÑ‚ÐµÐ¼Ð½Ð°Ñ Ð¾Ð¿Ñ‚Ð¸Ð¼Ð¸Ð·Ð°Ñ†Ð¸Ñ ÐµÑ‰Ñ‘ Ð½Ðµ Ð¿Ñ€Ð¸Ð¼ÐµÐ½ÐµÐ½Ð°.";
+            }
+            else
+            {
+                severity = BoostCheckSeverity.Unknown;
+                detail = "Ð¡Ð¾ÑÑ‚Ð¾ÑÐ½Ð¸Ðµ ÑÐ¸ÑÑ‚ÐµÐ¼Ð½Ð¾Ð¹ Ð¾Ð¿Ñ‚Ð¸Ð¼Ð¸Ð·Ð°Ñ†Ð¸Ð¸ Ð½Ðµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð¾Ð¿Ñ€ÐµÐ´ÐµÐ»Ð¸Ñ‚ÑŒ.";
+            }
+
+            report.Checks.Add(new BoostCheckResult
+            {
+                Id = "optimization",
+                Title = "Ð¡Ð˜Ð¡Ð¢Ð•ÐœÐÐÐ¯ ÐžÐŸÐ¢Ð˜ÐœÐ˜Ð—ÐÐ¦Ð˜Ð¯",
+                Detail = detail,
+                Severity = severity
+            });
+        }
+
+        private static void AddRestartCheck(BoostPreflightReport report)
+        {
+            try
+            {
+                bool pending =
+                    RegistryKeyExists(
+                        Registry.LocalMachine,
+                        @"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending") ||
+                    RegistryKeyExists(
+                        Registry.LocalMachine,
+                        @"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired");
+
+                report.Checks.Add(new BoostCheckResult
+                {
+                    Id = "restart",
+                    Title = "ÐŸÐ•Ð Ð•Ð—ÐÐ“Ð Ð£Ð—ÐšÐ WINDOWS",
+                    Detail = pending
+                        ? "Windows Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ Ð¿ÐµÑ€ÐµÐ·Ð°Ð³Ñ€ÑƒÐ·ÐºÑƒ. ÐŸÐµÑ€ÐµÐ´ Ð´Ð¾Ð»Ð³Ð¾Ð¹ ÑÐµÑÑÐ¸ÐµÐ¹ Ð»ÑƒÑ‡ÑˆÐµ Ð¿ÐµÑ€ÐµÐ·Ð°Ð¿ÑƒÑÑ‚Ð¸Ñ‚ÑŒ ÐŸÐš."
+                        : "ÐÐµÐ·Ð°Ð²ÐµÑ€ÑˆÑ‘Ð½Ð½Ð°Ñ Ð¿ÐµÑ€ÐµÐ·Ð°Ð³Ñ€ÑƒÐ·ÐºÐ° Ð½Ðµ Ð¾Ð±Ð½Ð°Ñ€ÑƒÐ¶ÐµÐ½Ð°.",
+                    Severity = pending
+                        ? BoostCheckSeverity.Warning
+                        : BoostCheckSeverity.Pass
+                });
+            }
+            catch (Exception ex)
+            {
+                AddUnknown(report, "restart", "ÐŸÐ•Ð Ð•Ð—ÐÐ“Ð Ð£Ð—ÐšÐ WINDOWS", ex);
+            }
+        }
+
+        private static void AddPowerCheck(BoostPreflightReport report)
+        {
+            try
+            {
+                SystemPowerStatus status;
+                if (!GetSystemPowerStatus(out status))
+                {
+                    throw new InvalidOperationException("Windows Ð½Ðµ Ð²ÐµÑ€Ð½ÑƒÐ»Ð° ÑÐ¾ÑÑ‚Ð¾ÑÐ½Ð¸Ðµ Ð¿Ð¸Ñ‚Ð°Ð½Ð¸Ñ.");
+                }
+
+                bool hasBattery = status.BatteryFlag != 128 && status.BatteryFlag != 255;
+                bool onAc = status.AcLineStatus == 1;
+                string detail;
+                BoostCheckSeverity severity;
+                if (!hasBattery)
+                {
+                    detail = "Ð¡Ñ‚Ð°Ñ†Ð¸Ð¾Ð½Ð°Ñ€Ð½Ð¾Ðµ Ð¿Ð¸Ñ‚Ð°Ð½Ð¸Ðµ Ð¾Ð±Ð½Ð°Ñ€ÑƒÐ¶ÐµÐ½Ð¾.";
+                    severity = BoostCheckSeverity.Pass;
+                }
+                else if (onAc)
+                {
+                    detail = "ÐÐ¾ÑƒÑ‚Ð±ÑƒÐº Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡Ñ‘Ð½ Ðº Ð¿Ð¸Ñ‚Ð°Ð½Ð¸ÑŽ.";
+                    severity = BoostCheckSeverity.Pass;
+                }
+                else
+                {
+                    detail = "ÐÐ¾ÑƒÑ‚Ð±ÑƒÐº Ñ€Ð°Ð±Ð¾Ñ‚Ð°ÐµÑ‚ Ð¾Ñ‚ Ð±Ð°Ñ‚Ð°Ñ€ÐµÐ¸ â€” Ð¿Ñ€Ð¾Ð¸Ð·Ð²Ð¾Ð´Ð¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ÑÑ‚ÑŒ Ð¼Ð¾Ð¶ÐµÑ‚ Ð±Ñ‹Ñ‚ÑŒ Ð¾Ð³Ñ€Ð°Ð½Ð¸Ñ‡ÐµÐ½Ð°.";
+                    severity = BoostCheckSeverity.Warning;
+                }
+
+                report.Checks.Add(new BoostCheckResult
+                {
+                    Id = "power",
+                    Title = "ÐŸÐ˜Ð¢ÐÐÐ˜Ð•",
+                    Detail = detail,
+                    Severity = severity
+                });
+            }
+            catch (Exception ex)
+            {
+                AddUnknown(report, "power", "ÐŸÐ˜Ð¢ÐÐÐ˜Ð•", ex);
+            }
+        }
+
+        private static void AddMemoryCheck(BoostPreflightReport report)
+        {
+            try
+            {
+                long total;
+                long available;
+                if (!BoostSystemMetrics.TryGetMemory(out total, out available) || total <= 0)
+                {
+                    throw new InvalidOperationException("Windows Ð½Ðµ Ð²ÐµÑ€Ð½ÑƒÐ»Ð° ÑÐ²ÐµÐ´ÐµÐ½Ð¸Ñ Ð¾ Ð¿Ð°Ð¼ÑÑ‚Ð¸.");
+                }
+
+                report.TotalMemoryBytes = total;
+                report.AvailableMemoryBytes = available;
+                double availablePercent = available * 100.0 / total;
+                bool low = available < 2L * 1024 * 1024 * 1024 || availablePercent < 10;
+                report.Checks.Add(new BoostCheckResult
+                {
+                    Id = "memory",
+                    Title = "ÐžÐŸÐ•Ð ÐÐ¢Ð˜Ð’ÐÐÐ¯ ÐŸÐÐœÐ¯Ð¢Ð¬",
+                    Detail = string.Format(
+                        CultureInfo.CurrentCulture,
+                        "Ð”Ð¾ÑÑ‚ÑƒÐ¿Ð½Ð¾ {0:0.0} Ð¸Ð· {1:0.0} Ð“Ð‘.",
+                        available / 1073741824.0,
+                        total / 1073741824.0),
+                    Severity = low
+                        ? BoostCheckSeverity.Warning
+                        : BoostCheckSeverity.Pass
+                });
+            }
+            catch (Exception ex)
+            {
+                AddUnknown(report, "memory", "ÐžÐŸÐ•Ð ÐÐ¢Ð˜Ð’ÐÐÐ¯ ÐŸÐÐœÐ¯Ð¢Ð¬", ex);
+            }
+        }
+
+        private static void AddDisplayCheck(BoostPreflightReport report)
+        {
+            try
+            {
+                var mode = new DeviceMode();
+                mode.Size = (short)Marshal.SizeOf(typeof(DeviceMode));
+                if (!EnumDisplaySettings(null, EnumCurrentSettings, ref mode))
+                {
+                    throw new InvalidOperationException("Windows Ð½Ðµ Ð²ÐµÑ€Ð½ÑƒÐ»Ð° Ñ€ÐµÐ¶Ð¸Ð¼ Ð´Ð¸ÑÐ¿Ð»ÐµÑ.");
+                }
+
+                report.RefreshRate = mode.DisplayFrequency;
+                report.Checks.Add(new BoostCheckResult
+                {
+                    Id = "display",
+                    Title = "Ð§ÐÐ¡Ð¢ÐžÐ¢Ð ÐœÐžÐÐ˜Ð¢ÐžÐ Ð",
+                    Detail = mode.DisplayFrequency > 1
+                        ? mode.DisplayFrequency.ToString(CultureInfo.CurrentCulture) + " Ð“Ñ†"
+                        : "Ð§Ð°ÑÑ‚Ð¾Ñ‚Ð° Ð¾Ð¿Ñ€ÐµÐ´ÐµÐ»ÑÐµÑ‚ÑÑ Ð´Ñ€Ð°Ð¹Ð²ÐµÑ€Ð¾Ð¼ Ð´Ð¸ÑÐ¿Ð»ÐµÑ.",
+                    Severity = mode.DisplayFrequency > 1
+                        ? BoostCheckSeverity.Info
+                        : BoostCheckSeverity.Unknown
+                });
+            }
+            catch (Exception ex)
+            {
+                AddUnknown(report, "display", "Ð§ÐÐ¡Ð¢ÐžÐ¢Ð ÐœÐžÐÐ˜Ð¢ÐžÐ Ð", ex);
+            }
+        }
+
+        private static void AddStorageCheck(BoostPreflightReport report)
+        {
+            try
+            {
+                string systemRoot = Path.GetPathRoot(Environment.SystemDirectory);
+                var drive = new DriveInfo(systemRoot);
+                long free = drive.AvailableFreeSpace;
+                bool low = free < 15L * 1024 * 1024 * 1024;
+                report.Checks.Add(new BoostCheckResult
+                {
+                    Id = "storage",
+                    Title = "Ð¡Ð’ÐžÐ‘ÐžÐ”ÐÐžÐ• ÐœÐ•Ð¡Ð¢Ðž",
+                    Detail = string.Format(
+                        CultureInfo.CurrentCulture,
+                        "ÐÐ° Ð´Ð¸ÑÐºÐµ {0} ÑÐ²Ð¾Ð±Ð¾Ð´Ð½Ð¾ {1:0.0} Ð“Ð‘.",
+                        drive.Name,
+                        free / 1073741824.0),
+                    Severity = low
+                        ? BoostCheckSeverity.Warning
+                        : BoostCheckSeverity.Pass
+                });
+            }
+            catch (Exception ex)
+            {
+                AddUnknown(report, "storage", "Ð¡Ð’ÐžÐ‘ÐžÐ”ÐÐžÐ• ÐœÐ•Ð¡Ð¢Ðž", ex);
+            }
+        }
+
+        private static void AddLauncherCheck(BoostPreflightReport report)
+        {
+            try
+            {
+                string launcherPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticLauncher",
+                    "Majestic Launcher.exe");
+                bool exists = File.Exists(launcherPath);
+                report.Checks.Add(new BoostCheckResult
+                {
+                    Id = "launcher",
+                    Title = "MAJESTIC LAUNCHER",
+                    Detail = exists
+                        ? "Ð›Ð°ÑƒÐ½Ñ‡ÐµÑ€ Ð½Ð°Ð¹Ð´ÐµÐ½."
+                        : "Ð›Ð°ÑƒÐ½Ñ‡ÐµÑ€ Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½ Ð² ÑÑ‚Ð°Ð½Ð´Ð°Ñ€Ñ‚Ð½Ð¾Ð¹ Ð¿Ð°Ð¿ÐºÐµ. Boost Ð½Ðµ ÑÐ¼Ð¾Ð¶ÐµÑ‚ Ð·Ð°Ð¿ÑƒÑÑ‚Ð¸Ñ‚ÑŒ ÐµÐ³Ð¾ Ð°Ð²Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¸Ñ‡ÐµÑÐºÐ¸.",
+                    Severity = exists
+                        ? BoostCheckSeverity.Pass
+                        : BoostCheckSeverity.Warning
+                });
+            }
+            catch (Exception ex)
+            {
+                AddUnknown(report, "launcher", "MAJESTIC LAUNCHER", ex);
+            }
+        }
+
+        private static void AddGamingSettingsCheck(BoostPreflightReport report)
+        {
+            try
+            {
+                int gameMode = ReadDword(
+                    Registry.CurrentUser,
+                    @"Software\Microsoft\GameBar",
+                    "AutoGameModeEnabled",
+                    -1);
+                int dvr = ReadDword(
+                    Registry.CurrentUser,
+                    @"Software\Microsoft\Windows\CurrentVersion\GameDVR",
+                    "AppCaptureEnabled",
+                    -1);
+
+                bool ready = gameMode == 1 && dvr == 0;
+                string detail;
+                if (ready)
+                {
+                    detail = "Game Mode Ð²ÐºÐ»ÑŽÑ‡Ñ‘Ð½, Ñ„Ð¾Ð½Ð¾Ð²Ð°Ñ Ð·Ð°Ð¿Ð¸ÑÑŒ DVR Ð¾Ñ‚ÐºÐ»ÑŽÑ‡ÐµÐ½Ð°.";
+                }
+                else if (gameMode == -1 && dvr == -1)
+                {
+                    detail = "Windows Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐµÑ‚ Ð½Ð°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸ Ð¸Ð³Ñ€Ñ‹ Ð¿Ð¾ ÑƒÐ¼Ð¾Ð»Ñ‡Ð°Ð½Ð¸ÑŽ.";
+                }
+                else
+                {
+                    detail = "Ð˜Ð³Ñ€Ð¾Ð²Ñ‹Ðµ Ð¿Ð°Ñ€Ð°Ð¼ÐµÑ‚Ñ€Ñ‹ Windows Ð¾Ñ‚Ð»Ð¸Ñ‡Ð°ÑŽÑ‚ÑÑ Ð¾Ñ‚ Ð¿Ñ€Ð¾Ñ„Ð¸Ð»Ñ Boost.";
+                }
+
+                report.Checks.Add(new BoostCheckResult
+                {
+                    Id = "gaming",
+                    Title = "Ð˜Ð“Ð ÐžÐ’Ð«Ð• ÐŸÐÐ ÐÐœÐ•Ð¢Ð Ð« WINDOWS",
+                    Detail = detail,
+                    Severity = ready
+                        ? BoostCheckSeverity.Pass
+                        : BoostCheckSeverity.Info
+                });
+            }
+            catch (Exception ex)
+            {
+                AddUnknown(report, "gaming", "Ð˜Ð“Ð ÐžÐ’Ð«Ð• ÐŸÐÐ ÐÐœÐ•Ð¢Ð Ð« WINDOWS", ex);
+            }
+        }
+
+        private static void AddPowerPlanCheck(BoostPreflightReport report)
+        {
+            try
+            {
+                string powerCfg = Path.Combine(Environment.SystemDirectory, "powercfg.exe");
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = powerCfg,
+                    Arguments = "/getactivescheme",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                try
+                {
+                    Encoding oemEncoding = Encoding.GetEncoding(
+                        CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
+                    startInfo.StandardOutputEncoding = oemEncoding;
+                    startInfo.StandardErrorEncoding = oemEncoding;
+                }
+                catch
+                {
+                    // The default redirected encoding remains a safe fallback.
+                }
+
+                string output;
+                using (Process process = Process.Start(startInfo))
+                {
+                    if (process == null)
+                    {
+                        throw new InvalidOperationException("powercfg Ð½Ðµ Ð·Ð°Ð¿ÑƒÑ‰ÐµÐ½.");
+                    }
+                    output = process.StandardOutput.ReadToEnd();
+                    if (!process.WaitForExit(2000))
+                    {
+                        try { process.Kill(); }
+                        catch { }
+                        throw new TimeoutException("powercfg Ð½Ðµ Ð¾Ñ‚Ð²ÐµÑ‚Ð¸Ð» Ð²Ð¾Ð²Ñ€ÐµÐ¼Ñ.");
+                    }
+                }
+
+                string compact = (output ?? string.Empty).Trim();
+                bool maxFps = compact.IndexOf("MAX FPS", StringComparison.OrdinalIgnoreCase) >= 0;
+                bool highPerformance =
+                    compact.IndexOf("High performance", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    compact.IndexOf("Ð’Ñ‹ÑÐ¾ÐºÐ°Ñ Ð¿Ñ€Ð¾Ð¸Ð·Ð²Ð¾Ð´Ð¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ÑÑ‚ÑŒ", StringComparison.OrdinalIgnoreCase) >= 0;
+                report.Checks.Add(new BoostCheckResult
+                {
+                    Id = "power-plan",
+                    Title = "ÐŸÐ›ÐÐ ÐŸÐ˜Ð¢ÐÐÐ˜Ð¯",
+                    Detail = string.IsNullOrWhiteSpace(compact)
+                        ? "ÐÐºÑ‚Ð¸Ð²Ð½Ñ‹Ð¹ Ð¿Ð»Ð°Ð½ Ð¿Ð¸Ñ‚Ð°Ð½Ð¸Ñ Ð½Ðµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð¿Ñ€Ð¾Ñ‡Ð¸Ñ‚Ð°Ñ‚ÑŒ."
+                        : compact,
+                    Severity = maxFps || highPerformance
+                        ? BoostCheckSeverity.Pass
+                        : BoostCheckSeverity.Info
+                });
+            }
+            catch (Exception ex)
+            {
+                AddUnknown(report, "power-plan", "ÐŸÐ›ÐÐ ÐŸÐ˜Ð¢ÐÐÐ˜Ð¯", ex);
+            }
+        }
+
+        private static bool RegistryKeyExists(
+            RegistryKey root,
+            string path)
+        {
+            using (RegistryKey key = root.OpenSubKey(path, false))
+            {
+                return key != null;
+            }
+        }
+
+        private static int ReadDword(
+            RegistryKey root,
+            string path,
+            string name,
+            int fallback)
+        {
+            using (RegistryKey key = root.OpenSubKey(path, false))
+            {
+                if (key == null)
+                {
+                    return fallback;
+                }
+                object value = key.GetValue(name, fallback);
+                return value is int ? (int)value : fallback;
+            }
+        }
+
+        private static void AddUnknown(
+            BoostPreflightReport report,
+            string id,
+            string title,
+            Exception error)
+        {
+            report.Checks.Add(new BoostCheckResult
+            {
+                Id = id,
+                Title = title,
+                Detail = "ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ° Ð½ÐµÐ´Ð¾ÑÑ‚ÑƒÐ¿Ð½Ð°: " + error.Message,
+                Severity = BoostCheckSeverity.Unknown
+            });
+        }
+    }
+
+    internal static class BoostSessionReportStore
+    {
+        private const int MaxReports = 20;
+        private const int MaxReportBytes = 1024 * 1024;
+
+        public static string StateDirectory
+        {
+            get
+            {
+                return Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost");
+            }
+        }
+
+        public static string SessionsDirectory
+        {
+            get { return Path.Combine(StateDirectory, "Sessions"); }
+        }
+
+        public static void Save(BoostSessionReport report)
+        {
+            if (report == null || string.IsNullOrWhiteSpace(report.SessionId))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(SessionsDirectory);
+            string content = Serialize(report);
+            string sessionPath = Path.Combine(
+                SessionsDirectory,
+                "session-" + report.SessionId + ".report");
+            WriteAllTextAtomic(sessionPath, content);
+            WriteAllTextAtomic(Path.Combine(StateDirectory, "last-session.report"), content);
+            PruneOldReports();
+        }
+
+        public static BoostSessionReport LoadLast()
+        {
+            string path = Path.Combine(StateDirectory, "last-session.report");
+            return Load(path);
+        }
+
+        public static BoostSessionReport Load(string path)
+        {
+            try
+            {
+                var file = new FileInfo(path);
+                if (!file.Exists || file.Length <= 0 || file.Length > MaxReportBytes)
+                {
+                    return null;
+                }
+                return Deserialize(File.ReadAllLines(path, Encoding.UTF8));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string Serialize(BoostSessionReport report)
+        {
+            var lines = new List<string>();
+            lines.Add("Version=" + report.Version.ToString(CultureInfo.InvariantCulture));
+            lines.Add("SessionId=" + Encode(report.SessionId));
+            lines.Add("Trigger=" + Encode(report.Trigger));
+            lines.Add("Status=" + Encode(report.Status));
+            lines.Add("StartedUtc=" + report.StartedUtc.ToString("o", CultureInfo.InvariantCulture));
+            lines.Add("EndedUtc=" + (report.EndedUtc.HasValue
+                ? report.EndedUtc.Value.ToString("o", CultureInfo.InvariantCulture)
+                : string.Empty));
+            lines.Add("AvailableMemoryStartBytes=" +
+                report.AvailableMemoryStartBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("AvailableMemoryEndBytes=" +
+                report.AvailableMemoryEndBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("GameName=" + Encode(report.GameName));
+            lines.Add("StopReason=" + Encode(report.StopReason));
+
+            if (report.Performance != null)
+            {
+                lines.Add("PerformanceAvailable=" + report.Performance.Available);
+                lines.Add("PerformanceError=" + Encode(report.Performance.Error));
+                lines.Add("PerformanceCapturedUtc=" +
+                    report.Performance.CapturedUtc.ToString("o", CultureInfo.InvariantCulture));
+                lines.Add("AverageFps=" +
+                    report.Performance.AverageFps.ToString("R", CultureInfo.InvariantCulture));
+                lines.Add("OnePercentLowFps=" +
+                    report.Performance.OnePercentLowFps.ToString("R", CultureInfo.InvariantCulture));
+                lines.Add("P95FrameTimeMs=" +
+                    report.Performance.P95FrameTimeMs.ToString("R", CultureInfo.InvariantCulture));
+                lines.Add("P99FrameTimeMs=" +
+                    report.Performance.P99FrameTimeMs.ToString("R", CultureInfo.InvariantCulture));
+                lines.Add("Frames=" +
+                    report.Performance.Frames.ToString(CultureInfo.InvariantCulture));
+                lines.Add("FramesOver50Ms=" +
+                    report.Performance.FramesOver50Ms.ToString(CultureInfo.InvariantCulture));
+                lines.Add("FramesOver100Ms=" +
+                    report.Performance.FramesOver100Ms.ToString(CultureInfo.InvariantCulture));
+                lines.Add("PerformanceProcess=" + Encode(report.Performance.ProcessName));
+                lines.Add("PerformanceCsvPath=" + Encode(report.Performance.CsvPath));
+            }
+
+            foreach (BoostActionRecord action in report.Actions ?? new List<BoostActionRecord>())
+            {
+                string payload = string.Join(
+                    "\t",
+                    new[]
+                    {
+                        action.TimestampUtc.ToString("o", CultureInfo.InvariantCulture),
+                        action.Outcome.ToString(),
+                        action.Title ?? string.Empty,
+                        action.Detail ?? string.Empty
+                    });
+                lines.Add("Action=" + Encode(payload));
+            }
+            return string.Join(Environment.NewLine, lines.ToArray()) + Environment.NewLine;
+        }
+
+        private static BoostSessionReport Deserialize(string[] lines)
+        {
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var actionValues = new List<string>();
+            foreach (string line in lines)
+            {
+                int separator = line.IndexOf('=');
+                if (separator <= 0)
+                {
+                    continue;
+                }
+                string key = line.Substring(0, separator);
+                string value = line.Substring(separator + 1);
+                if (string.Equals(key, "Action", StringComparison.OrdinalIgnoreCase))
+                {
+                    actionValues.Add(value);
+                }
+                else
+                {
+                    values[key] = value;
+                }
+            }
+
+            int version;
+            if (!TryParseInt(values, "Version", out version) || version != 1)
+            {
+                return null;
+            }
+
+            DateTime startedUtc;
+            if (!TryParseDate(values, "StartedUtc", out startedUtc))
+            {
+                return null;
+            }
+
+            var report = new BoostSessionReport
+            {
+                Version = version,
+                SessionId = Decode(GetValue(values, "SessionId")),
+                Trigger = Decode(GetValue(values, "Trigger")),
+                Status = Decode(GetValue(values, "Status")),
+                StartedUtc = startedUtc,
+                GameName = Decode(GetValue(values, "GameName")),
+                StopReason = Decode(GetValue(values, "StopReason"))
+            };
+            long longValue;
+            if (TryParseLong(values, "AvailableMemoryStartBytes", out longValue))
+            {
+                report.AvailableMemoryStartBytes = longValue;
+            }
+            if (TryParseLong(values, "AvailableMemoryEndBytes", out longValue))
+            {
+                report.AvailableMemoryEndBytes = longValue;
+            }
+            DateTime dateValue;
+            if (TryParseDate(values, "EndedUtc", out dateValue))
+            {
+                report.EndedUtc = dateValue;
+            }
+
+            bool performanceAvailable;
+            if (bool.TryParse(GetValue(values, "PerformanceAvailable"), out performanceAvailable))
+            {
+                report.Performance = new BoostPerformanceResult
+                {
+                    Available = performanceAvailable,
+                    Error = Decode(GetValue(values, "PerformanceError")),
+                    ProcessName = Decode(GetValue(values, "PerformanceProcess")),
+                    CsvPath = Decode(GetValue(values, "PerformanceCsvPath"))
+                };
+                if (TryParseDate(values, "PerformanceCapturedUtc", out dateValue))
+                {
+                    report.Performance.CapturedUtc = dateValue;
+                }
+                report.Performance.AverageFps = ParseDouble(values, "AverageFps");
+                report.Performance.OnePercentLowFps = ParseDouble(values, "OnePercentLowFps");
+                report.Performance.P95FrameTimeMs = ParseDouble(values, "P95FrameTimeMs");
+                report.Performance.P99FrameTimeMs = ParseDouble(values, "P99FrameTimeMs");
+                int intValue;
+                if (TryParseInt(values, "Frames", out intValue))
+                {
+                    report.Performance.Frames = intValue;
+                }
+                if (TryParseInt(values, "FramesOver50Ms", out intValue))
+                {
+                    report.Performance.FramesOver50Ms = intValue;
+                }
+                if (TryParseInt(values, "FramesOver100Ms", out intValue))
+                {
+                    report.Performance.FramesOver100Ms = intValue;
+                }
+            }
+
+            foreach (string encoded in actionValues)
+            {
+                string payload = Decode(encoded);
+                string[] parts = payload.Split(new[] { '\t' }, 4);
+                if (parts.Length != 4)
+                {
+                    continue;
+                }
+                DateTime timestamp;
+                BoostActionOutcome outcome;
+                if (!DateTime.TryParse(
+                        parts[0],
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind,
+                        out timestamp) ||
+                    !Enum.TryParse(parts[1], true, out outcome))
+                {
+                    continue;
+                }
+                report.Actions.Add(new BoostActionRecord
+                {
+                    TimestampUtc = timestamp,
+                    Outcome = outcome,
+                    Title = parts[2],
+                    Detail = parts[3]
+                });
+            }
+            return report;
+        }
+
+        private static void WriteAllTextAtomic(string destination, string content)
+        {
+            string directory = Path.GetDirectoryName(destination);
+            Directory.CreateDirectory(directory);
+            string temporary = Path.Combine(
+                directory,
+                "." + Path.GetFileName(destination) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+            string backup = temporary + ".bak";
+            try
+            {
+                byte[] bytes = new UTF8Encoding(false).GetBytes(content ?? string.Empty);
+                using (var stream = new FileStream(
+                    temporary,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    4096,
+                    FileOptions.WriteThrough))
+                {
+                    stream.Write(bytes, 0, bytes.Length);
+                    stream.Flush(true);
+                }
+
+                if (File.Exists(destination))
+                {
+                    File.Replace(temporary, destination, backup, true);
+                }
+                else
+                {
+                    File.Move(temporary, destination);
+                }
+            }
+            finally
+            {
+                TryDelete(temporary);
+                TryDelete(backup);
+            }
+        }
+
+        private static void PruneOldReports()
+        {
+            try
+            {
+                var directory = new DirectoryInfo(SessionsDirectory);
+                FileInfo[] reports = directory.GetFiles("session-*.report")
+                    .OrderByDescending(file => file.LastWriteTimeUtc)
+                    .ToArray();
+                for (int index = MaxReports; index < reports.Length; index++)
+                {
+                    string fullPath = Path.GetFullPath(reports[index].FullName);
+                    string requiredPrefix = Path.GetFullPath(SessionsDirectory)
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+                        Path.DirectorySeparatorChar;
+                    if (fullPath.StartsWith(requiredPrefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        TryDelete(fullPath);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private static string Encode(string value)
+        {
+            return Convert.ToBase64String(
+                Encoding.UTF8.GetBytes(value ?? string.Empty));
+        }
+
+        private static string Decode(string value)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(value))
+                {
+                    return string.Empty;
+                }
+                return Encoding.UTF8.GetString(Convert.FromBase64String(value));
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private static string GetValue(
+            IDictionary<string, string> values,
+            string key)
+        {
+            string value;
+            return values.TryGetValue(key, out value) ? value : string.Empty;
+        }
+
+        private static bool TryParseInt(
+            IDictionary<string, string> values,
+            string key,
+            out int value)
+        {
+            return int.TryParse(
+                GetValue(values, key),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out value);
+        }
+
+        private static bool TryParseLong(
+            IDictionary<string, string> values,
+            string key,
+            out long value)
+        {
+            return long.TryParse(
+                GetValue(values, key),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out value);
+        }
+
+        private static bool TryParseDate(
+            IDictionary<string, string> values,
+            string key,
+            out DateTime value)
+        {
+            return DateTime.TryParse(
+                GetValue(values, key),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
+                out value);
+        }
+
+        private static double ParseDouble(
+            IDictionary<string, string> values,
+            string key)
+        {
+            double value;
+            return double.TryParse(
+                GetValue(values, key),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out value)
+                ? value
+                : 0;
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch { }
+        }
+    }
+}

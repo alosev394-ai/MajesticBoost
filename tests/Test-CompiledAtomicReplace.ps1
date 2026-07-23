@@ -15,7 +15,7 @@ if (-not $ApplicationPath) {
     $ApplicationPath = Join-Path $projectRoot 'dist\MajesticBoost.exe'
 }
 if (-not $InstallerPath) {
-    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.6.2.exe'
+    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.6.1.exe'
 }
 
 $testRoot = Join-Path $env:TEMP ('MajesticBoost-CompiledReplace-Test-' + [Guid]::NewGuid().ToString('N'))

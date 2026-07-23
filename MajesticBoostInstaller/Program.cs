@@ -20,8 +20,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Installer for Majestic Boost")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.2.0")]
-[assembly: AssemblyFileVersion("1.6.2.0")]
+[assembly: AssemblyVersion("1.6.1.0")]
+[assembly: AssemblyFileVersion("1.6.1.0")]
 
 namespace MajesticBoostSetup
 {
@@ -158,7 +158,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.6.2";
+        public const string ProductVersion = "1.6.1";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);
@@ -314,41 +314,2689 @@ namespace MajesticBoostSetup
                     "$d=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + encodedDirectory + "'));" +
                     "$t=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar);" +
                     "$p=[IO.Path]::GetFullPath([IO.Path]::GetDirectoryName($d)).TrimEnd([IO.Path]::DirectorySeparatorChar);" +
-                    "if($p -ieq $t -and [IO.Path]::GetFileName($d) -match '^MajesticBoost\\.UßM5ÖÚ$z{-®éÜj×íİí-½]İò#°¢7F–öä'WGFöâä66W76–&ÆTFW67&—F–öâÒFVÖôÖöFP¢ò-	}­½-]"M]Ííİ-mâíİí-½]İò ¢¢-	}ı=­]"íİí-½İİ=â-]âÖ¦W7F–2&ö÷7B#°¢7F–öä'WGFöâåf—6–&ÆRÒG'VS°¢7F–öä'WGFöâäVæ&ÆVBÒG'VS°¢6Æ÷6T'WGFöâäVæ&ÆVBÒG'VS°¢7F–öä'WGFöâäfö7W2‚“°¢Ğ ¢&—fFRfö–B7F–öä'WGFöä6Æ–6²†ö&¦V7B6VæFW"ÂWfVçD&w2R¢°¢–b‚7V66W756†÷vâ¢°¢7F'D–ç7FÆÆF–öâ‚“°¢&WGW&ã°¢Ğ ¢–b†FVÖôÖöFR¢°¢6Æ÷6R‚“°¢&WGW&ã°¢Ğ ¢G'¢°¢–ç7FÆÆW$Væv–æRäÆVæ6„–ç7FÆÆVDÆ–6F–öâ‚“°¢6Æ÷6R‚“°¢Ğ¢6F6‚„W†6WF–öâW†6WF–öâ¢°¢FWF–ÄÆ&VÂåFW‡BÒ-	İR=M½íÂ}ı=--Âıí=ÍÍ3¢"²g&–VæFÇ”W'&÷"†W†6WF–öâ“°¢FWF–ÄÆ&VÂäf÷&T6öÆ÷"Ò6öÆ÷"äg&öÔ&v"ƒ#SRÂ"Â#"“°¢7F–öä'WGFöâäVæ&ÆVBÒG'VS°¢7F–öä'WGFöâäfö7W2‚“°¢Ğ¢Ğ ¢&—fFR7FF–27G&–ærg&–VæFÇ”W'&÷"„W†6WF–öâW†6WF–öâ¢°¢–b†W†6WF–öâÓÒçVÆÂÇÂ7G&–ærä—4çVÆÄ÷%v†—FU76R†W†6WF–öâäÖW76vR’¢°¢&WGW&â-	İ]}-]-İòí­â	İmÍ-R*½	ıí--í-Ì+²â#°¢Ğ ¢7G&–ærÖW76vRÒW†6WF–öâäÖW76vRå&WÆ6R‚uÇ"rÂrr’å&WÆ6R‚uÆârÂrr’åG&–Ò‚“°¢&WGW&âÖW76vRäÆVæwF‚ÃÒSòÖW76vR¢ÖW76vRå7V'7G&–ærƒÂCr’²"âââ#°¢Ğ ¢&—fFRÆ&VÂÖ¶TÆ&VÂ‡7G&–ærFW‡BÂfÆöB6—¦RÂföçE7G–ÆR7G–ÆRÂ6öÆ÷"6öÆ÷"¢°¢f"Æ&VÂÒæWrÆ&VÂ‚“°¢Æ&VÂåFW‡BÒFW‡C°¢Æ&VÂäföçBÒ7&VFUV”föçB‡6—¦RÂ7G–ÆR“°¢Æ&VÂäf÷&T6öÆ÷"Ò6öÆ÷#°¢Æ&VÂä&6´6öÆ÷"Ò6öÆ÷"åG&ç7&VçC°¢&WGW&âÆ&VÃ°¢Ğ ¢&—fFRföçB7&VFUV”föçB†fÆöB6—¦RÂföçE7G–ÆR7G–ÆR¢°¢&WGW&âFVÖôÖöFP¢òæWrföçB‚%6VvöRT’"Â6—¦RÂ7G–ÆRÂw&†–75Væ—Båö–çB¢¢Ö¦W7F–4föçE&÷f–FW"ä7&VFR‡6—¦RÂ7G–ÆR“°¢Ğ ¢&—fFRfö–BÇ•&÷VæFVE&Vv–öâ‚¢°¢W6–ær„w&†–75F‚F‚ÒÖ¶U&÷VæFVE&V7FævÆR†æWr&V7FævÆRƒÂÂv–GF‚Â†V–v‡B’Â’¢°¢&Vv–öâöÆE&Vv–öâÒ&Vv–öã°¢&Vv–öâÒæWr&Vv–öâ‡F‚“°¢–b†öÆE&Vv–öâÒçVÆÂ¢°¢öÆE&Vv–öâäF—7÷6R‚“°¢Ğ¢Ğ¢Ğ ¢&—fFR7FF–2w&†–75F‚Ö¶U&÷VæFVE&V7FævÆR…&V7FævÆR&V7FævÆRÂ–çB&F—W2¢°¢–çBF–ÖWFW"Ò&F—W2¢#°¢f"F‚ÒæWrw&†–75F‚‚“°¢F‚äFD&2‡&V7FævÆRäÆVgBÂ&V7FævÆRåF÷ÂF–ÖWFW"ÂF–ÖWFW"ÂƒÂ““°¢F‚äFD&2‡&V7FævÆRå&–v‡BÒF–ÖWFW"Â&V7FævÆRåF÷ÂF–ÖWFW"ÂF–ÖWFW"Â#sÂ““°¢F‚äFD&2‡&V7FævÆRå&–v‡BÒF–ÖWFW"Â&V7FævÆRä&÷GFöÒÒF–ÖWFW"ÂF–ÖWFW"ÂF–ÖWFW"ÂÂ““°¢F‚äFD&2‡&V7FævÆRäÆVgBÂ&V7FævÆRä&÷GFöÒÒF–ÖWFW"ÂF–ÖWFW"ÂF–ÖWFW"Â“Â““°¢F‚ä6Æ÷6Tf–wW&R‚“°¢&WGW&âFƒ°¢Ğ ¢&—fFRfö–BG&uv–æF÷r†ö&¦V7B6VæFW"ÂÖ÷W6TWfVçD&w2R¢°¢–b†Rä'WGFöâÒÖ÷W6T'WGFöç2äÆVgBÇÂ–ç7FÆÆ–ær¢°¢&WGW&ã°¢Ğ¢æF—fTÖWF†öG2å&VÆV6T6GW&R‚“°¢æF—fTÖWF†öG2å6VæDÖW76vR„†æFÆRÂ„ÂæWr–çEG"ƒƒ"’Â–çEG"å¦W&ò“°¢Ğ¢Ğ ¢–çFW&æÂ6VÆVB6Æ72–ç7FÆÆW$f÷&Ò¢f÷&Ğ¢°¢&—fFR&VFöæÇ’6öÆ÷"&6¶w&÷VæBÒ6öÆ÷"äg&öÔ&v"ƒ#"Â#"Â#"“°¢&—fFR&VFöæÇ’6öÆ÷"æVÂÒ6öÆ÷"äg&öÔ&v"ƒ#rÂ#rÂ#r“°¢&—fFR&VFöæÇ’6öÆ÷"66VçBÒ6öÆ÷"äg&öÔ&v"ƒ#3"Â#‚Â““°¢&—fFR&VFöæÇ’6öÆ÷"×WFVBÒ6öÆ÷"äg&öÔ&v"ƒC"ÂC"ÂC"“°¢&—fFRÖ¦W7F–47F–öä'WGFöâ–ç7FÆÄ'WGFöã°¢&—fFRÖ¦W7F–46Æ÷6T'WGFöâ6Æ÷6T'WGFöã°¢&—fFRÖ¦W7F–5FövvÆRFW6·F÷6†÷'F7WC°¢&—fFRÆ&VÂ7FGW4Æ&VÃ°¢&—fFRæVÂ&öw&W74f–ÆÃ°¢&—fFR&ööÂ–ç7FÆÆVC° ¢V&Æ–2–ç7FÆÆW$f÷&Ò‚¢°¢FW‡BÒ$Ö¦W7F–2&ö÷7B6WGW#°¢6Æ–VçE6—¦RÒæWr6—¦RƒScÂ3c“°¢7F'E÷6—F–öâÒf÷&Õ7F'E÷6—F–öâä6VçFW%67&VVã°¢f÷&Ô&÷&FW%7G–ÆRÒf÷&Ô&÷&FW%7G–ÆRäæöæS°¢Ö†–Ö—¦T&÷‚ÒfÇ6S°¢Ö–æ–Ö—¦T&÷‚ÒfÇ6S°¢&6´6öÆ÷"Ò&6¶w&÷VæC°¢f÷&T6öÆ÷"Ò6öÆ÷"åv†—FS°¢föçBÒÖ¦W7F–4föçE&÷f–FW"ä7&VFRƒ”bÂföçE7G–ÆRå&VwVÆ"“°¢F÷V&ÆT'VffW&VBÒG'VS°¢–6öâÒ–6öâäW‡G&7D76ö6–FVD–6öâ„Æ–6F–öâäW†V7WF&ÆUF‚“°¢'V–ÆD–çFW&f6R‚“°¢&W6—¦R³ÒFVÆVvFR²Ç•&÷VæFVE&Vv–öâ‚“²Ó°¢6†÷vâ³ÒFVÆVvFR²Ç•&÷VæFVE&Vv–öâ‚“²Ó°¢Ö÷W6TF÷vâ³ÒG&uv–æF÷s°¢Ğ ¢&÷FV7FVB÷fW'&–FR7&VFU&×27&VFU&×0¢°¢vW@¢°¢6öç7B–çB74G&÷6†F÷rÒƒ#°¢7&VFU&×2&ÖWFW'2Ò&6Rä7&VFU&×3°¢&ÖWFW'2ä6Æ757G–ÆRÃÒ74G&÷6†F÷s°¢&WGW&â&ÖWFW'3°¢Ğ¢Ğ ¢&÷FV7FVB÷fW'&–FRfö–Böå–çB…–çDWfVçD&w2R¢°¢&6Räöå–çB†R“°¢Räw&†–72å6Öö÷F†–ætÖöFRÒ6Öö÷F†–ætÖöFRäçF”Æ–3°¢W6–ær‡f"F‚ÒÖ¶U&÷VæFVE&V7FævÆR†æWr&V7FævÆRƒÂÂ6Æ–VçE6—¦Råv–GF‚ÒÂ6Æ–VçE6—¦Rä†V–v‡BÒ’Â’¢W6–ær‡f"VâÒæWrVâ„6öÆ÷"äg&öÔ&v"ƒSbÂSbÂSb’Âb’¢°¢Räw&†–72äG&uF‚‡VâÂF‚“°¢Ğ¢Ğ ¢&—fFRfö–B'V–ÆD–çFW&f6R‚¢°¢6Æ÷6T'WGFöâÒæWrÖ¦W7F–46Æ÷6T'WGFöâ‚“°¢6Æ÷6T'WGFöâäÆö6F–öâÒæWrö–çBƒS3Â“°¢6Æ÷6T'WGFöâå6—¦RÒæWr6—¦Rƒ3Â3“°¢6Æ÷6T'WGFöâä66W76–&ÆTæÖRÒ-	}­½-Â=-İí-¢#°¢6Æ÷6T'WGFöâä66W76–&ÆTFW67&—F–öâÒ-	}­½-]"í­İâ=-İí-­‚Ö¦W7F–2&ö÷7B#°¢6Æ÷6T'WGFöâåF$–æFW‚Ò#°¢6Æ÷6T'WGFöâä6Æ–6²³ÒFVÆVvFR²6Æ÷6R‚“²Ó°¢6öçG&öÇ2äFB†6Æ÷6T'WGFöâ“° ¢f"–6öä&÷‚ÒæWr–7GW&T&÷‚‚“°¢–6öä&÷‚äÆö6F–öâÒæWrö–çBƒ3‚Â3R“°¢–6öä&÷‚å6—¦RÒæWr6—¦RƒS"ÂS"“°¢–6öä&÷‚å6—¦TÖöFRÒ–7GW&T&÷…6—¦TÖöFRå¦ööÓ°¢–6öä&÷‚ä–ÖvRÒ–6öâåFô&—FÖ‚“°¢–6öä&÷‚äÖ÷W6TF÷vâ³ÒG&uv–æF÷s°¢6öçG&öÇ2äFB†–6öä&÷‚“° ¢f"F—FÆRÒÖ¶TÆ&VÂ‚$Ô¤U5D”2$ôõ5B"Â#$bÂföçE7G–ÆRä&öÆBÂ6öÆ÷"åv†—FR“°¢F—FÆRäÆö6F–öâÒæWrö–çBƒRÂ3R“°¢F—FÆRäWFõ6—¦RÒG'VS°¢F—FÆRäÖ÷W6TF÷vâ³ÒG&uv–æF÷s°¢6öçG&öÇ2äFB‡F—FÆR“° ¢f"fW'6–öâÒÖ¶TÆ&VÂ‚%4UEU(
-"b"²–ç7FÆÆW$Væv–æRå&öGV7EfW'6–öâÂ‚ãTbÂföçE7G–ÆRä&öÆBÂ66VçB“°¢fW'6–öâäÆö6F–öâÒæWrö–çBƒ‚Âc’“°¢fW'6–öâäWFõ6—¦RÒG'VS°¢fW'6–öâäÖ÷W6TF÷vâ³ÒG&uv–æF÷s°¢6öçG&öÇ2äFB‡fW'6–öâ“° ¢f"7V'F—FÆRÒÖ¶TÆ&VÂ‚-
-=-İí-¢½=İ}]Í­Í½Íİí’ıí}-íM-]½Íİí-‚"ÂbÂföçE7G–ÆRå&VwVÆ"Â×WFVB“°¢7V'F—FÆRäÆö6F–öâÒæWrö–çBƒCÂ“°¢7V'F—FÆRäWFõ6—¦RÒG'VS°¢6öçG&öÇ2äFB‡7V'F—FÆR“° ¢f"Æö6F–öåæVÂÒæWræVÂ‚“°¢Æö6F–öåæVÂäÆö6F–öâÒæWrö–çBƒCÂCR“°¢Æö6F–öåæVÂå6—¦RÒæWr6—¦RƒCƒÂs“°¢Æö6F–öåæVÂä&6´6öÆ÷"ÒæVÃ°¢6öçG&öÇ2äFB†Æö6F–öåæVÂ“° ¢f"Æö6F–öåF—FÆRÒÖ¶TÆ&VÂ‚-	ı		ı	­	
-=
-
--		İ	í	-	­	‚"Â‚ãTbÂföçE7G–ÆRä&öÆBÂ×WFVB“°¢Æö6F–öåF—FÆRäÆö6F–öâÒæWrö–çBƒbÂ“°¢Æö6F–öåF—FÆRäWFõ6—¦RÒG'VS°¢Æö6F–öåæVÂä6öçG&öÇ2äFB†Æö6F–öåF—FÆR“° ¢f"Æö6F–öåfÇVRÒÖ¶TÆ&VÂ„–ç7FÆÆW$Væv–æRä–ç7FÆÄF—&V7F÷'’Â’ãTbÂföçE7G–ÆRå&VwVÆ"Â6öÆ÷"äg&öÔ&v"ƒ#3RÂ#3RÂ#3R’“°¢Æö6F–öåfÇVRäÆö6F–öâÒæWrö–çBƒbÂ3B“°¢Æö6F–öåfÇVRäWFôVÆÆ—6—2ÒG'VS°¢Æö6F–öåfÇVRå6—¦RÒæWr6—¦RƒCC‚Â#B“°¢Æö6F–öåæVÂä6öçG&öÇ2äFB†Æö6F–öåfÇVR“° ¢FW6·F÷6†÷'F7WBÒæWrÖ¦W7F–5FövvÆR‚“°¢FW6·F÷6†÷'F7WBåFW‡BÒ-
-í}M-Âı½½¢İí}]Â-í½R#°¢FW6·F÷6†÷'F7WBä6†V6¶VBÒ–ç7FÆÆW$Væv–æRävWDFW6·F÷6†÷'F7WE&VfW&Væ6R‚“°¢FW6·F÷6†÷'F7WBäÆö6F–öâÒæWrö–çBƒC"Â##b“°¢FW6·F÷6†÷'F7WBå6—¦RÒæWr6—¦RƒCs‚Â#b“°¢FW6·F÷6†÷'F7WBäf÷&T6öÆ÷"Ò6öÆ÷"äg&öÔ&v"ƒ“RÂ“RÂ“R“°¢FW6·F÷6†÷'F7WBäföçBÒÖ¦W7F–4föçE&÷f–FW"ä7&VFRƒ’ãTbÂföçE7G–ÆRå&VwVÆ"“°¢FW6·F÷6†÷'F7WBä66W76–&ÆTæÖRÒ-
-í}M-Âı½½¢İí}]Â-í½R#°¢FW6·F÷6†÷'F7WBä66W76–&ÆTFW67&—F–öâÒ-	-­½í}]"½‚í-­½í}]"í}MİRı½½­Ö¦W7F–2&ö÷7Bİí}]Â-í½R#°¢FW6·F÷6†÷'F7WBåF$–æFW‚Ò°¢6öçG&öÇ2äFB†FW6·F÷6†÷'F7WB“° ¢f"&öw&W75G&6²ÒæWræVÂ‚“°¢&öw&W75G&6²äÆö6F–öâÒæWrö–çBƒCÂ#sb“°¢&öw&W75G&6²å6—¦RÒæWr6—¦RƒCƒÂB“°¢&öw&W75G&6²ä&6´6öÆ÷"Ò6öÆ÷"äg&öÔ&v"ƒC‚ÂC‚ÂC‚“°¢6öçG&öÇ2äFB‡&öw&W75G&6²“° ¢&öw&W74f–ÆÂÒæWræVÂ‚“°¢&öw&W74f–ÆÂäÆö6F–öâÒæWrö–çBƒÂ“°¢&öw&W74f–ÆÂå6—¦RÒæWr6—¦RƒÂB“°¢&öw&W74f–ÆÂä&6´6öÆ÷"Ò66VçC°¢&öw&W75G&6²ä6öçG&öÇ2äFB‡&öw&W74f–ÆÂ“° ¢7FGW4Æ&VÂÒÖ¶TÆ&VÂ‚-	=	í
--	í	-	â	¢
-=
-
--		İ	í	-	­	R"Â‚ãTbÂföçE7G–ÆRä&öÆBÂ×WFVB“°¢7FGW4Æ&VÂäÆö6F–öâÒæWrö–çBƒC"Â#“"“°¢7FGW4Æ&VÂäWFõ6—¦RÒG'VS°¢6öçG&öÇ2äFB‡7FGW4Æ&VÂ“° ¢–ç7FÆÄ'WGFöâÒæWrÖ¦W7F–47F–öä'WGFöâ‚“°¢–ç7FÆÄ'WGFöâåFW‡BÒ-
-=
-
--		İ	í	-	
--
-Â#°¢–ç7FÆÄ'WGFöâäÆö6F–öâÒæWrö–çBƒ3SÂ#“’“°¢–ç7FÆÄ'WGFöâå6—¦RÒæWr6—¦RƒsÂC"“°¢–ç7FÆÄ'WGFöâäf÷&T6öÆ÷"Ò6öÆ÷"åv†—FS°¢–ç7FÆÄ'WGFöâäföçBÒÖ¦W7F–4föçE&÷f–FW"ä7&VFRƒbÂföçE7G–ÆRä&öÆB“°¢–ç7FÆÄ'WGFöâä66W76–&ÆTæÖRÒ-
-=-İí--ÂÖ¦W7F–2&ö÷7B#°¢–ç7FÆÄ'WGFöâä66W76–&ÆTFW67&—F–öâÒ-	İ}İ]"=-İí-­2ı½ím]İò#°¢–ç7FÆÄ'WGFöâåF$–æFW‚Ò°¢–ç7FÆÄ'WGFöâä6Æ–6²³Ò–ç7FÆÄ'WGFöä6Æ–6³°¢6öçG&öÇ2äFB†–ç7FÆÄ'WGFöâ“° ¢66WD'WGFöâÒ–ç7FÆÄ'WGFöã°¢6æ6VÄ'WGFöâÒ6Æ÷6T'WGFöã°¢Ğ ¢&—fFRfö–B–ç7FÆÄ'WGFöä6Æ–6²†ö&¦V7B6VæFW"ÂWfVçD&w2R¢°¢–b†–ç7FÆÆVB¢°¢–ç7FÆÆW$Væv–æRäÆVæ6„–ç7FÆÆVDÆ–6F–öâ‚“°¢6Æ÷6R‚“°¢&WGW&ã°¢Ğ ¢–ç7FÆÄ'WGFöâäVæ&ÆVBÒfÇ6S°¢6Æ÷6T'WGFöâäVæ&ÆVBÒfÇ6S°¢FW6·F÷6†÷'F7WBäVæ&ÆVBÒfÇ6S°¢7FGW4Æ&VÂåFW‡BÒ-
-=
-
--		İ		-	½		-	
-ââââ#°¢7FGW4Æ&VÂäf÷&T6öÆ÷"Ò6öÆ÷"äg&öÔ&v"ƒ#SRÂ3’ÂsR“°¢æ–ÖFU&öw&W72ƒ#“° ¢G'¢°¢–ç7FÆÆW$Væv–æRä–ç7FÆÂ†FW6·F÷6†÷'F7WBä6†V6¶VB“°¢æ–ÖFU&öw&W72ƒCƒ“°¢7FGW4Æ&VÂåFW‡BÒ-
-=
-
--		İ	í	-	½	]	İ	â#°¢7FGW4Æ&VÂäf÷&T6öÆ÷"Ò66VçC°¢–ç7FÆÄ'WGFöâåFW‡BÒ-	}		ı
-=
-
--	
--
-Â#°¢–ç7FÆÄ'WGFöâä66W76–&ÆTæÖRÒ-	}ı=--ÂÖ¦W7F–2&ö÷7B#°¢–ç7FÆÄ'WGFöâä66W76–&ÆTFW67&—F–öâÒ-	}ı=­]"=-İí-½]İİíRı½ím]İRÖ¦W7F–2&ö÷7B#°¢–ç7FÆÄ'WGFöâäVæ&ÆVBÒG'VS°¢6Æ÷6T'WGFöâäVæ&ÆVBÒG'VS°¢–ç7FÆÆVBÒG'VS°¢Ğ¢6F6‚„W†6WF–öâW†6WF–öâ¢°¢7FGW4Æ&VÂåFW‡BÒ-	í
-			­	
-=
-
--		İ	í	-	­	‚#°¢7FGW4Æ&VÂäf÷&T6öÆ÷"Ò6öÆ÷"äg&öÔ&v"ƒ#SRÂ"Â#"“°¢–ç7FÆÄ'WGFöâåFW‡BÒ-	ı	í	-
--	í
-	
--
-Â#°¢–ç7FÆÄ'WGFöâä66W76–&ÆTæÖRÒ-	ıí--í-Â=-İí-­2Ö¦W7F–2&ö÷7B#°¢–ç7FÆÄ'WGFöâä66W76–&ÆTFW67&—F–öâÒ-	ıí--íİâ}ı=­]"=-İí-­2ı½ím]İò#°¢–ç7FÆÄ'WGFöâäVæ&ÆVBÒG'VS°¢6Æ÷6T'WGFöâäVæ&ÆVBÒG'VS°¢FW6·F÷6†÷'F7WBäVæ&ÆVBÒG'VS°¢ÖW76vT&÷‚å6†÷r€¢-	İR=M½íÂ=-İí--ÂÖ¦W7F–2&ö÷7C¥Ç%Æâ"²W†6WF–öâäÖW76vRÀ¢-	í­=-İí-­‚"À¢ÖW76vT&÷„'WGFöç2äô²À¢ÖW76vT&÷„–6öâäW'&÷"“°¢Ğ¢Ğ ¢&—fFRfö–Bæ–ÖFU&öw&W72†–çBv–GF‚¢°¢&öw&W74f–ÆÂåv–GF‚ÒÖF‚äÖ‚ƒÂÖF‚äÖ–âƒCƒÂv–GF‚’“°¢&öw&W74f–ÆÂå&Vg&W6‚‚“°¢Æ–6F–öâäFôWfVçG2‚“°¢Ğ ¢&—fFR7FF–2Æ&VÂÖ¶TÆ&VÂ‡7G&–ærFW‡BÂfÆöB6—¦RÂföçE7G–ÆR7G–ÆRÂ6öÆ÷"6öÆ÷"¢°¢f"Æ&VÂÒæWrÆ&VÂ‚“°¢Æ&VÂåFW‡BÒFW‡C°¢Æ&VÂäföçBÒÖ¦W7F–4föçE&÷f–FW"ä7&VFR‡6—¦RÂ7G–ÆR“°¢Æ&VÂäf÷&T6öÆ÷"Ò6öÆ÷#°¢Æ&VÂä&6´6öÆ÷"Ò6öÆ÷"åG&ç7&VçC°¢&WGW&âÆ&VÃ°¢Ğ ¢&—fFRfö–BÇ•&÷VæFVE&Vv–öâ‚¢°¢W6–ær„w&†–75F‚F‚ÒÖ¶U&÷VæFVE&V7FævÆR†æWr&V7FævÆRƒÂÂv–GF‚Â†V–v‡B’Â’¢°¢&Vv–öâöÆE&Vv–öâÒ&Vv–öã°¢&Vv–öâÒæWr&Vv–öâ‡F‚“°¢–b†öÆE&Vv–öâÒçVÆÂ¢°¢öÆE&Vv–öâäF—7÷6R‚“°¢Ğ¢Ğ¢Ğ ¢&—fFR7FF–2w&†–75F‚Ö¶U&÷VæFVE&V7FævÆR…&V7FævÆR&V7FævÆRÂ–çB&F—W2¢°¢–çBF–ÖWFW"Ò&F—W2¢#°¢f"F‚ÒæWrw&†–75F‚‚“°¢F‚äFD&2‡&V7FævÆRäÆVgBÂ&V7FævÆRåF÷ÂF–ÖWFW"ÂF–ÖWFW"ÂƒÂ““°¢F‚äFD&2‡&V7FævÆRå&–v‡BÒF–ÖWFW"Â&V7FævÆRåF÷ÂF–ÖWFW"ÂF–ÖWFW"Â#sÂ““°¢F‚äFD&2‡&V7FævÆRå&–v‡BÒF–ÖWFW"Â&V7FævÆRä&÷GFöÒÒF–ÖWFW"ÂF–ÖWFW"ÂF–ÖWFW"ÂÂ““°¢F‚äFD&2‡&V7FævÆRäÆVgBÂ&V7FævÆRä&÷GFöÒÒF–ÖWFW"ÂF–ÖWFW"ÂF–ÖWFW"Â“Â““°¢F‚ä6Æ÷6Tf–wW&R‚“°¢&WGW&âFƒ°¢Ğ ¢&—fFRfö–BG&uv–æF÷r†ö&¦V7B6VæFW"ÂÖ÷W6TWfVçD&w2R¢°¢–b†Rä'WGFöâÒÖ÷W6T'WGFöç2äÆVgB¢°¢&WGW&ã°¢Ğ¢æF—fTÖWF†öG2å&VÆV6T6GW&R‚“°¢æF—fTÖWF†öG2å6VæDÖW76vR„†æFÆRÂ„ÂæWr–çEG"ƒƒ"’Â–çEG"å¦W&ò“°¢Ğ¢Ğ ¢–çFW&æÂ7FF–26Æ72æF—fTÖWF†öG0¢°¢´FÆÄ–×÷'B‚'W6W#3"æFÆÂ"•Ğ¢V&Æ–27FF–2W‡FW&â&ööÂ&VÆV6T6GW&R‚“° ¢´FÆÄ–×÷'B‚'W6W#3"æFÆÂ"•Ğ¢V&Æ–27FF–2W‡FW&â–çEG"6VæDÖW76vR„–çEG"…væBÂ–çBÖW76vRÂ–çEG"u&ÒÂ–çEG"Å&Ò“°¢Ğ§Ğ
+                    "if($p -ieq $t -and [IO.Path]::GetFileName($d) -match '^MajesticBoost\\.Update\\.[0-9a-f]{32}$'){" +
+                    "$i=Get-Item -LiteralPath $d -Force -ErrorAction SilentlyContinue;" +
+                    "if($i -and -not ($i.Attributes -band [IO.FileAttributes]::ReparsePoint)){" +
+                    "[IO.File]::Delete($e);" +
+                    "if([IO.Directory]::Exists($d) -and [IO.Directory]::GetFileSystemEntries($d).Length -eq 0){[IO.Directory]::Delete($d,$false)}" +
+                    "}}";
+                string encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(cleanupCommand));
+                var cleanupInfo = new ProcessStartInfo
+                {
+                    FileName = Path.Combine(
+                        Environment.SystemDirectory,
+                        @"WindowsPowerShell\v1.0\powershell.exe"),
+                    Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + encodedCommand,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                Process cleanupProcess = Process.Start(cleanupInfo);
+                if (cleanupProcess != null)
+                {
+                    cleanupProcess.Dispose();
+                }
+            }
+            catch
+            {
+                // A stale temporary setup is harmless and can be removed later.
+            }
+        }
+
+        public static void Uninstall(bool quiet)
+        {
+            if (!quiet)
+            {
+                DialogResult result = MessageBox.Show(
+                    "Ğ£Ğ´Ğ°Ğ»Ğ¸Ñ‚ÑŒ Majestic Boost Ğ¸ Ğ²ÑĞµ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ½Ñ‹Ğµ Ñ„Ğ°Ğ¹Ğ»Ñ‹?",
+                    "Ğ£Ğ´Ğ°Ğ»ĞµĞ½Ğ¸Ğµ Majestic Boost",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button2);
+                if (result != DialogResult.Yes)
+                {
+                    return;
+                }
+            }
+
+            try
+            {
+                StopInstalledApplication();
+
+                string desktopShortcut = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                    ProductName + ".lnk");
+                DeleteIfExists(desktopShortcut);
+
+                string startMenuDirectory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
+                    ProductName);
+                if (Directory.Exists(startMenuDirectory))
+                {
+                    Directory.Delete(startMenuDirectory, true);
+                }
+
+                using (RegistryKey baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
+                {
+                    baseKey.DeleteSubKeyTree(UninstallRegistryPath, false);
+                    baseKey.DeleteSubKeyTree(AppPathsRegistryPath, false);
+                }
+
+                string localData = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost");
+                if (Directory.Exists(localData))
+                {
+                    Directory.Delete(localData, true);
+                }
+                TryPruneProtectedCaptureFiles(true);
+
+                if (!quiet)
+                {
+                    MessageBox.Show(
+                        "Majestic Boost ÑƒĞ´Ğ°Ğ»Ñ‘Ğ½.",
+                        "Ğ£Ğ´Ğ°Ğ»ĞµĞ½Ğ¸Ğµ Ğ·Ğ°Ğ²ĞµÑ€ÑˆĞµĞ½Ğ¾",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+
+                int currentProcessId = Process.GetCurrentProcess().Id;
+                string escapedInstallDirectory = InstallDirectory.Replace("'", "''");
+                string cleanupCommand =
+                    "$ErrorActionPreference='SilentlyContinue';" +
+                    "Wait-Process -Id " + currentProcessId.ToString(CultureInfo.InvariantCulture) +
+                    " -ErrorAction SilentlyContinue;" +
+                    "Remove-Item -LiteralPath '" + escapedInstallDirectory +
+                    "' -Recurse -Force -ErrorAction SilentlyContinue";
+                string encodedCleanupCommand = Convert.ToBase64String(
+                    Encoding.Unicode.GetBytes(cleanupCommand));
+                var cleanupInfo = new ProcessStartInfo();
+                cleanupInfo.FileName = Path.Combine(
+                    Environment.SystemDirectory,
+                    @"WindowsPowerShell\v1.0\powershell.exe");
+                cleanupInfo.Arguments =
+                    "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " +
+                    encodedCleanupCommand;
+                cleanupInfo.UseShellExecute = false;
+                cleanupInfo.CreateNoWindow = true;
+                cleanupInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                Process.Start(cleanupInfo);
+            }
+            catch (Exception exception)
+            {
+                if (!quiet)
+                {
+                    MessageBox.Show(
+                        "ĞĞµ ÑƒĞ´Ğ°Ğ»Ğ¾ÑÑŒ Ğ¿Ğ¾Ğ»Ğ½Ğ¾ÑÑ‚ÑŒÑ ÑƒĞ´Ğ°Ğ»Ğ¸Ñ‚ÑŒ Ğ¿Ñ€Ğ¾Ğ³Ñ€Ğ°Ğ¼Ğ¼Ñƒ:\r\n" + exception.Message,
+                        "ĞÑˆĞ¸Ğ±ĞºĞ° ÑƒĞ´Ğ°Ğ»ĞµĞ½Ğ¸Ñ",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+                Environment.ExitCode = 1;
+            }
+        }
+
+        private sealed class ShortcutSnapshot
+        {
+            public string Path;
+            public bool Existed;
+            public byte[] Contents;
+            public FileAttributes Attributes;
+            public DateTime LastWriteTimeUtc;
+        }
+
+        private sealed class RegistryKeySnapshot
+        {
+            public string Name;
+            public bool Existed;
+            public readonly List<RegistryValueSnapshot> Values =
+                new List<RegistryValueSnapshot>();
+            public readonly List<RegistryKeySnapshot> Children =
+                new List<RegistryKeySnapshot>();
+        }
+
+        private sealed class RegistryValueSnapshot
+        {
+            public string Name;
+            public object Value;
+            public RegistryValueKind Kind;
+        }
+
+        private sealed class PostInstallRegistrationSnapshot
+        {
+            public ShortcutSnapshot StartMenuShortcut;
+            public ShortcutSnapshot DesktopShortcut;
+            public bool StartMenuDirectoryExisted;
+            public RegistryKeySnapshot UninstallKey;
+            public RegistryKeySnapshot AppPathsKey;
+        }
+
+        private static PostInstallRegistrationSnapshot CapturePostInstallRegistration()
+        {
+            string startMenuDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
+                ProductName);
+            string desktopShortcut = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                ProductName + ".lnk");
+            var snapshot = new PostInstallRegistrationSnapshot
+            {
+                StartMenuShortcut = CaptureShortcut(Path.Combine(
+                    startMenuDirectory,
+                    ProductName + ".lnk")),
+                DesktopShortcut = CaptureShortcut(desktopShortcut),
+                StartMenuDirectoryExisted = Directory.Exists(startMenuDirectory)
+            };
+
+            using (RegistryKey baseKey = RegistryKey.OpenBaseKey(
+                RegistryHive.LocalMachine,
+                RegistryView.Registry64))
+            {
+                snapshot.UninstallKey = CaptureRegistryKey(baseKey, UninstallRegistryPath);
+                snapshot.AppPathsKey = CaptureRegistryKey(baseKey, AppPathsRegistryPath);
+            }
+            return snapshot;
+        }
+
+        private static ShortcutSnapshot CaptureShortcut(string path)
+        {
+            var snapshot = new ShortcutSnapshot
+            {
+                Path = path,
+                Existed = File.Exists(path)
+            };
+            if (snapshot.Existed)
+            {
+                snapshot.Contents = File.ReadAllBytes(path);
+                snapshot.Attributes = File.GetAttributes(path);
+                snapshot.LastWriteTimeUtc = File.GetLastWriteTimeUtc(path);
+            }
+            return snapshot;
+        }
+
+        private static RegistryKeySnapshot CaptureRegistryKey(RegistryKey parent, string path)
+        {
+            RegistryKey key = parent.OpenSubKey(path, false);
+            if (key == null)
+            {
+                return new RegistryKeySnapshot { Name = path, Existed = false };
+            }
+            using (key)
+            {
+                RegistryKeySnapshot snapshot = CaptureRegistryTree(key, path);
+                snapshot.Existed = true;
+                return snapshot;
+            }
+        }
+
+        private static RegistryKeySnapshot CaptureRegistryTree(RegistryKey key, string name)
+        {
+            var snapshot = new RegistryKeySnapshot { Name = name, Existed = true };
+            foreach (string valueName in key.GetValueNames())
+            {
+                snapshot.Values.Add(new RegistryValueSnapshot
+                {
+                    Name = valueName,
+                    Value = key.GetValue(
+                        valueName,
+                        null,
+                        RegistryValueOptions.DoNotExpandEnvironmentNames),
+                    Kind = key.GetValueKind(valueName)
+                });
+            }
+            foreach (string childName in key.GetSubKeyNames())
+            {
+                using (RegistryKey child = key.OpenSubKey(childName, false))
+                {
+                    if (child == null)
+                    {
+                        throw new IOException(
+                            "An installation registry key changed while it was being backed up.");
+                    }
+                    snapshot.Children.Add(CaptureRegistryTree(child, childName));
+                }
+            }
+            return snapshot;
+        }
+
+        private static void RestorePostInstallRegistration(
+            PostInstallRegistrationSnapshot snapshot)
+        {
+            var failures = new List<Exception>();
+            using (RegistryKey baseKey = RegistryKey.OpenBaseKey(
+                RegistryHive.LocalMachine,
+                RegistryView.Registry64))
+            {
+                TryCompensation(
+                    delegate { RestoreRegistryKey(baseKey, snapshot.AppPathsKey); },
+                    failures);
+                TryCompensation(
+                    delegate { RestoreRegistryKey(baseKey, snapshot.UninstallKey); },
+                    failures);
+            }
+            TryCompensation(
+                delegate { RestoreShortcut(snapshot.DesktopShortcut); },
+                failures);
+            TryCompensation(
+                delegate { RestoreShortcut(snapshot.StartMenuShortcut); },
+                failures);
+
+            if (!snapshot.StartMenuDirectoryExisted)
+            {
+                TryDeleteEmptyDirectory(Path.GetDirectoryName(
+                    snapshot.StartMenuShortcut.Path));
+            }
+            if (failures.Count != 0)
+            {
+                throw new AggregateException(
+                    "One or more installation registration items could not be restored.",
+                    failures);
+            }
+        }
+
+        private static void TryCompensation(Action action, List<Exception> failures)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception exception)
+            {
+                failures.Add(exception);
+            }
+        }
+
+        private static void RestoreShortcut(ShortcutSnapshot snapshot)
+        {
+            if (!snapshot.Existed)
+            {
+                DeleteIfExists(snapshot.Path);
+                return;
+            }
+
+            string directory = Path.GetDirectoryName(snapshot.Path);
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            if (File.Exists(snapshot.Path))
+            {
+                File.SetAttributes(snapshot.Path, FileAttributes.Normal);
+            }
+            File.WriteAllBytes(snapshot.Path, snapshot.Contents);
+            File.SetLastWriteTimeUtc(snapshot.Path, snapshot.LastWriteTimeUtc);
+            File.SetAttributes(snapshot.Path, snapshot.Attributes);
+        }
+
+        private static void RestoreRegistryKey(
+            RegistryKey baseKey,
+            RegistryKeySnapshot snapshot)
+        {
+            baseKey.DeleteSubKeyTree(snapshot.Name, false);
+            if (!snapshot.Existed)
+            {
+                return;
+            }
+
+            using (RegistryKey key = baseKey.CreateSubKey(snapshot.Name))
+            {
+                if (key == null)
+                {
+                    throw new IOException(
+                        "The previous installation registry key could not be recreated.");
+                }
+                RestoreRegistryTree(key, snapshot);
+            }
+        }
+
+        private static void RestoreRegistryTree(
+            RegistryKey key,
+            RegistryKeySnapshot snapshot)
+        {
+            foreach (RegistryValueSnapshot value in snapshot.Values)
+            {
+                key.SetValue(value.Name, value.Value, value.Kind);
+            }
+            foreach (RegistryKeySnapshot childSnapshot in snapshot.Children)
+            {
+                using (RegistryKey child = key.CreateSubKey(childSnapshot.Name))
+                {
+                    if (child == null)
+                    {
+                        throw new IOException(
+                            "A previous installation registry subkey could not be recreated.");
+                    }
+                    RestoreRegistryTree(child, childSnapshot);
+                }
+            }
+        }
+
+        private sealed class PayloadTransactionItem
+        {
+            public string ResourceName;
+            public string StagePath;
+            public string DestinationPath;
+            public string BackupPath;
+            public string ProgressText;
+            public bool CopyInstaller;
+            public bool Executable;
+            public bool PresentMon;
+            public bool DestinationExisted;
+            public bool Committed;
+            public bool Restored = true;
+        }
+
+        private sealed class CaptureDirectoryTransaction
+        {
+            public string CommonDataDirectory;
+            public string ProductDirectory;
+            public string CaptureDirectory;
+            public bool ProductExisted;
+            public bool CaptureExisted;
+            public string ProductSecuritySddl;
+            public string CaptureSecuritySddl;
+            public bool ProductTouched;
+            public bool CaptureTouched;
+            public bool Restored = true;
+        }
+
+        private static void InstallPayloadsAtomically(Action<int, string> progress, Action registerInstallation)
+        {
+            string token = Guid.NewGuid().ToString("N");
+            var items = new List<PayloadTransactionItem>
+            {
+                CreatePayloadItem(token, "Game-Boost", "MajesticBoost.GameBoost.ps1", InstalledGameBoostScript, "Ğ¸Ğ³Ñ€Ğ¾Ğ²Ñ‹Ñ… Ğ½Ğ°ÑÑ‚Ñ€Ğ¾ĞµĞº", false, false),
+                CreatePayloadItem(token, "MaxFPS-Apply", "MajesticBoost.MaxFPSApply.ps1", InstalledMaxFpsApplyScript, "Ğ¿Ñ€Ğ¾Ñ„Ğ¸Ğ»Ñ Ğ¿Ñ€Ğ¾Ğ¸Ğ·Ğ²Ğ¾Ğ´Ğ¸Ñ‚ĞµĞ»ÑŒĞ½Ğ¾ÑÑ‚Ğ¸", false, false),
+                CreatePayloadItem(token, "MaxFPS-Restore", "MajesticBoost.MaxFPSRestore.ps1", InstalledMaxFpsRestoreScript, "ĞºĞ¾Ğ¼Ğ¿Ğ¾Ğ½ĞµĞ½Ñ‚Ğ¾Ğ² Ğ²Ğ¾ÑÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ", false, false),
+                CreatePayloadItem(token, "PresentMon-License", "MajesticBoost.PresentMon.License.txt", InstalledPresentMonLicense, "Ğ»Ğ¸Ñ†ĞµĞ½Ğ·Ğ¸Ğ¸ Ğ¸Ğ·Ğ¼ĞµÑ€Ğ¸Ñ‚ĞµĞ»Ñ FPS", false, false),
+                CreatePayloadItem(token, "PresentMon-ThirdParty", "MajesticBoost.PresentMon.ThirdParty.txt", InstalledPresentMonThirdParty, "ÑƒĞ²ĞµĞ´Ğ¾Ğ¼Ğ»ĞµĞ½Ğ¸Ğ¹ ÑÑ‚Ğ¾Ñ€Ğ¾Ğ½Ğ½Ğ¸Ñ… ĞºĞ¾Ğ¼Ğ¿Ğ¾Ğ½ĞµĞ½Ñ‚Ğ¾Ğ²", false, false),
+                CreatePayloadItem(token, "PresentMon", "MajesticBoost.PresentMon.exe", InstalledPresentMon, "Ğ¸Ğ·Ğ¼ĞµÑ€Ğ¸Ñ‚ĞµĞ»Ñ FPS", false, true),
+                CreatePayloadItem(token, "Uninstall", null, UninstallerExe, "ĞºĞ¾Ğ¼Ğ¿Ğ¾Ğ½ĞµĞ½Ñ‚Ğ¾Ğ² ÑƒĞ´Ğ°Ğ»ĞµĞ½Ğ¸Ñ", true, false),
+                CreatePayloadItem(token, "MajesticBoost", "MajesticBoost.Payload.exe", InstalledExe, "Ñ„Ğ°Ğ¹Ğ»Ğ¾Ğ² Ğ¿Ñ€Ğ¾Ğ³Ñ€Ğ°Ğ¼Ğ¼Ñ‹", true, false)
+            };
+            items[6].CopyInstaller = true;
+            bool installationSucceeded = false;
+            CaptureDirectoryTransaction captureDirectories = null;
+
+            try
+            {
+                for (int index = 0; index < items.Count; index++)
+                {
+                    PayloadTransactionItem item = items[index];
+                    ReportProgress(
+                        progress,
+                        10 + index * 2,
+                        "Ğ Ğ°ÑĞ¿Ğ°ĞºĞ¾Ğ²ĞºĞ° " + item.ProgressText);
+                    if (item.CopyInstaller)
+                    {
+                        File.Copy(Application.ExecutablePath, item.StagePath, false);
+                    }
+                    else
+                    {
+                        ExtractResource(item.ResourceName, item.StagePath);
+                    }
+                }
+
+                // No installed file is touched until every embedded payload exists
+                // and passes its own integrity validation.
+                for (int index = 0; index < items.Count; index++)
+                {
+                    PayloadTransactionItem item = items[index];
+                    ReportProgress(
+                        progress,
+                        28 + index * 2,
+                        "ĞŸÑ€Ğ¾Ğ²ĞµÑ€ĞºĞ° " + item.ProgressText);
+                    ValidateStagedPayload(item.StagePath, item.Executable);
+                    if (item.PresentMon)
+                    {
+                        ValidatePresentMonPayload(item.StagePath);
+                    }
+                }
+
+                StopInstalledApplication();
+                ReportProgress(progress, 45, "ĞÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ° Ğ·Ğ°Ğ¿ÑƒÑ‰ĞµĞ½Ğ½Ğ¾Ğ¹ Ğ²ĞµÑ€ÑĞ¸Ğ¸");
+                captureDirectories = PrepareCaptureDirectoryTransaction();
+                ApplyCaptureDirectoryTransaction(captureDirectories);
+                ReportProgress(progress, 47, "Ğ—Ğ°Ñ‰Ğ¸Ñ‚Ğ° Ğ¿Ğ°Ğ¿ĞºĞ¸ Ğ¸Ğ·Ğ¼ĞµÑ€ĞµĞ½Ğ¸Ğ¹");
+
+                // Dependencies are published first; the main application remains
+                // the final commit marker for the transaction.
+                for (int index = 0; index < items.Count; index++)
+                {
+                    PayloadTransactionItem item = items[index];
+                    string directory = Path.GetDirectoryName(item.DestinationPath);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    ReportProgress(
+                        progress,
+                        48 + index * 3,
+                        "Ğ£ÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ° " + item.ProgressText);
+                    CommitStagedFile(
+                        item.StagePath,
+                        item.DestinationPath,
+                        item.BackupPath,
+                        item.DestinationExisted);
+                    item.Committed = true;
+                }
+                if (registerInstallation != null)
+                {
+                    registerInstallation();
+                }
+                installationSucceeded = true;
+                ReportProgress(progress, 72, "Ğ¤Ğ°Ğ¹Ğ»Ñ‹ Ğ¿Ñ€Ğ¾Ğ³Ñ€Ğ°Ğ¼Ğ¼Ñ‹ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ñ‹");
+            }
+            catch
+            {
+                for (int index = items.Count - 1; index >= 0; index--)
+                {
+                    PayloadTransactionItem item = items[index];
+                    if (item.Committed)
+                    {
+                        item.Restored = RestoreCommittedFile(
+                            item.DestinationPath,
+                            item.BackupPath,
+                            item.DestinationExisted);
+                    }
+                }
+                if (captureDirectories != null)
+                {
+                    captureDirectories.Restored =
+                        RollbackCaptureDirectoryTransaction(captureDirectories);
+                }
+                throw;
+            }
+            finally
+            {
+                foreach (PayloadTransactionItem item in items)
+                {
+                    TryDeleteIfExists(item.StagePath);
+                    if (installationSucceeded || !item.Committed || item.Restored)
+                    {
+                        TryDeleteIfExists(item.BackupPath);
+                    }
+                }
+                if (!installationSucceeded)
+                {
+                    TryDeleteEmptyDirectory(PresentMonDirectory);
+                    TryDeleteEmptyDirectory(Path.GetDirectoryName(PresentMonDirectory));
+                }
+            }
+        }
+
+        private static CaptureDirectoryTransaction PrepareCaptureDirectoryTransaction()
+        {
+            string commonDataDirectory;
+            string productDirectory;
+            string captureDirectory;
+            ResolveProtectedCapturePaths(
+                out commonDataDirectory,
+                out productDirectory,
+                out captureDirectory);
+
+            ValidateCaptureDirectory(commonDataDirectory, true, "ProgramData");
+            ValidateCaptureDirectory(productDirectory, false, "MajesticBoost");
+            ValidateCaptureDirectory(captureDirectory, false, "Captures");
+
+            bool productExisted = Directory.Exists(productDirectory);
+            bool captureExisted = Directory.Exists(captureDirectory);
+            if (!productExisted && captureExisted)
+            {
+                throw new IOException(
+                    "The capture directory exists without its protected product parent.");
+            }
+
+            return new CaptureDirectoryTransaction
+            {
+                CommonDataDirectory = commonDataDirectory,
+                ProductDirectory = productDirectory,
+                CaptureDirectory = captureDirectory,
+                ProductExisted = productExisted,
+                CaptureExisted = captureExisted,
+                ProductSecuritySddl = productExisted
+                    ? CaptureDirectorySecuritySddl(productDirectory)
+                    : null,
+                CaptureSecuritySddl = captureExisted
+                    ? CaptureDirectorySecuritySddl(captureDirectory)
+                    : null
+            };
+        }
+
+        private static void ApplyCaptureDirectoryTransaction(
+            CaptureDirectoryTransaction transaction)
+        {
+            if (transaction == null)
+            {
+                throw new ArgumentNullException("transaction");
+            }
+
+            EnsureCaptureDirectoryState(
+                transaction.ProductDirectory,
+                transaction.ProductExisted,
+                "MajesticBoost");
+            transaction.ProductTouched = true;
+            ApplySecureCaptureDirectory(
+                transaction.ProductDirectory,
+                transaction.ProductExisted,
+                false);
+
+            // The protected parent is tightened before the child is touched, so
+            // an unelevated user cannot swap the Captures directory underneath
+            // the elevated installer.
+            EnsureCaptureDirectoryState(
+                transaction.CaptureDirectory,
+                transaction.CaptureExisted,
+                "Captures");
+            transaction.CaptureTouched = true;
+            ApplySecureCaptureDirectory(
+                transaction.CaptureDirectory,
+                transaction.CaptureExisted,
+                true);
+        }
+
+        private static DirectorySecurity CreateCaptureDirectorySecurity(
+            bool allowInheritedFileCleanup)
+        {
+            var security = new DirectorySecurity();
+            security.SetAccessRuleProtection(true, false);
+
+            var administrators = new SecurityIdentifier(
+                WellKnownSidType.BuiltinAdministratorsSid,
+                null);
+            var system = new SecurityIdentifier(
+                WellKnownSidType.LocalSystemSid,
+                null);
+            var authenticatedUsers = new SecurityIdentifier(
+                WellKnownSidType.AuthenticatedUserSid,
+                null);
+            security.SetOwner(administrators);
+            security.SetGroup(administrators);
+
+            const InheritanceFlags inheritance =
+                InheritanceFlags.ContainerInherit |
+                InheritanceFlags.ObjectInherit;
+            security.AddAccessRule(new FileSystemAccessRule(
+                system,
+                FileSystemRights.FullControl,
+                inheritance,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            security.AddAccessRule(new FileSystemAccessRule(
+                administrators,
+                FileSystemRights.FullControl,
+                inheritance,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            security.AddAccessRule(new FileSystemAccessRule(
+                authenticatedUsers,
+                FileSystemRights.ReadAndExecute,
+                inheritance,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            if (allowInheritedFileCleanup)
+            {
+                // Standard users still cannot create or modify entries in the
+                // Captures directory. This object-only inherited right lets the
+                // originating user delete the admin-created CSV after copying it
+                // down from an over-the-shoulder UAC capture.
+                security.AddAccessRule(new FileSystemAccessRule(
+                    authenticatedUsers,
+                    FileSystemRights.Delete,
+                    InheritanceFlags.ObjectInherit,
+                    PropagationFlags.InheritOnly,
+                    AccessControlType.Allow));
+            }
+            return security;
+        }
+
+        private static void ApplySecureCaptureDirectory(
+            string path,
+            bool existed,
+            bool allowInheritedFileCleanup)
+        {
+            DirectorySecurity security = CreateCaptureDirectorySecurity(
+                allowInheritedFileCleanup);
+            if (!existed)
+            {
+                Directory.CreateDirectory(path, security);
+            }
+            ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+            Directory.SetAccessControl(path, security);
+            ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+        }
+
+        private static bool RollbackCaptureDirectoryTransaction(
+            CaptureDirectoryTransaction transaction)
+        {
+            bool captureRestored = true;
+            if (transaction.CaptureTouched && !transaction.CaptureExisted)
+            {
+                captureRestored =
+                    TryDeleteCreatedCaptureDirectory(transaction.CaptureDirectory);
+            }
+
+            bool productRestored = true;
+            if (transaction.ProductTouched)
+            {
+                productRestored = transaction.ProductExisted
+                    ? TryRestoreCaptureDirectorySecurity(
+                        transaction.ProductDirectory,
+                        transaction.ProductSecuritySddl)
+                    : TryDeleteCreatedCaptureDirectory(transaction.ProductDirectory);
+            }
+
+            // Restore the child only after the original parent ACL is back.
+            // If restoring the parent failed, keeping the child protected is
+            // safer than restoring a possibly user-writable previous child ACL.
+            if (transaction.CaptureTouched && transaction.CaptureExisted)
+            {
+                captureRestored = productRestored &&
+                    TryRestoreCaptureDirectorySecurity(
+                        transaction.CaptureDirectory,
+                        transaction.CaptureSecuritySddl);
+            }
+            return productRestored && captureRestored;
+        }
+
+        private static bool TryRestoreCaptureDirectorySecurity(
+            string path,
+            string securitySddl)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(securitySddl))
+                {
+                    return false;
+                }
+                ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+                var security = new DirectorySecurity();
+                security.SetSecurityDescriptorSddlForm(
+                    securitySddl,
+                    CaptureSecuritySections);
+                Directory.SetAccessControl(path, security);
+                ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryDeleteCreatedCaptureDirectory(string path)
+        {
+            try
+            {
+                if (!Directory.Exists(path))
+                {
+                    return !File.Exists(path);
+                }
+                ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+                if (Directory.GetFileSystemEntries(path).Length != 0)
+                {
+                    return false;
+                }
+                Directory.Delete(path, false);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string CaptureDirectorySecuritySddl(string path)
+        {
+            DirectorySecurity security = Directory.GetAccessControl(
+                path,
+                CaptureSecuritySections);
+            return security.GetSecurityDescriptorSddlForm(CaptureSecuritySections);
+        }
+
+        private static void EnsureCaptureDirectoryState(
+            string path,
+            bool expectedToExist,
+            string name)
+        {
+            bool exists = Directory.Exists(path);
+            if (exists != expectedToExist ||
+                (!exists && File.Exists(path)))
+            {
+                throw new IOException(
+                    "The protected " + name +
+                    " directory changed during installation.");
+            }
+            ValidateCaptureDirectory(path, expectedToExist, name);
+        }
+
+        private static void ResolveProtectedCapturePaths(
+            out string commonDataDirectory,
+            out string productDirectory,
+            out string captureDirectory)
+        {
+            string commonData = Environment.GetFolderPath(
+                Environment.SpecialFolder.CommonApplicationData);
+            if (string.IsNullOrWhiteSpace(commonData))
+            {
+                throw new DirectoryNotFoundException(
+                    "The system ProgramData directory is unavailable.");
+            }
+
+            commonDataDirectory = Path.GetFullPath(commonData);
+            productDirectory = Path.GetFullPath(Path.Combine(
+                commonDataDirectory,
+                "MajesticBoost"));
+            captureDirectory = Path.GetFullPath(Path.Combine(
+                productDirectory,
+                "Captures"));
+            if (!IsStrictChildPath(commonDataDirectory, productDirectory) ||
+                !IsStrictChildPath(productDirectory, captureDirectory))
+            {
+                throw new IOException(
+                    "The protected capture directory resolved outside ProgramData.");
+            }
+        }
+
+        private static bool IsStrictChildPath(string parentPath, string childPath)
+        {
+            string prefix = parentPath.TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            return childPath.Length > prefix.Length &&
+                   childPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void ValidateCaptureDirectory(
+            string path,
+            bool required,
+            string name)
+        {
+            if (!Directory.Exists(path))
+            {
+                if (File.Exists(path))
+                {
+                    throw new IOException(
+                        "A file occupies the protected " + name + " directory path.");
+                }
+                if (required)
+                {
+                    throw new DirectoryNotFoundException(
+                        "The protected " + name + " directory is unavailable.");
+                }
+                return;
+            }
+
+            FileAttributes attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException(
+                    "The protected " + name + " directory cannot be a reparse point.");
+            }
+        }
+
+        private static void TryPruneProtectedCaptureFiles(bool removeDirectories)
+        {
+            try
+            {
+                string commonDataDirectory;
+                string productDirectory;
+                string captureDirectory;
+                ResolveProtectedCapturePaths(
+                    out commonDataDirectory,
+                    out productDirectory,
+                    out captureDirectory);
+                ValidateCaptureDirectory(commonDataDirectory, true, "ProgramData");
+                ValidateCaptureDirectory(productDirectory, false, "MajesticBoost");
+                ValidateCaptureDirectory(captureDirectory, false, "Captures");
+                if (!Directory.Exists(captureDirectory))
+                {
+                    return;
+                }
+
+                string capturePrefix = captureDirectory.TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                foreach (string candidate in Directory.GetFiles(
+                    captureDirectory,
+                    "MajesticBoost-PresentMon-*.csv",
+                    SearchOption.TopDirectoryOnly))
+                {
+                    try
+                    {
+                        string fullPath = Path.GetFullPath(candidate);
+                        string fileName = Path.GetFileName(fullPath);
+                        if (!fullPath.StartsWith(
+                                capturePrefix,
+                                StringComparison.OrdinalIgnoreCase) ||
+                            !Regex.IsMatch(
+                                fileName,
+                                @"^MajesticBoost-PresentMon-[0-9a-f]{32}\.csv$",
+                                RegexOptions.IgnoreCase |
+                                RegexOptions.CultureInvariant) ||
+                            (File.GetAttributes(fullPath) &
+                             FileAttributes.ReparsePoint) != 0)
+                        {
+                            continue;
+                        }
+                        File.Delete(fullPath);
+                    }
+                    catch
+                    {
+                        // Continue pruning other exact capture artifacts.
+                    }
+                }
+
+                if (removeDirectories)
+                {
+                    TryDeleteCreatedCaptureDirectory(captureDirectory);
+                    TryDeleteCreatedCaptureDirectory(productDirectory);
+                }
+            }
+            catch
+            {
+                // Capture staging is temporary; an unsafe or busy path is left
+                // untouched rather than making uninstall destructive.
+            }
+        }
+
+        private static PayloadTransactionItem CreatePayloadItem(
+            string token,
+            string stageName,
+            string resourceName,
+            string destination,
+            string progressText,
+            bool executable,
+            bool presentMon)
+        {
+            return new PayloadTransactionItem
+            {
+                ResourceName = resourceName,
+                StagePath = Path.Combine(
+                    InstallDirectory,
+                    "." + stageName + "-" + token + ".stage"),
+                DestinationPath = destination,
+                BackupPath = Path.Combine(
+                    InstallDirectory,
+                    "." + stageName + "-" + token + ".backup"),
+                ProgressText = progressText,
+                Executable = executable,
+                PresentMon = presentMon,
+                DestinationExisted = File.Exists(destination)
+            };
+        }
+
+        private static void EnsureInstallIsNotDowngrade()
+        {
+            if (!File.Exists(InstalledExe))
+            {
+                return;
+            }
+
+            FileVersionInfo installedInfo = FileVersionInfo.GetVersionInfo(InstalledExe);
+            if (IsDowngrade(installedInfo.FileVersion, ProductVersion + ".0"))
+            {
+                Version installedVersion = Version.Parse(installedInfo.FileVersion.Trim());
+                throw new InvalidOperationException(
+                    "ĞĞ° ĞºĞ¾Ğ¼Ğ¿ÑŒÑÑ‚ĞµÑ€Ğµ ÑƒĞ¶Ğµ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ° Ğ±Ğ¾Ğ»ĞµĞµ Ğ½Ğ¾Ğ²Ğ°Ñ Ğ²ĞµÑ€ÑĞ¸Ñ Majestic Boost (" +
+                    installedVersion.ToString(3) + "). Ğ£ÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ° Ğ±Ğ¾Ğ»ĞµĞµ ÑÑ‚Ğ°Ñ€Ğ¾Ğ¹ Ğ²ĞµÑ€ÑĞ¸Ğ¸ Ğ¾Ñ‚Ğ¼ĞµĞ½ĞµĞ½Ğ°.");
+            }
+        }
+
+        private static bool IsDowngrade(string installedVersionText, string setupVersionText)
+        {
+            Version installedVersion;
+            Version setupVersion;
+            return Version.TryParse((installedVersionText ?? string.Empty).Trim(), out installedVersion) &&
+                Version.TryParse((setupVersionText ?? string.Empty).Trim(), out setupVersion) &&
+                installedVersion > setupVersion;
+        }
+
+        private static void ValidateStagedPayload(string path, bool executable)
+        {
+            var file = new FileInfo(path);
+            if (!file.Exists || file.Length == 0)
+            {
+                throw new InvalidDataException("Ğ’ÑÑ‚Ñ€Ğ¾ĞµĞ½Ğ½Ñ‹Ğµ Ñ„Ğ°Ğ¹Ğ»Ñ‹ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸ĞºĞ° Ğ¿Ğ¾Ğ²Ñ€ĞµĞ¶Ğ´ĞµĞ½Ñ‹.");
+            }
+
+            if (!executable)
+            {
+                return;
+            }
+
+            using (var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                if (input.Length < 2 || input.ReadByte() != 'M' || input.ReadByte() != 'Z')
+                {
+                    throw new InvalidDataException("Ğ’ÑÑ‚Ñ€Ğ¾ĞµĞ½Ğ½Ñ‹Ğ¹ Ñ„Ğ°Ğ¹Ğ» Ğ¿Ñ€Ğ¾Ğ³Ñ€Ğ°Ğ¼Ğ¼Ñ‹ Ğ¿Ğ¾Ğ²Ñ€ĞµĞ¶Ğ´Ñ‘Ğ½.");
+                }
+            }
+
+            FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(path);
+            Version payloadVersion;
+            Version expectedVersion;
+            if (!string.Equals(versionInfo.ProductName, ProductName, StringComparison.Ordinal) ||
+                !Version.TryParse((versionInfo.FileVersion ?? string.Empty).Trim(), out payloadVersion) ||
+                !Version.TryParse(ProductVersion + ".0", out expectedVersion) ||
+                payloadVersion != expectedVersion)
+            {
+                throw new InvalidDataException("Ğ’ÑÑ‚Ñ€Ğ¾ĞµĞ½Ğ½Ñ‹Ğ¹ Ğ¸ÑĞ¿Ğ¾Ğ»Ğ½ÑĞµĞ¼Ñ‹Ğ¹ Ñ„Ğ°Ğ¹Ğ» Ğ¸Ğ¼ĞµĞµÑ‚ Ğ½ĞµĞ²ĞµÑ€Ğ½ÑƒÑ Ğ²ĞµÑ€ÑĞ¸Ñ Ğ¸Ğ»Ğ¸ Ğ¸Ğ¼Ñ Ğ¿Ñ€Ğ¾Ğ´ÑƒĞºÑ‚Ğ°.");
+            }
+        }
+
+        private static void ValidatePresentMonPayload(string path)
+        {
+            const long expectedLength = 956768;
+            const string expectedSha256 =
+                "9bec3083069f58f911e6a512f4806db51a27bd096103087bc1d05ef54c80a191";
+            var file = new FileInfo(path);
+            if (!file.Exists || file.Length != expectedLength)
+            {
+                throw new InvalidDataException("Ğ’ÑÑ‚Ñ€Ğ¾ĞµĞ½Ğ½Ñ‹Ğ¹ Ğ¸Ğ·Ğ¼ĞµÑ€Ğ¸Ñ‚ĞµĞ»ÑŒ FPS Ğ¸Ğ¼ĞµĞµÑ‚ Ğ½ĞµĞ²ĞµÑ€Ğ½Ñ‹Ğ¹ Ñ€Ğ°Ğ·Ğ¼ĞµÑ€.");
+            }
+
+            string actualHash;
+            using (var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                if (input.ReadByte() != 'M' || input.ReadByte() != 'Z')
+                {
+                    throw new InvalidDataException("Ğ’ÑÑ‚Ñ€Ğ¾ĞµĞ½Ğ½Ñ‹Ğ¹ Ğ¸Ğ·Ğ¼ĞµÑ€Ğ¸Ñ‚ĞµĞ»ÑŒ FPS Ğ¿Ğ¾Ğ²Ñ€ĞµĞ¶Ğ´Ñ‘Ğ½.");
+                }
+                input.Position = 0;
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    actualHash = BitConverter.ToString(sha256.ComputeHash(input))
+                        .Replace("-", string.Empty)
+                        .ToLowerInvariant();
+                }
+            }
+            if (!string.Equals(actualHash, expectedSha256, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("ĞĞµ ÑĞ¾Ğ²Ğ¿Ğ°Ğ´Ğ°ĞµÑ‚ ĞºĞ¾Ğ½Ñ‚Ñ€Ğ¾Ğ»ÑŒĞ½Ğ°Ñ ÑÑƒĞ¼Ğ¼Ğ° Ğ¸Ğ·Ğ¼ĞµÑ€Ğ¸Ñ‚ĞµĞ»Ñ FPS.");
+            }
+        }
+
+        private static void CommitStagedFile(string stage, string destination, string backup, bool destinationExists)
+        {
+            if (destinationExists)
+            {
+                File.Replace(stage, destination, backup, true);
+            }
+            else
+            {
+                File.Move(stage, destination);
+            }
+        }
+
+        private static void ReplaceFileWithoutRetainedBackup(string source, string destination)
+        {
+            string discardBackup = destination + ".replace-backup-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                File.Replace(source, destination, discardBackup, true);
+            }
+            finally
+            {
+                try
+                {
+                    DeleteIfExists(discardBackup);
+                }
+                catch
+                {
+                    // A disposable copy of the failed destination must not make
+                    // restoring the known-good installation report failure.
+                }
+            }
+        }
+
+        private static bool RestoreCommittedFile(string destination, string backup, bool destinationExisted)
+        {
+            try
+            {
+                if (destinationExisted && File.Exists(backup))
+                {
+                    if (File.Exists(destination))
+                    {
+                        ReplaceFileWithoutRetainedBackup(backup, destination);
+                    }
+                    else
+                    {
+                        File.Move(backup, destination);
+                    }
+                }
+                else if (!destinationExisted)
+                {
+                    DeleteIfExists(destination);
+                }
+                else
+                {
+                    return false;
+                }
+                return true;
+            }
+            catch
+            {
+                // Keep the original installation error; backup remains for diagnostics.
+                return false;
+            }
+        }
+
+        private static void ExtractResource(string resourceName, string destination)
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            using (Stream input = assembly.GetManifestResourceStream(resourceName))
+            {
+                if (input == null)
+                {
+                    throw new InvalidOperationException("Ğ’ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸ĞºĞµ Ğ¾Ñ‚ÑÑƒÑ‚ÑÑ‚Ğ²ÑƒĞµÑ‚ Ñ€ĞµÑÑƒÑ€Ñ: " + resourceName);
+                }
+                using (var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    input.CopyTo(output);
+                }
+            }
+        }
+
+        private static void StopInstalledApplication()
+        {
+            foreach (Process process in Process.GetProcessesByName("MajesticBoost"))
+            {
+                try
+                {
+                    string runningPath = process.MainModule.FileName;
+                    if (string.Equals(runningPath, InstalledExe, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!process.CloseMainWindow() || !process.WaitForExit(1200))
+                        {
+                            process.Kill();
+                        }
+                        if (!process.WaitForExit(3000))
+                        {
+                            throw new InvalidOperationException("Ğ—Ğ°ĞºÑ€Ğ¾Ğ¹Ñ‚Ğµ Ğ·Ğ°Ğ¿ÑƒÑ‰ĞµĞ½Ğ½Ñ‹Ğ¹ Majestic Boost Ğ¸ Ğ¿Ğ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚Ğµ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºÑƒ.");
+                        }
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    // An unrelated inaccessible process with the same name is ignored.
+                }
+                finally { process.Dispose(); }
+            }
+        }
+
+        public static void LaunchInstalledApplication()
+        {
+            string explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+            var startInfo = new ProcessStartInfo();
+            startInfo.FileName = explorer;
+            startInfo.Arguments = Quote(InstalledExe);
+            startInfo.UseShellExecute = true;
+            Process.Start(startInfo);
+        }
+
+        private static void CreateShortcut(string shortcutPath, string targetPath, string workingDirectory, string description)
+        {
+            Type shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType == null)
+            {
+                throw new InvalidOperationException("Windows Script Host Ğ½ĞµĞ´Ğ¾ÑÑ‚ÑƒĞ¿ĞµĞ½.");
+            }
+
+            object shell = Activator.CreateInstance(shellType);
+            object shortcut = null;
+            try
+            {
+                shortcut = shellType.InvokeMember(
+                    "CreateShortcut",
+                    BindingFlags.InvokeMethod,
+                    null,
+                    shell,
+                    new object[] { shortcutPath });
+                Type shortcutType = shortcut.GetType();
+                shortcutType.InvokeMember("TargetPath", BindingFlags.SetProperty, null, shortcut, new object[] { targetPath });
+                shortcutType.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, shortcut, new object[] { workingDirectory });
+                shortcutType.InvokeMember("Description", BindingFlags.SetProperty, null, shortcut, new object[] { description });
+                shortcutType.InvokeMember("IconLocation", BindingFlags.SetProperty, null, shortcut, new object[] { targetPath + ",0" });
+                shortcutType.InvokeMember("Save", BindingFlags.InvokeMethod, null, shortcut, null);
+            }
+            finally
+            {
+                if (shortcut != null && Marshal.IsComObject(shortcut))
+                {
+                    Marshal.FinalReleaseComObject(shortcut);
+                }
+                if (shell != null && Marshal.IsComObject(shell))
+                {
+                    Marshal.FinalReleaseComObject(shell);
+                }
+            }
+        }
+
+        private static int CalculateEstimatedSizeKb()
+        {
+            long total = 0;
+            foreach (string file in new[]
+            {
+                InstalledExe,
+                InstalledGameBoostScript,
+                InstalledMaxFpsApplyScript,
+                InstalledMaxFpsRestoreScript,
+                InstalledPresentMon,
+                InstalledPresentMonLicense,
+                InstalledPresentMonThirdParty,
+                UninstallerExe
+            })
+            {
+                if (File.Exists(file))
+                {
+                    total += new FileInfo(file).Length;
+                }
+            }
+            return (int)Math.Max(1, total / 1024);
+        }
+
+        private static void ReportProgress(Action<int, string> progress, int percent, string stage)
+        {
+            if (progress == null)
+            {
+                return;
+            }
+
+            try
+            {
+                progress(Math.Max(0, Math.Min(100, percent)), stage ?? string.Empty);
+            }
+            catch
+            {
+                // A closed or unavailable progress surface must not corrupt installation.
+            }
+        }
+
+        private static string Quote(string value)
+        {
+            return "\"" + value + "\"";
+        }
+
+        private static void DeleteIfExists(string path)
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+
+        private static void TryDeleteIfExists(string path)
+        {
+            try
+            {
+                DeleteIfExists(path);
+            }
+            catch
+            {
+                // Cleanup must not turn a successful commit or the original
+                // installation error into a different failure.
+            }
+        }
+
+        private static void TryDeleteEmptyDirectory(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) &&
+                    Directory.Exists(path) &&
+                    Directory.GetFileSystemEntries(path).Length == 0)
+                {
+                    Directory.Delete(path, false);
+                }
+            }
+            catch
+            {
+                // A harmless empty directory can be removed by a later install.
+            }
+        }
+    }
+
+    internal static class MajesticFontProvider
+    {
+        private static readonly PrivateFontCollection Fonts = new PrivateFontCollection();
+        private static bool loaded;
+
+        public static Font Create(float size, FontStyle style)
+        {
+            EnsureLoaded();
+            FontFamily selected = null;
+            string preferred = "Proxima Nova";
+            foreach (FontFamily family in Fonts.Families)
+            {
+                if (string.Equals(family.Name, preferred, StringComparison.OrdinalIgnoreCase))
+                {
+                    selected = family;
+                    break;
+                }
+            }
+
+            if (selected != null)
+            {
+                FontStyle actualStyle = selected.IsStyleAvailable(style) ? style : FontStyle.Regular;
+                try
+                {
+                    return new Font(selected, size, actualStyle, GraphicsUnit.Point);
+                }
+                catch { }
+            }
+
+            return new Font("Segoe UI", size, style, GraphicsUnit.Point);
+        }
+
+        public static void Dispose()
+        {
+            Fonts.Dispose();
+        }
+
+        private static void EnsureLoaded()
+        {
+            if (loaded)
+            {
+                return;
+            }
+            loaded = true;
+
+            try
+            {
+                string fontDirectory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost",
+                    "Fonts");
+                Directory.CreateDirectory(fontDirectory);
+                string regularFont = Path.Combine(fontDirectory, "ProximaNova-Regular.ttf");
+                if (!File.Exists(regularFont))
+                {
+                    ExtractFromMajestic(fontDirectory);
+                }
+
+                foreach (string fontFile in Directory.GetFiles(fontDirectory, "ProximaNova-*.ttf"))
+                {
+                    Fonts.AddFontFile(fontFile);
+                }
+            }
+            catch
+            {
+                // Segoe UI is used when Majestic is not installed.
+            }
+        }
+
+        private static void ExtractFromMajestic(string destinationDirectory)
+        {
+            string asarPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MajesticLauncher",
+                "resources",
+                "app.asar");
+            if (!File.Exists(asarPath))
+            {
+                return;
+            }
+
+            using (var stream = new FileStream(asarPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var reader = new BinaryReader(stream, Encoding.UTF8))
+            {
+                reader.ReadUInt32();
+                uint headerSize = reader.ReadUInt32();
+                reader.ReadUInt32();
+                uint jsonLength = reader.ReadUInt32();
+                if (jsonLength == 0 || jsonLength > 64 * 1024 * 1024)
+                {
+                    return;
+                }
+
+                string header = Encoding.UTF8.GetString(reader.ReadBytes((int)jsonLength));
+                long dataOffset = 8L + headerSize;
+                var pattern = new Regex(
+                    @"ProximaNova-(?<weight>Black|Bold|Regular|Semibold)-[^""\\]+\.ttf"":\{""size"":(?<size>\d+),""offset"":""(?<offset>\d+)""",
+                    RegexOptions.CultureInvariant);
+
+                foreach (Match match in pattern.Matches(header))
+                {
+                    int size;
+                    long offset;
+                    if (!int.TryParse(match.Groups["size"].Value, out size)
+                        || !long.TryParse(match.Groups["offset"].Value, out offset)
+                        || size <= 0
+                        || dataOffset + offset + size > stream.Length)
+                    {
+                        continue;
+                    }
+
+                    stream.Position = dataOffset + offset;
+                    byte[] bytes = reader.ReadBytes(size);
+                    if (bytes.Length == size)
+                    {
+                        File.WriteAllBytes(
+                            Path.Combine(destinationDirectory, "ProximaNova-" + match.Groups["weight"].Value + ".ttf"),
+                            bytes);
+                    }
+                }
+            }
+        }
+    }
+
+    internal static class MajesticDrawing
+    {
+        public static GraphicsPath RoundedRectangle(RectangleF rectangle, float radius)
+        {
+            float diameter = radius * 2F;
+            var path = new GraphicsPath();
+            path.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180F, 90F);
+            path.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270F, 90F);
+            path.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0F, 90F);
+            path.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90F, 90F);
+            path.CloseFigure();
+            return path;
+        }
+
+        public static Color Interpolate(Color from, Color to, float amount)
+        {
+            amount = Math.Max(0F, Math.Min(1F, amount));
+            return Color.FromArgb(
+                (int)Math.Round(from.A + ((to.A - from.A) * amount)),
+                (int)Math.Round(from.R + ((to.R - from.R) * amount)),
+                (int)Math.Round(from.G + ((to.G - from.G) * amount)),
+                (int)Math.Round(from.B + ((to.B - from.B) * amount)));
+        }
+
+        public static float CssEase(float progress)
+        {
+            progress = Math.Max(0F, Math.Min(1F, progress));
+            float low = 0F;
+            float high = 1F;
+            float parameter = progress;
+            for (int index = 0; index < 10; index++)
+            {
+                parameter = (low + high) * 0.5F;
+                float x = CubicBezier(parameter, 0.25F, 0.25F);
+                if (x < progress)
+                {
+                    low = parameter;
+                }
+                else
+                {
+                    high = parameter;
+                }
+            }
+            return CubicBezier(parameter, 0.10F, 1F);
+        }
+
+        private static float CubicBezier(float parameter, float firstControl, float secondControl)
+        {
+            float inverse = 1F - parameter;
+            return (3F * inverse * inverse * parameter * firstControl)
+                + (3F * inverse * parameter * parameter * secondControl)
+                + (parameter * parameter * parameter);
+        }
+    }
+
+    internal abstract class AnimatedButtonBase : Button
+    {
+        private readonly Timer animationTimer;
+        private Color currentFill;
+        private Color currentGlyph;
+        private Color startFill;
+        private Color startGlyph;
+        private Color targetFill;
+        private Color targetGlyph;
+        private long animationStart;
+        private int animationDuration;
+        private bool pressed;
+
+        protected AnimatedButtonBase()
+        {
+            SetStyle(
+                ControlStyles.UserPaint
+                | ControlStyles.AllPaintingInWmPaint
+                | ControlStyles.OptimizedDoubleBuffer
+                | ControlStyles.ResizeRedraw,
+                true);
+            FlatStyle = FlatStyle.Flat;
+            FlatAppearance.BorderSize = 0;
+            UseVisualStyleBackColor = false;
+            Cursor = Cursors.Hand;
+            TabStop = true;
+
+            animationTimer = new Timer();
+            animationTimer.Interval = 15;
+            animationTimer.Tick += AnimationTick;
+        }
+
+        protected abstract Color IdleFill { get; }
+        protected abstract Color HoverFill { get; }
+        protected abstract Color PressedFill { get; }
+        protected abstract Color IdleGlyph { get; }
+        protected abstract Color HoverGlyph { get; }
+        protected abstract Color PressedGlyph { get; }
+        protected abstract float CornerRadius { get; }
+
+        protected void InitializeVisualState()
+        {
+            currentFill = IdleFill;
+            currentGlyph = IdleGlyph;
+            startFill = currentFill;
+            startGlyph = currentGlyph;
+            targetFill = currentFill;
+            targetGlyph = currentGlyph;
+        }
+
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            base.OnMouseEnter(e);
+            if (Enabled)
+            {
+                BeginTransition(HoverFill, HoverGlyph, 200);
+            }
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            pressed = false;
+            BeginTransition(IdleFill, IdleGlyph, 200);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (Enabled && e.Button == MouseButtons.Left)
+            {
+                pressed = true;
+                BeginTransition(PressedFill, PressedGlyph, 90);
+            }
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            pressed = false;
+            if (Enabled && ClientRectangle.Contains(e.Location))
+            {
+                BeginTransition(HoverFill, HoverGlyph, 160);
+            }
+            else
+            {
+                BeginTransition(IdleFill, IdleGlyph, 160);
+            }
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (Enabled && !pressed && (e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter))
+            {
+                pressed = true;
+                BeginTransition(PressedFill, PressedGlyph, 90);
+            }
+        }
+
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            base.OnKeyUp(e);
+            if (pressed && (e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter))
+            {
+                pressed = false;
+                bool pointerInside = ClientRectangle.Contains(PointToClient(Cursor.Position));
+                BeginTransition(
+                    pointerInside ? HoverFill : IdleFill,
+                    pointerInside ? HoverGlyph : IdleGlyph,
+                    160);
+            }
+        }
+
+        protected override void OnLostFocus(EventArgs e)
+        {
+            base.OnLostFocus(e);
+            if (pressed)
+            {
+                pressed = false;
+                BeginTransition(IdleFill, IdleGlyph, 160);
+            }
+        }
+
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            base.OnEnabledChanged(e);
+            pressed = false;
+            bool pointerInside = Enabled && ClientRectangle.Contains(PointToClient(Cursor.Position));
+            BeginTransition(
+                pointerInside ? HoverFill : IdleFill,
+                pointerInside ? HoverGlyph : IdleGlyph,
+                160);
+            Invalidate();
+        }
+
+        protected override void OnTextChanged(EventArgs e)
+        {
+            base.OnTextChanged(e);
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Color parentColor = Parent == null ? Color.FromArgb(22, 22, 22) : Parent.BackColor;
+            using (var backgroundBrush = new SolidBrush(parentColor))
+            {
+                e.Graphics.FillRectangle(backgroundBrush, ClientRectangle);
+            }
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            RectangleF buttonBounds = new RectangleF(0F, 0F, Math.Max(1F, Width - 1F), Math.Max(1F, Height - 1F));
+            Color fill = currentFill;
+            Color glyph = currentGlyph;
+            if (!Enabled)
+            {
+                fill = MajesticDrawing.Interpolate(fill, parentColor, 0.45F);
+                glyph = Color.FromArgb(100, 100, 100);
+            }
+            if (SystemInformation.HighContrast)
+            {
+                fill = Enabled && (pressed || ClientRectangle.Contains(PointToClient(Cursor.Position)))
+                    ? SystemColors.Highlight
+                    : SystemColors.ControlDark;
+                glyph = Enabled ? SystemColors.HighlightText : SystemColors.GrayText;
+            }
+
+            using (GraphicsPath path = MajesticDrawing.RoundedRectangle(buttonBounds, CornerRadius))
+            using (var brush = new SolidBrush(fill))
+            {
+                e.Graphics.FillPath(brush, path);
+            }
+
+            DrawContent(e.Graphics, Rectangle.Round(buttonBounds), glyph);
+
+            if (Focused && ShowFocusCues)
+            {
+                Rectangle focusBounds = Rectangle.Inflate(ClientRectangle, -4, -4);
+                ControlPaint.DrawFocusRectangle(e.Graphics, focusBounds, glyph, fill);
+            }
+        }
+
+        protected abstract void DrawContent(Graphics graphics, Rectangle bounds, Color glyphColor);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                animationTimer.Stop();
+                animationTimer.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        private void BeginTransition(Color fill, Color glyph, int duration)
+        {
+            startFill = currentFill;
+            startGlyph = currentGlyph;
+            targetFill = fill;
+            targetGlyph = glyph;
+            animationStart = Stopwatch.GetTimestamp();
+            animationDuration = Math.Max(1, duration);
+            animationTimer.Start();
+            Invalidate();
+        }
+
+        private void AnimationTick(object sender, EventArgs e)
+        {
+            double elapsed = (Stopwatch.GetTimestamp() - animationStart) * 1000D / Stopwatch.Frequency;
+            float progress = (float)Math.Min(1D, elapsed / animationDuration);
+            float eased = MajesticDrawing.CssEase(progress);
+            currentFill = MajesticDrawing.Interpolate(startFill, targetFill, eased);
+            currentGlyph = MajesticDrawing.Interpolate(startGlyph, targetGlyph, eased);
+            Invalidate();
+            if (progress >= 1F)
+            {
+                animationTimer.Stop();
+                currentFill = targetFill;
+                currentGlyph = targetGlyph;
+            }
+        }
+    }
+
+    internal sealed class MajesticActionButton : AnimatedButtonBase
+    {
+        public MajesticActionButton()
+        {
+            InitializeVisualState();
+        }
+
+        protected override Color IdleFill { get { return Color.FromArgb(37, 37, 37); } }
+        protected override Color HoverFill { get { return Color.FromArgb(232, 28, 90); } }
+        protected override Color PressedFill { get { return Color.FromArgb(208, 25, 81); } }
+        protected override Color IdleGlyph { get { return Color.White; } }
+        protected override Color HoverGlyph { get { return Color.White; } }
+        protected override Color PressedGlyph { get { return Color.White; } }
+        protected override float CornerRadius { get { return 8F; } }
+
+        protected override void DrawContent(Graphics graphics, Rectangle bounds, Color glyphColor)
+        {
+            TextRenderer.DrawText(
+                graphics,
+                Text,
+                Font,
+                bounds,
+                glyphColor,
+                TextFormatFlags.HorizontalCenter
+                | TextFormatFlags.VerticalCenter
+                | TextFormatFlags.SingleLine
+                | TextFormatFlags.NoPadding);
+        }
+    }
+
+    internal sealed class MajesticCloseButton : AnimatedButtonBase
+    {
+        public MajesticCloseButton()
+        {
+            InitializeVisualState();
+        }
+
+        protected override Color IdleFill { get { return Color.FromArgb(0, 231, 24, 42); } }
+        protected override Color HoverFill { get { return Color.FromArgb(231, 24, 42); } }
+        protected override Color PressedFill { get { return Color.FromArgb(197, 20, 35); } }
+        protected override Color IdleGlyph { get { return Color.FromArgb(128, 255, 255, 255); } }
+        protected override Color HoverGlyph { get { return Color.White; } }
+        protected override Color PressedGlyph { get { return Color.White; } }
+        protected override float CornerRadius { get { return 6F; } }
+
+        protected override void DrawContent(Graphics graphics, Rectangle bounds, Color glyphColor)
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var pen = new Pen(glyphColor, 1.6F))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                graphics.DrawLine(pen, 9F, 9F, 21F, 21F);
+                graphics.DrawLine(pen, 21F, 9F, 9F, 21F);
+            }
+        }
+    }
+
+    internal sealed class MajesticToggle : CheckBox
+    {
+        private static readonly Color OffColor = Color.FromArgb(37, 37, 37);
+        private static readonly Color OffHoverColor = Color.FromArgb(52, 52, 52);
+        private static readonly Color OnColor = Color.FromArgb(232, 28, 90);
+        private readonly Timer animationTimer;
+        private float thumbPosition;
+        private float startThumbPosition;
+        private float targetThumbPosition;
+        private Color currentTrackColor;
+        private Color startTrackColor;
+        private Color targetTrackColor;
+        private long animationStart;
+        private bool pointerInside;
+
+        public MajesticToggle()
+        {
+            SetStyle(
+                ControlStyles.UserPaint
+                | ControlStyles.AllPaintingInWmPaint
+                | ControlStyles.OptimizedDoubleBuffer
+                | ControlStyles.ResizeRedraw
+                | ControlStyles.SupportsTransparentBackColor,
+                true);
+            AutoSize = false;
+            BackColor = Color.Transparent;
+            Cursor = Cursors.Hand;
+            TabStop = true;
+            currentTrackColor = OffColor;
+            targetTrackColor = OffColor;
+
+            animationTimer = new Timer();
+            animationTimer.Interval = 15;
+            animationTimer.Tick += AnimationTick;
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            thumbPosition = Checked ? 1F : 0F;
+            startThumbPosition = thumbPosition;
+            targetThumbPosition = thumbPosition;
+            currentTrackColor = TargetTrackColor();
+            startTrackColor = currentTrackColor;
+            targetTrackColor = currentTrackColor;
+        }
+
+        protected override void OnCheckedChanged(EventArgs e)
+        {
+            base.OnCheckedChanged(e);
+            if (!IsHandleCreated)
+            {
+                thumbPosition = Checked ? 1F : 0F;
+                currentTrackColor = Checked ? OnColor : OffColor;
+                return;
+            }
+            BeginTransition();
+        }
+
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            base.OnMouseEnter(e);
+            pointerInside = true;
+            BeginTransition();
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            pointerInside = false;
+            BeginTransition();
+        }
+
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            base.OnEnabledChanged(e);
+            if (!Enabled)
+            {
+                pointerInside = false;
+            }
+            BeginTransition();
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Color parentColor = Parent == null ? Color.FromArgb(22, 22, 22) : Parent.BackColor;
+            using (var backgroundBrush = new SolidBrush(parentColor))
+            {
+                e.Graphics.FillRectangle(backgroundBrush, ClientRectangle);
+            }
+
+            Color textColor = Enabled ? ForeColor : Color.FromArgb(95, 95, 95);
+            Rectangle textBounds = new Rectangle(0, 0, Math.Max(0, Width - 52), Height);
+            TextRenderer.DrawText(
+                e.Graphics,
+                Text,
+                Font,
+                textBounds,
+                textColor,
+                TextFormatFlags.Left
+                | TextFormatFlags.VerticalCenter
+                | TextFormatFlags.SingleLine
+                | TextFormatFlags.NoPadding
+                | TextFormatFlags.EndEllipsis);
+
+            float trackLeft = Width - 36F;
+            float trackTop = (Height - 20F) * 0.5F;
+            RectangleF trackBounds = new RectangleF(trackLeft, trackTop, 36F, 20F);
+            Color trackColor = currentTrackColor;
+            Color knobColor = Color.White;
+            if (!Enabled)
+            {
+                trackColor = MajesticDrawing.Interpolate(trackColor, parentColor, 0.5F);
+                knobColor = Color.FromArgb(145, 145, 145);
+            }
+            if (SystemInformation.HighContrast)
+            {
+                if (!Enabled)
+                {
+                    trackColor = SystemColors.ControlDarkDark;
+                    knobColor = SystemColors.GrayText;
+                }
+                else
+                {
+                    trackColor = Checked ? SystemColors.Highlight : SystemColors.ControlDark;
+                    knobColor = Checked ? SystemColors.HighlightText : SystemColors.Window;
+                }
+            }
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (GraphicsPath trackPath = MajesticDrawing.RoundedRectangle(trackBounds, 10F))
+            using (var trackBrush = new SolidBrush(trackColor))
+            {
+                e.Graphics.FillPath(trackBrush, trackPath);
+            }
+
+            float knobLeft = trackLeft + 2F + (16F * thumbPosition);
+            RectangleF knobBounds = new RectangleF(knobLeft, trackTop + 2F, 16F, 16F);
+            using (var knobBrush = new SolidBrush(knobColor))
+            {
+                e.Graphics.FillEllipse(knobBrush, knobBounds);
+            }
+
+            if (Focused && ShowFocusCues)
+            {
+                Rectangle focusBounds = Rectangle.Round(trackBounds);
+                focusBounds.Inflate(-2, -2);
+                ControlPaint.DrawFocusRectangle(e.Graphics, focusBounds, textColor, parentColor);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                animationTimer.Stop();
+                animationTimer.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        private Color TargetTrackColor()
+        {
+            if (Checked)
+            {
+                return OnColor;
+            }
+            return pointerInside && Enabled ? OffHoverColor : OffColor;
+        }
+
+        private void BeginTransition()
+        {
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+            startThumbPosition = thumbPosition;
+            targetThumbPosition = Checked ? 1F : 0F;
+            startTrackColor = currentTrackColor;
+            targetTrackColor = TargetTrackColor();
+            animationStart = Stopwatch.GetTimestamp();
+            animationTimer.Start();
+            Invalidate();
+        }
+
+        private void AnimationTick(object sender, EventArgs e)
+        {
+            double elapsed = (Stopwatch.GetTimestamp() - animationStart) * 1000D / Stopwatch.Frequency;
+            float progress = (float)Math.Min(1D, elapsed / 200D);
+            float eased = MajesticDrawing.CssEase(progress);
+            thumbPosition = startThumbPosition + ((targetThumbPosition - startThumbPosition) * eased);
+            currentTrackColor = MajesticDrawing.Interpolate(startTrackColor, targetTrackColor, eased);
+            Invalidate(new Rectangle(Math.Max(0, Width - 40), 0, Math.Min(40, Width), Height));
+            if (progress >= 1F)
+            {
+                animationTimer.Stop();
+                thumbPosition = targetThumbPosition;
+                currentTrackColor = targetTrackColor;
+            }
+        }
+    }
+
+    internal sealed class UpdateProgressForm : Form
+    {
+        private const int ProgressTrackWidth = 480;
+        private readonly Color background = Color.FromArgb(22, 22, 22);
+        private readonly Color accent = Color.FromArgb(232, 28, 90);
+        private readonly Color muted = Color.FromArgb(142, 142, 142);
+        private readonly bool demoMode;
+        private readonly Timer progressAnimationTimer;
+        private readonly Timer demoTimer;
+        private MajesticCloseButton closeButton;
+        private MajesticActionButton actionButton;
+        private Label headlineLabel;
+        private Label descriptionLabel;
+        private Label percentLabel;
+        private Label phaseLabel;
+        private Label detailLabel;
+        private Panel progressFill;
+        private int displayedProgress;
+        private int targetProgress;
+        private int demoMilestoneIndex;
+        private bool installing;
+        private bool successPending;
+        private bool successShown;
+
+        private static readonly int[] DemoPercentages =
+        {
+            0, 5, 10, 17, 25, 35, 44, 55, 68, 76, 87, 94, 100
+        };
+
+        private static readonly string[] DemoStages =
+        {
+            "ĞŸĞ¾Ğ´Ğ³Ğ¾Ñ‚Ğ¾Ğ²ĞºĞ° Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ",
+            "ĞŸĞ¾Ğ´Ğ³Ğ¾Ñ‚Ğ¾Ğ²ĞºĞ° Ğ¿Ğ°Ğ¿ĞºĞ¸ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ¸",
+            "ĞÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ° Ğ·Ğ°Ğ¿ÑƒÑ‰ĞµĞ½Ğ½Ğ¾Ğ¹ Ğ²ĞµÑ€ÑĞ¸Ğ¸",
+            "Ğ Ğ°ÑĞ¿Ğ°ĞºĞ¾Ğ²ĞºĞ° Ñ„Ğ°Ğ¹Ğ»Ğ¾Ğ² Ğ¿Ñ€Ğ¾Ğ³Ñ€Ğ°Ğ¼Ğ¼Ñ‹",
+            "Ğ Ğ°ÑĞ¿Ğ°ĞºĞ¾Ğ²ĞºĞ° ĞºĞ¾Ğ¼Ğ¿Ğ¾Ğ½ĞµĞ½Ñ‚Ğ¾Ğ² Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ",
+            "ĞŸÑ€Ğ¾Ğ²ĞµÑ€ĞºĞ° Ñ„Ğ°Ğ¹Ğ»Ğ¾Ğ² Ğ¿Ñ€Ğ¾Ğ³Ñ€Ğ°Ğ¼Ğ¼Ñ‹",
+            "ĞŸÑ€Ğ¾Ğ²ĞµÑ€ĞºĞ° ĞºĞ¾Ğ¼Ğ¿Ğ¾Ğ½ĞµĞ½Ñ‚Ğ¾Ğ² Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ",
+            "Ğ£ÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ° Ğ¿Ñ€Ğ¾Ñ„Ğ¸Ğ»Ñ Ğ¿Ñ€Ğ¾Ğ¸Ğ·Ğ²Ğ¾Ğ´Ğ¸Ñ‚ĞµĞ»ÑŒĞ½Ğ¾ÑÑ‚Ğ¸",
+            "Ğ£ÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ° Ğ½Ğ¾Ğ²Ğ¾Ğ¹ Ğ²ĞµÑ€ÑĞ¸Ğ¸ Ğ¿Ñ€Ğ¾Ğ³Ñ€Ğ°Ğ¼Ğ¼Ñ‹",
+            "ĞĞ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ ĞºĞ¾Ğ¼Ğ¿Ğ¾Ğ½ĞµĞ½Ñ‚Ğ¾Ğ² ÑƒĞ´Ğ°Ğ»ĞµĞ½Ğ¸Ñ",
+            "Ğ¡Ğ¾Ñ…Ñ€Ğ°Ğ½ĞµĞ½Ğ¸Ğµ Ğ¿Ğ°Ñ€Ğ°Ğ¼ĞµÑ‚Ñ€Ğ¾Ğ² ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ¸",
+            "Ğ ĞµĞ³Ğ¸ÑÑ‚Ñ€Ğ°Ñ†Ğ¸Ñ Ğ½Ğ¾Ğ²Ğ¾Ğ¹ Ğ²ĞµÑ€ÑĞ¸Ğ¸",
+            "ĞĞ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¾"
+        };
+
+        public UpdateProgressForm(bool demoMode)
+        {
+            this.demoMode = demoMode;
+            Text = "Majestic Boost Update";
+            ClientSize = new Size(560, 345);
+            StartPosition = FormStartPosition.CenterScreen;
+            FormBorderStyle = FormBorderStyle.None;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            BackColor = background;
+            ForeColor = Color.White;
+            Font = CreateUiFont(9F, FontStyle.Regular);
+            DoubleBuffered = true;
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+
+            progressAnimationTimer = new Timer();
+            progressAnimationTimer.Interval = 15;
+            progressAnimationTimer.Tick += ProgressAnimationTick;
+
+            demoTimer = new Timer();
+            demoTimer.Interval = 360;
+            demoTimer.Tick += DemoTimerTick;
+
+            BuildInterface();
+            Resize += delegate { ApplyRoundedRegion(); };
+            Shown += UpdateProgressFormShown;
+            MouseDown += DragWindow;
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                const int CsDropShadow = 0x00020000;
+                CreateParams parameters = base.CreateParams;
+                parameters.ClassStyle |= CsDropShadow;
+                return parameters;
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (GraphicsPath path = MakeRoundedRectangle(
+                new Rectangle(0, 0, ClientSize.Width - 1, ClientSize.Height - 1), 11))
+            using (var pen = new Pen(Color.FromArgb(56, 56, 56), 1F))
+            {
+                e.Graphics.DrawPath(pen, path);
+            }
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (installing)
+            {
+                e.Cancel = true;
+                return;
+            }
+            base.OnFormClosing(e);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                progressAnimationTimer.Stop();
+                progressAnimationTimer.Dispose();
+                demoTimer.Stop();
+                demoTimer.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        private void BuildInterface()
+        {
+            closeButton = new MajesticCloseButton();
+            closeButton.Location = new Point(530, 0);
+            closeButton.Size = new Size(30, 30);
+            closeButton.AccessibleName = "Ğ—Ğ°ĞºÑ€Ñ‹Ñ‚ÑŒ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ";
+            closeButton.AccessibleDescription = "Ğ—Ğ°ĞºÑ€Ñ‹Ğ²Ğ°ĞµÑ‚ Ğ¾ĞºĞ½Ğ¾ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ Majestic Boost";
+            closeButton.TabIndex = 1;
+            closeButton.Click += delegate
+            {
+                if (!installing)
+                {
+                    Close();
+                }
+            };
+            Controls.Add(closeButton);
+
+            var iconBox = new PictureBox();
+            iconBox.Location = new Point(40, 32);
+            iconBox.Size = new Size(50, 50);
+            iconBox.SizeMode = PictureBoxSizeMode.Zoom;
+            iconBox.Image = Icon == null ? null : Icon.ToBitmap();
+            iconBox.MouseDown += DragWindow;
+            Controls.Add(iconBox);
+
+            var title = MakeLabel("MAJESTIC BOOST", 22F, FontStyle.Bold, Color.White);
+            title.Location = new Point(105, 31);
+            title.AutoSize = true;
+            title.MouseDown += DragWindow;
+            Controls.Add(title);
+
+            var version = MakeLabel("UPDATE  â€¢  v" + InstallerEngine.ProductVersion, 8.5F, FontStyle.Bold, accent);
+            version.Location = new Point(108, 66);
+            version.AutoSize = true;
+            version.MouseDown += DragWindow;
+            Controls.Add(version);
+
+            headlineLabel = MakeLabel("Ğ£Ğ¡Ğ¢ĞĞĞĞ’ĞšĞ ĞĞ‘ĞĞĞ’Ğ›Ğ•ĞĞ˜Ğ¯", 16F, FontStyle.Bold, Color.White);
+            headlineLabel.Location = new Point(40, 112);
+            headlineLabel.AutoSize = true;
+            Controls.Add(headlineLabel);
+
+            descriptionLabel = MakeLabel(
+                "Majestic Boost Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ÑĞµÑ‚ÑÑ Ğ´Ğ¾ Ğ²ĞµÑ€ÑĞ¸Ğ¸ " + InstallerEngine.ProductVersion,
+                10F,
+                FontStyle.Regular,
+                muted);
+            descriptionLabel.Location = new Point(42, 146);
+            descriptionLabel.AutoSize = true;
+            Controls.Add(descriptionLabel);
+
+            percentLabel = MakeLabel("0%", 24F, FontStyle.Bold, accent);
+            percentLabel.Location = new Point(39, 181);
+            percentLabel.Size = new Size(120, 42);
+            percentLabel.TextAlign = ContentAlignment.MiddleLeft;
+            percentLabel.AccessibleName = "ĞŸÑ€Ğ¾Ğ³Ñ€ĞµÑÑ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ: 0 Ğ¿Ñ€Ğ¾Ñ†ĞµĞ½Ñ‚Ğ¾Ğ²";
+            Controls.Add(percentLabel);
+
+            phaseLabel = MakeLabel("ĞŸĞ¾Ğ´Ğ³Ğ¾Ñ‚Ğ¾Ğ²ĞºĞ° Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ", 10F, FontStyle.Bold, Color.FromArgb(220, 220, 220));
+            phaseLabel.Location = new Point(162, 190);
+            phaseLabel.Size = new Size(356, 28);
+            phaseLabel.TextAlign = ContentAlignment.MiddleLeft;
+            phaseLabel.AutoEllipsis = true;
+            Controls.Add(phaseLabel);
+
+            var progressTrack = new Panel();
+            progressTrack.Location = new Point(40, 231);
+            progressTrack.Size = new Size(ProgressTrackWidth, 6);
+            progressTrack.BackColor = Color.FromArgb(48, 48, 48);
+            Controls.Add(progressTrack);
+
+            progressFill = new Panel();
+            progressFill.Location = new Point(0, 0);
+            progressFill.Size = new Size(0, 6);
+            progressFill.BackColor = accent;
+            progressTrack.Controls.Add(progressFill);
+
+            detailLabel = MakeLabel(
+                "ĞĞµ Ğ·Ğ°ĞºÑ€Ñ‹Ğ²Ğ°Ğ¹Ñ‚Ğµ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº Ğ´Ğ¾ Ğ·Ğ°Ğ²ĞµÑ€ÑˆĞµĞ½Ğ¸Ñ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ.",
+                9F,
+                FontStyle.Regular,
+                muted);
+            detailLabel.Location = new Point(42, 252);
+            detailLabel.Size = new Size(478, 34);
+            detailLabel.AutoEllipsis = true;
+            Controls.Add(detailLabel);
+
+            actionButton = new MajesticActionButton();
+            actionButton.Text = "ĞŸĞ ĞĞ”ĞĞ›Ğ–Ğ˜Ğ¢Ğ¬";
+            actionButton.Location = new Point(350, 288);
+            actionButton.Size = new Size(170, 42);
+            actionButton.ForeColor = Color.White;
+            actionButton.Font = CreateUiFont(10F, FontStyle.Bold);
+            actionButton.AccessibleName = "ĞŸÑ€Ğ¾Ğ´Ğ¾Ğ»Ğ¶Ğ¸Ñ‚ÑŒ Ğ¿Ğ¾ÑĞ»Ğµ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ";
+            actionButton.AccessibleDescription = "Ğ—Ğ°Ğ¿ÑƒÑĞºĞ°ĞµÑ‚ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»Ñ‘Ğ½Ğ½ÑƒÑ Ğ²ĞµÑ€ÑĞ¸Ñ Majestic Boost";
+            actionButton.TabIndex = 0;
+            actionButton.Visible = false;
+            actionButton.Click += ActionButtonClick;
+            Controls.Add(actionButton);
+
+            AcceptButton = actionButton;
+            CancelButton = closeButton;
+        }
+
+        private void UpdateProgressFormShown(object sender, EventArgs e)
+        {
+            ApplyRoundedRegion();
+            BeginInvoke(new Action(StartInstallation));
+        }
+
+        private void StartInstallation()
+        {
+            if (installing)
+            {
+                return;
+            }
+
+            installing = true;
+            successPending = false;
+            successShown = false;
+            displayedProgress = 0;
+            targetProgress = 0;
+            progressFill.Width = 0;
+            percentLabel.Text = "0%";
+            percentLabel.AccessibleName = "ĞŸÑ€Ğ¾Ğ³Ñ€ĞµÑÑ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ: 0 Ğ¿Ñ€Ğ¾Ñ†ĞµĞ½Ñ‚Ğ¾Ğ²";
+            headlineLabel.Text = "Ğ£Ğ¡Ğ¢ĞĞĞĞ’ĞšĞ ĞĞ‘ĞĞĞ’Ğ›Ğ•ĞĞ˜Ğ¯";
+            headlineLabel.ForeColor = Color.White;
+            descriptionLabel.Text = "Majestic Boost Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ÑĞµÑ‚ÑÑ Ğ´Ğ¾ Ğ²ĞµÑ€ÑĞ¸Ğ¸ " + InstallerEngine.ProductVersion;
+            phaseLabel.Text = "ĞŸĞ¾Ğ´Ğ³Ğ¾Ñ‚Ğ¾Ğ²ĞºĞ° Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ";
+            phaseLabel.ForeColor = Color.FromArgb(220, 220, 220);
+            detailLabel.Text = "ĞĞµ Ğ·Ğ°ĞºÑ€Ñ‹Ğ²Ğ°Ğ¹Ñ‚Ğµ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº Ğ´Ğ¾ Ğ·Ğ°Ğ²ĞµÑ€ÑˆĞµĞ½Ğ¸Ñ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ.";
+            detailLabel.ForeColor = muted;
+            actionButton.Visible = false;
+            actionButton.Enabled = false;
+            closeButton.Enabled = false;
+            progressAnimationTimer.Start();
+
+            if (demoMode)
+            {
+                demoMilestoneIndex = 0;
+                demoTimer.Start();
+                return;
+            }
+
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    InstallerEngine.Install(
+                        InstallerEngine.GetDesktopShortcutPreference(),
+                        ReportProgressFromWorker);
+                    PostToUi(InstallationCompleted);
+                }
+                catch (Exception exception)
+                {
+                    PostToUi(delegate { InstallationFailed(exception); });
+                }
+            });
+        }
+
+        private void ReportProgressFromWorker(int percent, string stage)
+        {
+            PostToUi(delegate { SetProgressTarget(percent, stage); });
+        }
+
+        private void PostToUi(Action action)
+        {
+            if (action == null || IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            try
+            {
+                if (InvokeRequired)
+                {
+                    BeginInvoke(action);
+                }
+                else
+                {
+                    action();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // The window was disposed while a background operation was finishing.
+            }
+            catch (InvalidOperationException)
+            {
+                // The window was closed while a background operation was finishing.
+            }
+        }
+
+        private void SetProgressTarget(int percent, string stage)
+        {
+            int normalized = Math.Max(0, Math.Min(100, percent));
+            targetProgress = Math.Max(targetProgress, normalized);
+            if (!string.IsNullOrWhiteSpace(stage))
+            {
+                phaseLabel.Text = stage;
+            }
+            progressAnimationTimer.Start();
+        }
+
+        private void InstallationCompleted()
+        {
+            SetProgressTarget(100, "ĞĞ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¾");
+            successPending = true;
+        }
+
+        private void InstallationFailed(Exception exception)
+        {
+            installing = false;
+            successPending = false;
+            demoTimer.Stop();
+            headlineLabel.Text = "ĞĞ• Ğ£Ğ”ĞĞ›ĞĞ¡Ğ¬ ĞĞ‘ĞĞĞ’Ğ˜Ğ¢Ğ¬";
+            headlineLabel.ForeColor = Color.FromArgb(255, 102, 122);
+            descriptionLabel.Text = "ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚Ğµ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºÑƒ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ.";
+            phaseLabel.Text = "ĞÑˆĞ¸Ğ±ĞºĞ° ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ¸";
+            phaseLabel.ForeColor = Color.FromArgb(255, 102, 122);
+            detailLabel.Text = FriendlyError(exception);
+            detailLabel.ForeColor = Color.FromArgb(205, 205, 205);
+            actionButton.Text = "ĞŸĞĞ’Ğ¢ĞĞ Ğ˜Ğ¢Ğ¬";
+            actionButton.AccessibleName = "ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚ÑŒ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ Majestic Boost";
+            actionButton.AccessibleDescription = "ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ½Ğ¾ Ğ·Ğ°Ğ¿ÑƒÑĞºĞ°ĞµÑ‚ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºÑƒ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ";
+            actionButton.Visible = true;
+            actionButton.Enabled = true;
+            closeButton.Enabled = true;
+            actionButton.Focus();
+        }
+
+        private void ProgressAnimationTick(object sender, EventArgs e)
+        {
+            if (displayedProgress < targetProgress)
+            {
+                int difference = targetProgress - displayedProgress;
+                displayedProgress += Math.Min(3, Math.Max(1, (difference + 11) / 12));
+                if (displayedProgress > targetProgress)
+                {
+                    displayedProgress = targetProgress;
+                }
+                percentLabel.Text = displayedProgress.ToString(CultureInfo.InvariantCulture) + "%";
+                percentLabel.AccessibleName = "ĞŸÑ€Ğ¾Ğ³Ñ€ĞµÑÑ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ: " +
+                    displayedProgress.ToString(CultureInfo.InvariantCulture) + " Ğ¿Ñ€Ğ¾Ñ†ĞµĞ½Ñ‚Ğ¾Ğ²";
+                progressFill.Width = (int)Math.Round(
+                    ProgressTrackWidth * (displayedProgress / 100D),
+                    MidpointRounding.AwayFromZero);
+            }
+
+            if (successPending && displayedProgress >= 100)
+            {
+                successPending = false;
+                ShowSuccess();
+            }
+            else if (displayedProgress >= targetProgress)
+            {
+                progressAnimationTimer.Stop();
+            }
+        }
+
+        private void DemoTimerTick(object sender, EventArgs e)
+        {
+            if (demoMilestoneIndex >= DemoPercentages.Length)
+            {
+                demoTimer.Stop();
+                successPending = true;
+                progressAnimationTimer.Start();
+                return;
+            }
+
+            SetProgressTarget(
+                DemoPercentages[demoMilestoneIndex],
+                DemoStages[demoMilestoneIndex]);
+            demoMilestoneIndex++;
+        }
+
+        private void ShowSuccess()
+        {
+            if (successShown)
+            {
+                return;
+            }
+
+            successShown = true;
+            installing = false;
+            headlineLabel.Text = "ĞŸĞ ĞĞ“Ğ ĞĞœĞœĞ Ğ£Ğ¡ĞŸĞ•Ğ¨ĞĞ ĞĞ‘ĞĞĞ’Ğ›Ğ•ĞĞ";
+            headlineLabel.ForeColor = Color.White;
+            descriptionLabel.Text = "Ğ’ĞµÑ€ÑĞ¸Ñ " + InstallerEngine.ProductVersion + " Ğ³Ğ¾Ñ‚Ğ¾Ğ²Ğ° Ğº Ğ·Ğ°Ğ¿ÑƒÑĞºÑƒ.";
+            phaseLabel.Text = "ĞĞ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ğµ Ğ·Ğ°Ğ²ĞµÑ€ÑˆĞµĞ½Ğ¾";
+            phaseLabel.ForeColor = accent;
+            detailLabel.Text = "ĞĞ°Ğ¶Ğ¼Ğ¸Ñ‚Ğµ Â«ĞŸÑ€Ğ¾Ğ´Ğ¾Ğ»Ğ¶Ğ¸Ñ‚ÑŒÂ», Ñ‡Ñ‚Ğ¾Ğ±Ñ‹ Ğ¾Ñ‚ĞºÑ€Ñ‹Ñ‚ÑŒ Majestic Boost.";
+            detailLabel.ForeColor = muted;
+            actionButton.Text = "ĞŸĞ ĞĞ”ĞĞ›Ğ–Ğ˜Ğ¢Ğ¬";
+            actionButton.AccessibleName = "ĞŸÑ€Ğ¾Ğ´Ğ¾Ğ»Ğ¶Ğ¸Ñ‚ÑŒ Ğ¿Ğ¾ÑĞ»Ğµ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ";
+            actionButton.AccessibleDescription = demoMode
+                ? "Ğ—Ğ°ĞºÑ€Ñ‹Ğ²Ğ°ĞµÑ‚ Ğ´ĞµĞ¼Ğ¾Ğ½ÑÑ‚Ñ€Ğ°Ñ†Ğ¸Ñ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ¸Ñ"
+                : "Ğ—Ğ°Ğ¿ÑƒÑĞºĞ°ĞµÑ‚ Ğ¾Ğ±Ğ½Ğ¾Ğ²Ğ»Ñ‘Ğ½Ğ½ÑƒÑ Ğ²ĞµÑ€ÑĞ¸Ñ Majestic Boost";
+            actionButton.Visible = true;
+            actionButton.Enabled = true;
+            closeButton.Enabled = true;
+            actionButton.Focus();
+        }
+
+        private void ActionButtonClick(object sender, EventArgs e)
+        {
+            if (!successShown)
+            {
+                StartInstallation();
+                return;
+            }
+
+            if (demoMode)
+            {
+                Close();
+                return;
+            }
+
+            try
+            {
+                InstallerEngine.LaunchInstalledApplication();
+                Close();
+            }
+            catch (Exception exception)
+            {
+                detailLabel.Text = "ĞĞµ ÑƒĞ´Ğ°Ğ»Ğ¾ÑÑŒ Ğ·Ğ°Ğ¿ÑƒÑÑ‚Ğ¸Ñ‚ÑŒ Ğ¿Ñ€Ğ¾Ğ³Ñ€Ğ°Ğ¼Ğ¼Ñƒ: " + FriendlyError(exception);
+                detailLabel.ForeColor = Color.FromArgb(255, 102, 122);
+                actionButton.Enabled = true;
+                actionButton.Focus();
+            }
+        }
+
+        private static string FriendlyError(Exception exception)
+        {
+            if (exception == null || string.IsNullOrWhiteSpace(exception.Message))
+            {
+                return "ĞĞµĞ¸Ğ·Ğ²ĞµÑÑ‚Ğ½Ğ°Ñ Ğ¾ÑˆĞ¸Ğ±ĞºĞ°. ĞĞ°Ğ¶Ğ¼Ğ¸Ñ‚Ğµ Â«ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚ÑŒÂ».";
+            }
+
+            string message = exception.Message.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return message.Length <= 150 ? message : message.Substring(0, 147) + "...";
+        }
+
+        private Label MakeLabel(string text, float size, FontStyle style, Color color)
+        {
+            var label = new Label();
+            label.Text = text;
+            label.Font = CreateUiFont(size, style);
+            label.ForeColor = color;
+            label.BackColor = Color.Transparent;
+            return label;
+        }
+
+        private Font CreateUiFont(float size, FontStyle style)
+        {
+            return demoMode
+                ? new Font("Segoe UI", size, style, GraphicsUnit.Point)
+                : MajesticFontProvider.Create(size, style);
+        }
+
+        private void ApplyRoundedRegion()
+        {
+            using (GraphicsPath path = MakeRoundedRectangle(new Rectangle(0, 0, Width, Height), 11))
+            {
+                Region oldRegion = Region;
+                Region = new Region(path);
+                if (oldRegion != null)
+                {
+                    oldRegion.Dispose();
+                }
+            }
+        }
+
+        private static GraphicsPath MakeRoundedRectangle(Rectangle rectangle, int radius)
+        {
+            int diameter = radius * 2;
+            var path = new GraphicsPath();
+            path.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180, 90);
+            path.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270, 90);
+            path.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        private void DragWindow(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || installing)
+            {
+                return;
+            }
+            NativeMethods.ReleaseCapture();
+            NativeMethods.SendMessage(Handle, 0xA1, new IntPtr(0x2), IntPtr.Zero);
+        }
+    }
+
+    internal sealed class InstallerForm : Form
+    {
+        private readonly Color background = Color.FromArgb(22, 22, 22);
+        private readonly Color panel = Color.FromArgb(27, 27, 27);
+        private readonly Color accent = Color.FromArgb(232, 28, 90);
+        private readonly Color muted = Color.FromArgb(142, 142, 142);
+        private MajesticActionButton installButton;
+        private MajesticCloseButton closeButton;
+        private MajesticToggle desktopShortcut;
+        private Label statusLabel;
+        private Panel progressFill;
+        private bool installed;
+
+        public InstallerForm()
+        {
+            Text = "Majestic Boost Setup";
+            ClientSize = new Size(560, 360);
+            StartPosition = FormStartPosition.CenterScreen;
+            FormBorderStyle = FormBorderStyle.None;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            BackColor = background;
+            ForeColor = Color.White;
+            Font = MajesticFontProvider.Create(9F, FontStyle.Regular);
+            DoubleBuffered = true;
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            BuildInterface();
+            Resize += delegate { ApplyRoundedRegion(); };
+            Shown += delegate { ApplyRoundedRegion(); };
+            MouseDown += DragWindow;
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                const int CsDropShadow = 0x00020000;
+                CreateParams parameters = base.CreateParams;
+                parameters.ClassStyle |= CsDropShadow;
+                return parameters;
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var path = MakeRoundedRectangle(new Rectangle(0, 0, ClientSize.Width - 1, ClientSize.Height - 1), 11))
+            using (var pen = new Pen(Color.FromArgb(56, 56, 56), 1F))
+            {
+                e.Graphics.DrawPath(pen, path);
+            }
+        }
+
+        private void BuildInterface()
+        {
+            closeButton = new MajesticCloseButton();
+            closeButton.Location = new Point(530, 0);
+            closeButton.Size = new Size(30, 30);
+            closeButton.AccessibleName = "Ğ—Ğ°ĞºÑ€Ñ‹Ñ‚ÑŒ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº";
+            closeButton.AccessibleDescription = "Ğ—Ğ°ĞºÑ€Ñ‹Ğ²Ğ°ĞµÑ‚ Ğ¾ĞºĞ½Ğ¾ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ¸ Majestic Boost";
+            closeButton.TabIndex = 2;
+            closeButton.Click += delegate { Close(); };
+            Controls.Add(closeButton);
+
+            var iconBox = new PictureBox();
+            iconBox.Location = new Point(38, 35);
+            iconBox.Size = new Size(52, 52);
+            iconBox.SizeMode = PictureBoxSizeMode.Zoom;
+            iconBox.Image = Icon.ToBitmap();
+            iconBox.MouseDown += DragWindow;
+            Controls.Add(iconBox);
+
+            var title = MakeLabel("MAJESTIC BOOST", 22F, FontStyle.Bold, Color.White);
+            title.Location = new Point(105, 35);
+            title.AutoSize = true;
+            title.MouseDown += DragWindow;
+            Controls.Add(title);
+
+            var version = MakeLabel("SETUP  â€¢  v" + InstallerEngine.ProductVersion, 8.5F, FontStyle.Bold, accent);
+            version.Location = new Point(108, 69);
+            version.AutoSize = true;
+            version.MouseDown += DragWindow;
+            Controls.Add(version);
+
+            var subtitle = MakeLabel("Ğ£ÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ñ‰Ğ¸Ğº Ğ»Ğ°ÑƒĞ½Ñ‡ĞµÑ€Ğ° Ğ¼Ğ°ĞºÑĞ¸Ğ¼Ğ°Ğ»ÑŒĞ½Ğ¾Ğ¹ Ğ¿Ñ€Ğ¾Ğ¸Ğ·Ğ²Ğ¾Ğ´Ğ¸Ñ‚ĞµĞ»ÑŒĞ½Ğ¾ÑÑ‚Ğ¸", 10F, FontStyle.Regular, muted);
+            subtitle.Location = new Point(40, 110);
+            subtitle.AutoSize = true;
+            Controls.Add(subtitle);
+
+            var locationPanel = new Panel();
+            locationPanel.Location = new Point(40, 145);
+            locationPanel.Size = new Size(480, 70);
+            locationPanel.BackColor = panel;
+            Controls.Add(locationPanel);
+
+            var locationTitle = MakeLabel("ĞŸĞĞŸĞšĞ Ğ£Ğ¡Ğ¢ĞĞĞĞ’ĞšĞ˜", 8.5F, FontStyle.Bold, muted);
+            locationTitle.Location = new Point(16, 11);
+            locationTitle.AutoSize = true;
+            locationPanel.Controls.Add(locationTitle);
+
+            var locationValue = MakeLabel(InstallerEngine.InstallDirectory, 9.5F, FontStyle.Regular, Color.FromArgb(235, 235, 235));
+            locationValue.Location = new Point(16, 34);
+            locationValue.AutoEllipsis = true;
+            locationValue.Size = new Size(448, 24);
+            locationPanel.Controls.Add(locationValue);
+
+            desktopShortcut = new MajesticToggle();
+            desktopShortcut.Text = "Ğ¡Ğ¾Ğ·Ğ´Ğ°Ñ‚ÑŒ ÑÑ€Ğ»Ñ‹Ğº Ğ½Ğ° Ñ€Ğ°Ğ±Ğ¾Ñ‡ĞµĞ¼ ÑÑ‚Ğ¾Ğ»Ğµ";
+            desktopShortcut.Checked = InstallerEngine.GetDesktopShortcutPreference();
+            desktopShortcut.Location = new Point(42, 226);
+            desktopShortcut.Size = new Size(478, 26);
+            desktopShortcut.ForeColor = Color.FromArgb(195, 195, 195);
+            desktopShortcut.Font = MajesticFontProvider.Create(9.5F, FontStyle.Regular);
+            desktopShortcut.AccessibleName = "Ğ¡Ğ¾Ğ·Ğ´Ğ°Ñ‚ÑŒ ÑÑ€Ğ»Ñ‹Ğº Ğ½Ğ° Ñ€Ğ°Ğ±Ğ¾Ñ‡ĞµĞ¼ ÑÑ‚Ğ¾Ğ»Ğµ";
+            desktopShortcut.AccessibleDescription = "Ğ’ĞºĞ»ÑÑ‡Ğ°ĞµÑ‚ Ğ¸Ğ»Ğ¸ Ğ¾Ñ‚ĞºĞ»ÑÑ‡Ğ°ĞµÑ‚ ÑĞ¾Ğ·Ğ´Ğ°Ğ½Ğ¸Ğµ ÑÑ€Ğ»Ñ‹ĞºĞ° Majestic Boost Ğ½Ğ° Ñ€Ğ°Ğ±Ğ¾Ñ‡ĞµĞ¼ ÑÑ‚Ğ¾Ğ»Ğµ";
+            desktopShortcut.TabIndex = 0;
+            Controls.Add(desktopShortcut);
+
+            var progressTrack = new Panel();
+            progressTrack.Location = new Point(40, 276);
+            progressTrack.Size = new Size(480, 4);
+            progressTrack.BackColor = Color.FromArgb(48, 48, 48);
+            Controls.Add(progressTrack);
+
+            progressFill = new Panel();
+            progressFill.Location = new Point(0, 0);
+            progressFill.Size = new Size(0, 4);
+            progressFill.BackColor = accent;
+            progressTrack.Controls.Add(progressFill);
+
+            statusLabel = MakeLabel("Ğ“ĞĞ¢ĞĞ’Ğ Ğš Ğ£Ğ¡Ğ¢ĞĞĞĞ’ĞšĞ•", 8.5F, FontStyle.Bold, muted);
+            statusLabel.Location = new Point(42, 292);
+            statusLabel.AutoSize = true;
+            Controls.Add(statusLabel);
+
+            installButton = new MajesticActionButton();
+            installButton.Text = "Ğ£Ğ¡Ğ¢ĞĞĞĞ’Ğ˜Ğ¢Ğ¬";
+            installButton.Location = new Point(350, 299);
+            installButton.Size = new Size(170, 42);
+            installButton.ForeColor = Color.White;
+            installButton.Font = MajesticFontProvider.Create(10F, FontStyle.Bold);
+            installButton.AccessibleName = "Ğ£ÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ¸Ñ‚ÑŒ Majestic Boost";
+            installButton.AccessibleDescription = "ĞĞ°Ñ‡Ğ¸Ğ½Ğ°ĞµÑ‚ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºÑƒ Ğ¿Ñ€Ğ¸Ğ»Ğ¾Ğ¶ĞµĞ½Ğ¸Ñ";
+            installButton.TabIndex = 1;
+            installButton.Click += InstallButtonClick;
+            Controls.Add(installButton);
+
+            AcceptButton = installButton;
+            CancelButton = closeButton;
+        }
+
+        private void InstallButtonClick(object sender, EventArgs e)
+        {
+            if (installed)
+            {
+                InstallerEngine.LaunchInstalledApplication();
+                Close();
+                return;
+            }
+
+            installButton.Enabled = false;
+            closeButton.Enabled = false;
+            desktopShortcut.Enabled = false;
+            statusLabel.Text = "Ğ£Ğ¡Ğ¢ĞĞĞĞ’Ğ›Ğ˜Ğ’ĞĞ®...";
+            statusLabel.ForeColor = Color.FromArgb(255, 139, 175);
+            AnimateProgress(120);
+
+            try
+            {
+                InstallerEngine.Install(desktopShortcut.Checked);
+                AnimateProgress(480);
+                statusLabel.Text = "Ğ£Ğ¡Ğ¢ĞĞĞĞ’Ğ›Ğ•ĞĞ";
+                statusLabel.ForeColor = accent;
+                installButton.Text = "Ğ—ĞĞŸĞ£Ğ¡Ğ¢Ğ˜Ğ¢Ğ¬";
+                installButton.AccessibleName = "Ğ—Ğ°Ğ¿ÑƒÑÑ‚Ğ¸Ñ‚ÑŒ Majestic Boost";
+                installButton.AccessibleDescription = "Ğ—Ğ°Ğ¿ÑƒÑĞºĞ°ĞµÑ‚ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ»ĞµĞ½Ğ½Ğ¾Ğµ Ğ¿Ñ€Ğ¸Ğ»Ğ¾Ğ¶ĞµĞ½Ğ¸Ğµ Majestic Boost";
+                installButton.Enabled = true;
+                closeButton.Enabled = true;
+                installed = true;
+            }
+            catch (Exception exception)
+            {
+                statusLabel.Text = "ĞĞ¨Ğ˜Ğ‘ĞšĞ Ğ£Ğ¡Ğ¢ĞĞĞĞ’ĞšĞ˜";
+                statusLabel.ForeColor = Color.FromArgb(255, 102, 122);
+                installButton.Text = "ĞŸĞĞ’Ğ¢ĞĞ Ğ˜Ğ¢Ğ¬";
+                installButton.AccessibleName = "ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ¸Ñ‚ÑŒ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºÑƒ Majestic Boost";
+                installButton.AccessibleDescription = "ĞŸĞ¾Ğ²Ñ‚Ğ¾Ñ€Ğ½Ğ¾ Ğ·Ğ°Ğ¿ÑƒÑĞºĞ°ĞµÑ‚ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºÑƒ Ğ¿Ñ€Ğ¸Ğ»Ğ¾Ğ¶ĞµĞ½Ğ¸Ñ";
+                installButton.Enabled = true;
+                closeButton.Enabled = true;
+                desktopShortcut.Enabled = true;
+                MessageBox.Show(
+                    "ĞĞµ ÑƒĞ´Ğ°Ğ»Ğ¾ÑÑŒ ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²Ğ¸Ñ‚ÑŒ Majestic Boost:\r\n" + exception.Message,
+                    "ĞÑˆĞ¸Ğ±ĞºĞ° ÑƒÑÑ‚Ğ°Ğ½Ğ¾Ğ²ĞºĞ¸",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void AnimateProgress(int width)
+        {
+            progressFill.Width = Math.Max(0, Math.Min(480, width));
+            progressFill.Refresh();
+            Application.DoEvents();
+        }
+
+        private static Label MakeLabel(string text, float size, FontStyle style, Color color)
+        {
+            var label = new Label();
+            label.Text = text;
+            label.Font = MajesticFontProvider.Create(size, style);
+            label.ForeColor = color;
+            label.BackColor = Color.Transparent;
+            return label;
+        }
+
+        private void ApplyRoundedRegion()
+        {
+            using (GraphicsPath path = MakeRoundedRectangle(new Rectangle(0, 0, Width, Height), 11))
+            {
+                Region oldRegion = Region;
+                Region = new Region(path);
+                if (oldRegion != null)
+                {
+                    oldRegion.Dispose();
+                }
+            }
+        }
+
+        private static GraphicsPath MakeRoundedRectangle(Rectangle rectangle, int radius)
+        {
+            int diameter = radius * 2;
+            var path = new GraphicsPath();
+            path.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180, 90);
+            path.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270, 90);
+            path.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        private void DragWindow(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+            NativeMethods.ReleaseCapture();
+            NativeMethods.SendMessage(Handle, 0xA1, new IntPtr(0x2), IntPtr.Zero);
+        }
+    }
+
+    internal static class NativeMethods
+    {
+        [DllImport("user32.dll")]
+        public static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, IntPtr lParam);
+    }
+}

@@ -17,7 +17,7 @@ $installer = [IO.File]::ReadAllText((Join-Path $projectRoot 'MajesticBoostInstal
 $build = [IO.File]::ReadAllText((Join-Path $projectRoot 'build.ps1'))
 
 foreach ($required in @(
-    'AssemblyVersion("1.6.2.0")',
+    'AssemblyVersion("1.6.1.0")',
     'ProcessPriorityClass.AboveNormal',
     'OriginalPriority = originalPriority',
     'process.StartTime.ToUniversalTime() != item.StartTimeUtc',
@@ -101,98 +101,11 @@ foreach ($required in @(
     'KeyboardNavigationMode.Cycle',
     'SystemParameters.ClientAreaAnimation',
     'Color.FromRgb(232, 28, 90)',
-    'MakeMajesticVerticalScrollBarStyle',
-    'CanContentScroll = false',
-    'PageScrollerPreviewMouseWheel',
-    'CalculateSmoothScrollTarget',
-    'Thumb.DragStartedEvent',
-    'BeginPageTransition(previousPage, page);',
-    'FinishPageTransitionImmediately();',
-    'generation != pageTransitionGeneration',
-    '-direction * 18',
-    'direction * 18',
-    'TimeSpan.FromMilliseconds(milliseconds)',
-    'AnimateTabColor(foreground, targetColor, animate);',
-    'AnimateTabIndicator(',
-    'FillBehavior = FillBehavior.Stop',
     'Raise(RestoreRequested)'
 )) {
     if (-not $center.Contains($required)) {
         throw "The Boost Center UI contract is missing: $required"
     }
-}
-if ($center -notmatch '(?s)AnimatePageVisual\(\s*pageScroller,.*?90,\s*EasingMode\.EaseIn' -or
-    $center -notmatch '(?s)AnimatePageVisual\(\s*pageScroller,.*?130,\s*EasingMode\.EaseOut') {
-    throw 'The Boost Center page transition timing contract is missing.'
-}
-
-$mainToggleStart = $program.IndexOf(
-    'private CheckBox BuildPreferenceToggle',
-    [StringComparison]::Ordinal)
-$mainToggleEnd = $program.IndexOf(
-    'private void PreferenceToggleChanged',
-    $mainToggleStart,
-    [StringComparison]::Ordinal)
-$mainToggleTemplateStart = $program.IndexOf(
-    'private static ControlTemplate MakeTransparentCheckBoxTemplate',
-    [StringComparison]::Ordinal)
-$mainToggleTemplateEnd = $program.IndexOf(
-    'private static ControlTemplate MakeChromeButtonTemplate',
-    $mainToggleTemplateStart,
-    [StringComparison]::Ordinal)
-if ($mainToggleStart -lt 0 -or $mainToggleEnd -le $mainToggleStart -or
-    $mainToggleTemplateStart -lt 0 -or
-    $mainToggleTemplateEnd -le $mainToggleTemplateStart) {
-    throw 'The main toggle geometry sections could not be located.'
-}
-$mainToggle = $program.Substring($mainToggleStart, $mainToggleEnd - $mainToggleStart)
-$mainToggleTemplate = $program.Substring(
-    $mainToggleTemplateStart,
-    $mainToggleTemplateEnd - $mainToggleTemplateStart)
-foreach ($required in @(
-    'content.HorizontalAlignment = HorizontalAlignment.Stretch',
-    'Width = new GridLength(40)',
-    'track.Margin = new Thickness(0, 0, 2, 0)'
-)) {
-    if (-not $mainToggle.Contains($required)) {
-        throw "The main toggle anti-clipping contract is missing: $required"
-    }
-}
-if ($mainToggle.Contains('content.Width = 300') -or
-    -not $mainToggleTemplate.Contains(
-        'BorderThicknessProperty, new Thickness(0)') -or
-    -not $program.Contains('double targetX = isChecked ? 16 : 0')) {
-    throw 'The main toggle template can still clip its rounded right edge.'
-}
-foreach ($required in @(
-    'Width = new GridLength(40)',
-    'Margin = new Thickness(0, 0, 2, 0)',
-    'new TranslateTransform(isChecked ? 16 : 0, 0)',
-    'double targetX = active ? 16 : 0'
-)) {
-    if (-not $center.Contains($required)) {
-        throw "The Boost Center toggle anti-clipping contract is missing: $required"
-    }
-}
-if (-not $installer.Contains('float trackLeft = Width - 38F;')) {
-    throw 'The installer toggle does not preserve its rounded right-edge inset.'
-}
-
-foreach ($forbidden in @(
-    'GetPreference(values, "KeepDiscord")',
-    'GetPreference(values, "KeepEpic")',
-    'GetPreference(values, "KeepSteam")',
-    '"KeepDiscord="',
-    '"KeepEpic="',
-    '"KeepSteam="',
-    'IsKeyboardFocusedProperty'
-)) {
-    if ($program.Contains($forbidden) -or $center.Contains($forbidden)) {
-        throw "The interaction-style contract still contains: $forbidden"
-    }
-}
-if ($installer.Contains('DrawFocusRectangle')) {
-    throw 'The installer still draws a click/focus rectangle.'
 }
 
 foreach ($required in @(

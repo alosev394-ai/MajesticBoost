@@ -15,14 +15,14 @@ if (-not $ApplicationPath) {
     $ApplicationPath = Join-Path $projectRoot 'dist\MajesticBoost.exe'
 }
 if (-not $InstallerPath) {
-    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.6.3.exe'
+    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.6.4.exe'
 }
 $ApplicationPath = (Resolve-Path -LiteralPath $ApplicationPath).Path
 $InstallerPath = (Resolve-Path -LiteralPath $InstallerPath).Path
 
 $assembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($ApplicationPath))
-if ($assembly.GetName().Version.ToString() -cne '1.6.3.0') {
-    throw 'Compiled application version is not 1.6.3.0.'
+if ($assembly.GetName().Version.ToString() -cne '1.6.4.0') {
+    throw 'Compiled application version is not 1.6.4.0.'
 }
 $company = @(
     $assembly.GetCustomAttributes(
@@ -39,7 +39,7 @@ $manifestUrl = [string]$overlayType.GetField('ManifestUrl', $flags).GetRawConsta
 $signatureUrl = [string]$overlayType.GetField('ManifestSignatureUrl', $flags).GetRawConstantValue()
 if (-not $manifestUrl.EndsWith('/update-v2.json', [StringComparison]::Ordinal) -or
     -not $signatureUrl.EndsWith('/update-v2.json.sig', [StringComparison]::Ordinal)) {
-    throw 'Compiled 1.6.3 application is not pinned to the v2 update channel.'
+    throw 'Compiled 1.6.4 application is not pinned to the v2 update channel.'
 }
 
 $decodeMethod = $overlayType.GetMethod('DecodeManifestSignature', $flags)
@@ -86,10 +86,10 @@ if ([string]$legacy.version -cne '0.0.0' -or [long]$legacy.size -ne 1L -or
 $v2 = Get-Content -Raw -Encoding UTF8 $v2ManifestPath | ConvertFrom-Json
 $installer = Get-Item -LiteralPath $InstallerPath
 $installerHash = (Get-FileHash -LiteralPath $InstallerPath -Algorithm SHA256).Hash
-if ([string]$v2.version -cne '1.6.3' -or
+if ([string]$v2.version -cne '1.6.4' -or
     [long]$v2.size -ne [long]$installer.Length -or
     [string]$v2.sha256 -cne $installerHash -or
-    [string]$v2.installerUrl -cne 'https://raw.githubusercontent.com/alosev394-ai/MajesticBoost/main/dist/MajesticBoost-Setup-1.6.3.exe') {
+    [string]$v2.installerUrl -cne 'https://raw.githubusercontent.com/alosev394-ai/MajesticBoost/main/dist/MajesticBoost-Setup-1.6.4.exe') {
     throw 'V2 manifest does not exactly describe the release installer.'
 }
 

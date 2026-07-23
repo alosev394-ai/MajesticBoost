@@ -21,8 +21,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("Silus Suspect")]
 [assembly: AssemblyCopyright("© Silus Suspect")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.3.0")]
-[assembly: AssemblyFileVersion("1.6.3.0")]
+[assembly: AssemblyVersion("1.6.4.0")]
+[assembly: AssemblyFileVersion("1.6.4.0")]
 
 namespace MajesticBoostSetup
 {
@@ -159,7 +159,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.6.3";
+        public const string ProductVersion = "1.6.4";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);

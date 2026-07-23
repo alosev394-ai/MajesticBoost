@@ -26,8 +26,8 @@ using System.Windows.Threading;
 [assembly: AssemblyCompany("Silus Suspect")]
 [assembly: AssemblyCopyright("© Silus Suspect")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.3.0")]
-[assembly: AssemblyFileVersion("1.6.3.0")]
+[assembly: AssemblyVersion("1.6.4.0")]
+[assembly: AssemblyFileVersion("1.6.4.0")]
 
 namespace MajesticBoost
 {
@@ -301,15 +301,11 @@ namespace MajesticBoost
         private Grid BuildWindowControls()
         {
             var header = new Grid();
-            header.Margin = new Thickness(16, 0, 0, 0);
-
-            var controls = new StackPanel();
-            controls.Orientation = Orientation.Horizontal;
-            controls.HorizontalAlignment = HorizontalAlignment.Right;
-            controls.VerticalAlignment = VerticalAlignment.Top;
+            header.Margin = new Thickness(0);
 
             var center = MakeCenterButton();
-            center.Margin = new Thickness(0, 0, 8, 0);
+            center.HorizontalAlignment = HorizontalAlignment.Left;
+            center.VerticalAlignment = VerticalAlignment.Top;
             center.Click += delegate
             {
                 if (boostCenterOverlay != null)
@@ -326,7 +322,12 @@ namespace MajesticBoost
                     boostCenterOverlay.OpenReadiness(false);
                 }
             };
-            controls.Children.Add(center);
+            header.Children.Add(center);
+
+            var controls = new StackPanel();
+            controls.Orientation = Orientation.Horizontal;
+            controls.HorizontalAlignment = HorizontalAlignment.Right;
+            controls.VerticalAlignment = VerticalAlignment.Top;
 
             var version = MakeText(
                 GetApplicationVersion() + "  BETA",

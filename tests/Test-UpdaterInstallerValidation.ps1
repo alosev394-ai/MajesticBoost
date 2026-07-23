@@ -103,7 +103,7 @@ if (-not $ApplicationPath) {
     $ApplicationPath = Join-Path $projectRoot 'dist\MajesticBoost.exe'
 }
 if (-not $InstallerPath) {
-    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.6.3.exe'
+    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.6.4.exe'
 }
 $ApplicationPath = (Resolve-Path -LiteralPath $ApplicationPath).Path
 $InstallerPath = (Resolve-Path -LiteralPath $InstallerPath).Path

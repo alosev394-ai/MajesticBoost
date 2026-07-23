@@ -17,7 +17,7 @@ $installer = [IO.File]::ReadAllText((Join-Path $projectRoot 'MajesticBoostInstal
 $build = [IO.File]::ReadAllText((Join-Path $projectRoot 'build.ps1'))
 
 foreach ($required in @(
-    'AssemblyVersion("1.6.3.0")',
+    'AssemblyVersion("1.6.4.0")',
     'AssemblyCompany("Silus Suspect")',
     'GetApplicationVersion() + "  BETA"',
     'MakeText(',
@@ -41,6 +41,35 @@ foreach ($required in @(
     if (-not $program.Contains($required)) {
         throw "The Boost session contract is missing: $required"
     }
+}
+
+$windowControlsStart = $program.IndexOf(
+    'private Grid BuildWindowControls',
+    [StringComparison]::Ordinal)
+$titleStart = $program.IndexOf(
+    'private StackPanel BuildTitle',
+    $windowControlsStart,
+    [StringComparison]::Ordinal)
+if ($windowControlsStart -lt 0 -or $titleStart -le $windowControlsStart) {
+    throw 'The main-window chrome composition could not be located.'
+}
+$windowControls = $program.Substring(
+    $windowControlsStart,
+    $titleStart - $windowControlsStart)
+foreach ($required in @(
+    'header.Margin = new Thickness(0)',
+    'center.HorizontalAlignment = HorizontalAlignment.Left',
+    'center.VerticalAlignment = VerticalAlignment.Top',
+    'header.Children.Add(center);',
+    'controls.HorizontalAlignment = HorizontalAlignment.Right',
+    'controls.VerticalAlignment = VerticalAlignment.Top'
+)) {
+    if (-not $windowControls.Contains($required)) {
+        throw "The split left/right window-chrome contract is missing: $required"
+    }
+}
+if ($windowControls.Contains('controls.Children.Add(center)')) {
+    throw 'The settings button is still grouped with the right-side caption controls.'
 }
 
 $centerButtonStart = $program.IndexOf(

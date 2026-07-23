@@ -12,7 +12,7 @@ if ($PSVersionTable.PSEdition -cne 'Desktop' -or $PSVersionTable.PSVersion.Major
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if (-not $InstallerPath) {
-    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.6.3.exe'
+    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.6.4.exe'
 }
 if (-not $LatestInstallerPath) {
     $LatestInstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-Latest.exe'
@@ -28,9 +28,9 @@ if ($installerHash -cne $latestHash) {
 
 $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($InstallerPath)
 if ($versionInfo.ProductName -cne 'Majestic Boost' -or
-    $versionInfo.FileVersion -cne '1.6.3.0' -or
+    $versionInfo.FileVersion -cne '1.6.4.0' -or
     $versionInfo.CompanyName -cne 'Silus Suspect') {
-    throw 'Installer product metadata does not match release 1.6.3.'
+    throw 'Installer product metadata does not match release 1.6.4.'
 }
 
 $assembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($InstallerPath))
@@ -58,13 +58,14 @@ function Test-DowngradeDecision {
     }
 }
 
-Test-DowngradeDecision -Installed '1.5.1.0' -Setup '1.6.3.0' -Expected $false
-Test-DowngradeDecision -Installed '1.6.1.0' -Setup '1.6.3.0' -Expected $false
-Test-DowngradeDecision -Installed '1.6.2.0' -Setup '1.6.3.0' -Expected $false
-Test-DowngradeDecision -Installed '1.6.3.0' -Setup '1.6.3.0' -Expected $false
-Test-DowngradeDecision -Installed '1.6.4.0' -Setup '1.6.3.0' -Expected $true
-Test-DowngradeDecision -Installed '2.0.0.0' -Setup '1.6.3.0' -Expected $true
-Test-DowngradeDecision -Installed 'invalid' -Setup '1.6.3.0' -Expected $false
+Test-DowngradeDecision -Installed '1.5.1.0' -Setup '1.6.4.0' -Expected $false
+Test-DowngradeDecision -Installed '1.6.1.0' -Setup '1.6.4.0' -Expected $false
+Test-DowngradeDecision -Installed '1.6.2.0' -Setup '1.6.4.0' -Expected $false
+Test-DowngradeDecision -Installed '1.6.3.0' -Setup '1.6.4.0' -Expected $false
+Test-DowngradeDecision -Installed '1.6.4.0' -Setup '1.6.4.0' -Expected $false
+Test-DowngradeDecision -Installed '1.6.5.0' -Setup '1.6.4.0' -Expected $true
+Test-DowngradeDecision -Installed '2.0.0.0' -Setup '1.6.4.0' -Expected $true
+Test-DowngradeDecision -Installed 'invalid' -Setup '1.6.4.0' -Expected $false
 
 $payloadStream = $assembly.GetManifestResourceStream('MajesticBoost.Payload.exe')
 if (-not $payloadStream) {
@@ -75,8 +76,8 @@ try {
     try {
         $payloadStream.CopyTo($memory)
         $payloadAssembly = [Reflection.Assembly]::Load($memory.ToArray())
-        if ($payloadAssembly.GetName().Version.ToString() -cne '1.6.3.0') {
-            throw 'Embedded application version does not match installer version 1.6.3.'
+        if ($payloadAssembly.GetName().Version.ToString() -cne '1.6.4.0') {
+            throw 'Embedded application version does not match installer version 1.6.4.'
         }
         $payloadCompany = @(
             $payloadAssembly.GetCustomAttributes(

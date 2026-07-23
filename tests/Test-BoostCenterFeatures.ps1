@@ -17,7 +17,12 @@ $installer = [IO.File]::ReadAllText((Join-Path $projectRoot 'MajesticBoostInstal
 $build = [IO.File]::ReadAllText((Join-Path $projectRoot 'build.ps1'))
 
 foreach ($required in @(
-    'AssemblyVersion("1.6.2.0")',
+    'AssemblyVersion("1.6.3.0")',
+    'AssemblyCompany("Silus Suspect")',
+    'GetApplicationVersion() + "  BETA"',
+    'MakeText(',
+    '"by Silus Suspect"',
+    'Panel.SetZIndex(watermark, 400)',
     'ProcessPriorityClass.AboveNormal',
     'OriginalPriority = originalPriority',
     'process.StartTime.ToUniversalTime() != item.StartTimeUtc',
@@ -36,6 +41,66 @@ foreach ($required in @(
     if (-not $program.Contains($required)) {
         throw "The Boost session contract is missing: $required"
     }
+}
+
+$centerButtonStart = $program.IndexOf(
+    'private static Button MakeCenterButton',
+    [StringComparison]::Ordinal)
+$windowButtonStart = $program.IndexOf(
+    'private static Button MakeWindowButton',
+    $centerButtonStart,
+    [StringComparison]::Ordinal)
+$transparentButtonTemplateStart = $program.IndexOf(
+    'private static ControlTemplate MakeTransparentButtonTemplate',
+    $windowButtonStart,
+    [StringComparison]::Ordinal)
+$chromeButtonTemplateStart = $program.IndexOf(
+    'private static ControlTemplate MakeChromeButtonTemplate',
+    $transparentButtonTemplateStart,
+    [StringComparison]::Ordinal)
+$makeTextStart = $program.IndexOf(
+    'private static TextBlock MakeText',
+    $chromeButtonTemplateStart,
+    [StringComparison]::Ordinal)
+if ($centerButtonStart -lt 0 -or
+    $windowButtonStart -le $centerButtonStart -or
+    $transparentButtonTemplateStart -le $windowButtonStart -or
+    $chromeButtonTemplateStart -le $transparentButtonTemplateStart -or
+    $makeTextStart -le $chromeButtonTemplateStart) {
+    throw 'The window chrome geometry sections could not be located.'
+}
+$centerButton = $program.Substring(
+    $centerButtonStart,
+    $windowButtonStart - $centerButtonStart)
+$windowButton = $program.Substring(
+    $windowButtonStart,
+    $transparentButtonTemplateStart - $windowButtonStart)
+$chromeButtonTemplate = $program.Substring(
+    $chromeButtonTemplateStart,
+    $makeTextStart - $chromeButtonTemplateStart)
+foreach ($required in @(
+    'FontSize = 17',
+    'RenderTransform = new TranslateTransform(0, -1)'
+)) {
+    if (-not $centerButton.Contains($required)) {
+        throw "The centered settings glyph contract is missing: $required"
+    }
+}
+foreach ($required in @(
+    'glyphCanvas.Width = 30',
+    'glyphCanvas.Height = 30',
+    'Geometry.Parse("M 10,10 L 20,20 M 20,10 L 10,20")',
+    'minimizeGlyph.Width = 16',
+    'Canvas.SetLeft(minimizeGlyph, 7)',
+    'Canvas.SetTop(minimizeGlyph, 20)'
+)) {
+    if (-not $windowButton.Contains($required)) {
+        throw "The centered caption glyph contract is missing: $required"
+    }
+}
+if (-not $chromeButtonTemplate.Contains(
+        'BorderThicknessProperty, new Thickness(0)')) {
+    throw 'The window chrome template still insets its glyph content.'
 }
 
 foreach ($required in @(

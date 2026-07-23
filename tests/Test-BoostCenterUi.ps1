@@ -79,11 +79,17 @@ try {
     }
 
     $window = [Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
-    [void](Wait-ForElement -Root $window -Name $readinessName -TimeoutMilliseconds 20000)
+    $readiness = Wait-ForElement -Root $window -Name $readinessName -TimeoutMilliseconds 20000
     $report = Wait-ForElement -Root $window -Name $reportName -TimeoutMilliseconds 10000
     $settings = Wait-ForElement -Root $window -Name $settingsName -TimeoutMilliseconds 10000
     Invoke-Element -Element $report
     [void](Wait-ForElement -Root $window -Name $benchmarkName -TimeoutMilliseconds 10000)
+    Invoke-Element -Element $settings
+    [void](Wait-ForElement -Root $window -Name $autoBoostName -TimeoutMilliseconds 10000)
+    [void](Wait-ForElement -Root $window -Name $restoreName -TimeoutMilliseconds 10000)
+
+    Invoke-Element -Element $report
+    Invoke-Element -Element $readiness
     Invoke-Element -Element $settings
     [void](Wait-ForElement -Root $window -Name $autoBoostName -TimeoutMilliseconds 10000)
     [void](Wait-ForElement -Root $window -Name $restoreName -TimeoutMilliseconds 10000)

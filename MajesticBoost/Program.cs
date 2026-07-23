@@ -23,10 +23,11 @@ using System.Windows.Threading;
 
 [assembly: AssemblyTitle("Majestic Boost")]
 [assembly: AssemblyDescription("Animated Max FPS launcher for Majestic")]
-[assembly: AssemblyCompany("Codex Gaming Optimization")]
+[assembly: AssemblyCompany("Silus Suspect")]
+[assembly: AssemblyCopyright("© Silus Suspect")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.2.0")]
-[assembly: AssemblyFileVersion("1.6.2.0")]
+[assembly: AssemblyVersion("1.6.3.0")]
+[assembly: AssemblyFileVersion("1.6.3.0")]
 
 namespace MajesticBoost
 {
@@ -278,6 +279,22 @@ namespace MajesticBoost
             Panel.SetZIndex(updateOverlay, 200);
             root.Children.Add(updateOverlay);
 
+            var watermark = MakeText(
+                "by Silus Suspect",
+                9,
+                "#FF666666",
+                FontWeights.SemiBold);
+            watermark.FontFamily = LoadMajesticSemiboldFontFamily();
+            watermark.HorizontalAlignment = HorizontalAlignment.Right;
+            watermark.VerticalAlignment = VerticalAlignment.Bottom;
+            watermark.Margin = new Thickness(0, 0, 12, 7);
+            watermark.Opacity = 0.72;
+            watermark.IsHitTestVisible = false;
+            Grid.SetRow(watermark, 0);
+            Grid.SetRowSpan(watermark, 5);
+            Panel.SetZIndex(watermark, 400);
+            root.Children.Add(watermark);
+
             return shell;
         }
 
@@ -311,7 +328,11 @@ namespace MajesticBoost
             };
             controls.Children.Add(center);
 
-            var version = MakeText(GetApplicationVersion(), 11.5, "#FF8B8B8B", FontWeights.Bold);
+            var version = MakeText(
+                GetApplicationVersion() + "  BETA",
+                11.5,
+                "#FF8B8B8B",
+                FontWeights.Bold);
             version.FontFamily = LoadMajesticSemiboldFontFamily();
             version.LayoutTransform = new ScaleTransform(0.95, 1);
             version.RenderTransform = new TranslateTransform(0, 2);
@@ -2401,11 +2422,12 @@ namespace MajesticBoost
             {
                 Text = "\u2699",
                 FontFamily = new FontFamily("Segoe UI Symbol"),
-                FontSize = 15,
+                FontSize = 17,
                 FontWeight = FontWeights.Normal,
                 Foreground = glyphBrush,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                RenderTransform = new TranslateTransform(0, -1)
             };
 
             var lift = new TranslateTransform();
@@ -2469,14 +2491,14 @@ namespace MajesticBoost
             AutomationProperties.SetName(button, accessibleName);
 
             var glyphCanvas = new Canvas();
-            glyphCanvas.Width = 24;
-            glyphCanvas.Height = 24;
+            glyphCanvas.Width = 30;
+            glyphCanvas.Height = 30;
             glyphCanvas.Background = Brushes.Transparent;
             glyphCanvas.IsHitTestVisible = false;
             if (isClose)
             {
                 var closeGlyph = new System.Windows.Shapes.Path();
-                closeGlyph.Data = Geometry.Parse("M 6,6 L 18,18 M 18,6 L 6,18");
+                closeGlyph.Data = Geometry.Parse("M 10,10 L 20,20 M 20,10 L 10,20");
                 closeGlyph.Stroke = glyphBrush;
                 closeGlyph.StrokeThickness = 2;
                 closeGlyph.StrokeStartLineCap = PenLineCap.Round;
@@ -2486,23 +2508,17 @@ namespace MajesticBoost
             else
             {
                 var minimizeGlyph = new Rectangle();
-                minimizeGlyph.Width = 20;
+                minimizeGlyph.Width = 16;
                 minimizeGlyph.Height = 2;
                 minimizeGlyph.RadiusX = 1;
                 minimizeGlyph.RadiusY = 1;
                 minimizeGlyph.Fill = glyphBrush;
-                Canvas.SetLeft(minimizeGlyph, 2);
-                Canvas.SetTop(minimizeGlyph, 17);
+                Canvas.SetLeft(minimizeGlyph, 7);
+                Canvas.SetTop(minimizeGlyph, 20);
                 glyphCanvas.Children.Add(minimizeGlyph);
             }
 
-            var glyphHost = new Viewbox();
-            glyphHost.Width = 20;
-            glyphHost.Height = 20;
-            glyphHost.Stretch = Stretch.Uniform;
-            glyphHost.Child = glyphCanvas;
-            glyphHost.IsHitTestVisible = false;
-            button.Content = glyphHost;
+            button.Content = glyphCanvas;
 
             var lift = new TranslateTransform();
             button.RenderTransform = lift;
@@ -2584,7 +2600,7 @@ namespace MajesticBoost
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
             border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
             border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
-            border.SetValue(Border.BorderThicknessProperty, new Thickness(1.5));
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(0));
             var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
             presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
             presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);

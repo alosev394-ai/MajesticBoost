@@ -18,10 +18,11 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Majestic Boost Setup")]
 [assembly: AssemblyDescription("Installer for Majestic Boost")]
-[assembly: AssemblyCompany("Codex Gaming Optimization")]
+[assembly: AssemblyCompany("Silus Suspect")]
+[assembly: AssemblyCopyright("© Silus Suspect")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.2.0")]
-[assembly: AssemblyFileVersion("1.6.2.0")]
+[assembly: AssemblyVersion("1.6.3.0")]
+[assembly: AssemblyFileVersion("1.6.3.0")]
 
 namespace MajesticBoostSetup
 {
@@ -158,7 +159,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.6.2";
+        public const string ProductVersion = "1.6.3";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);
@@ -228,7 +229,7 @@ namespace MajesticBoostSetup
             {
                 uninstall.SetValue("DisplayName", ProductName, RegistryValueKind.String);
                 uninstall.SetValue("DisplayVersion", ProductVersion, RegistryValueKind.String);
-                uninstall.SetValue("Publisher", "Codex Gaming Optimization", RegistryValueKind.String);
+                uninstall.SetValue("Publisher", "Silus Suspect", RegistryValueKind.String);
                 uninstall.SetValue("InstallLocation", InstallDirectory, RegistryValueKind.String);
                 uninstall.SetValue("DisplayIcon", InstalledExe + ",0", RegistryValueKind.String);
                 uninstall.SetValue("UninstallString", Quote(UninstallerExe) + " /uninstall", RegistryValueKind.String);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -24,8 +25,8 @@ using System.Windows.Threading;
 [assembly: AssemblyDescription("Animated Max FPS launcher for Majestic")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.5.1.0")]
-[assembly: AssemblyFileVersion("1.5.1.0")]
+[assembly: AssemblyVersion("1.6.0.0")]
+[assembly: AssemblyFileVersion("1.6.0.0")]
 
 namespace MajesticBoost
 {
@@ -48,8 +49,20 @@ namespace MajesticBoost
             public TranslateTransform KnobTranslation;
         }
 
+        private sealed class TrackedGamePriority
+        {
+            public int ProcessId;
+            public DateTime StartTimeUtc;
+            public string ProcessName;
+            public ProcessPriorityClass OriginalPriority;
+            public bool ChangedByBoost;
+        }
+
         private Button boostButton;
         private Border boostSurface;
+        private FrameworkElement titleSection;
+        private FrameworkElement boostButtonSection;
+        private FrameworkElement preferenceSection;
         private Grid rocket;
         private Canvas grayRocketLayer;
         private Canvas colorRocketLayer;
@@ -61,23 +74,42 @@ namespace MajesticBoost
         private CheckBox keepSteamToggle;
         private OptimizationFlowOverlay optimizationOverlay;
         private UpdateFlowOverlay updateOverlay;
+        private BoostCenterOverlay boostCenterOverlay;
         private ScaleTransform rocketScale;
         private TranslateTransform flightTranslation;
         private TranslateTransform floatTranslation;
         private readonly List<FrameworkElement> stars = new List<FrameworkElement>();
         private DispatcherTimer readinessTimer;
         private DispatcherTimer activeBoostTimer;
+        private DispatcherTimer gameWatcherTimer;
         private Process boostProcess;
         private string readinessSignalPath;
         private DateTime readinessDeadline;
         private int activeMaintenanceGeneration;
         private int activeMaintenancePending;
+        private int preflightGeneration;
         private readonly object activeMaintenanceSync = new object();
         private bool animationRunning;
         private bool departureFinished;
         private bool boostReady;
         private bool boostActive;
         private bool preferencesLoaded;
+        private bool preflightAccepted;
+        private bool preflightForBoost;
+        private bool automaticBoostStarting;
+        private bool gameSeenDuringSession;
+        private DateTime lastGameSeenUtc;
+        private BoostCenterSettings centerSettings = new BoostCenterSettings
+        {
+            CheckBeforeBoost = true
+        };
+        private BoostPreflightReport latestPreflight;
+        private BoostSessionReport currentSession;
+        private BoostSessionReport lastSession;
+        private CancellationTokenSource benchmarkCancellation;
+        private PerformanceCaptureAttemptResult lastCaptureAttempt;
+        private readonly Dictionary<int, TrackedGamePriority> trackedGamePriorities =
+            new Dictionary<int, TrackedGamePriority>();
         private readonly bool demoMode;
         private readonly string[] launchArguments;
 
@@ -150,13 +182,13 @@ namespace MajesticBoost
             Grid.SetRow(controls, 0);
             root.Children.Add(controls);
 
-            var title = BuildTitle();
-            Grid.SetRow(title, 1);
-            root.Children.Add(title);
+            titleSection = BuildTitle();
+            Grid.SetRow(titleSection, 1);
+            root.Children.Add(titleSection);
 
-            var buttonStage = BuildBoostButton();
-            Grid.SetRow(buttonStage, 2);
-            root.Children.Add(buttonStage);
+            boostButtonSection = BuildBoostButton();
+            Grid.SetRow(boostButtonSection, 2);
+            root.Children.Add(boostButtonSection);
             boostButton.IsEnabled = false;
 
             caption = MakeText("НАЖМИ, ЧТОБЫ АКТИВИРОВАТЬ", 10, "#FF8E8E8E", FontWeights.Bold);
@@ -166,9 +198,57 @@ namespace MajesticBoost
             Grid.SetRow(caption, 3);
             root.Children.Add(caption);
 
-            var preferences = BuildPreferencePanel();
-            Grid.SetRow(preferences, 4);
-            root.Children.Add(preferences);
+            preferenceSection = BuildPreferencePanel();
+            Grid.SetRow(preferenceSection, 4);
+            root.Children.Add(preferenceSection);
+
+            boostCenterOverlay = new BoostCenterOverlay(
+                LoadMajesticFontFamily(),
+                LoadMajesticSemiboldFontFamily());
+            boostCenterOverlay.RefreshRequested += delegate { QueuePreflight(preflightForBoost, true); };
+            boostCenterOverlay.CloseRequested += delegate
+            {
+                if (preflightForBoost && !boostActive && !animationRunning)
+                {
+                    Interlocked.Increment(ref preflightGeneration);
+                    automaticBoostStarting = false;
+                }
+                preflightForBoost = false;
+            };
+            boostCenterOverlay.ProceedBoostRequested += delegate
+            {
+                if (boostActive ||
+                    animationRunning ||
+                    (automaticBoostStarting &&
+                     (!centerSettings.AutoBoost || !IsGameRunning())))
+                {
+                    return;
+                }
+                preflightAccepted = true;
+                preflightForBoost = false;
+                StartBoost();
+            };
+            boostCenterOverlay.SettingsChanged += delegate
+            {
+                centerSettings = boostCenterOverlay.Settings;
+                SaveBoostPreferences();
+            };
+            boostCenterOverlay.RestoreRequested += delegate
+            {
+                if (optimizationOverlay != null && optimizationOverlay.ShowManualRestore())
+                {
+                    boostCenterOverlay.HandleEscape();
+                }
+            };
+            boostCenterOverlay.BenchmarkRequested += BoostCenterBenchmarkRequested;
+            boostCenterOverlay.IsVisibleChanged += delegate
+            {
+                SetMainContentVisible(boostCenterOverlay.Visibility != Visibility.Visible);
+            };
+            Grid.SetRow(boostCenterOverlay, 1);
+            Grid.SetRowSpan(boostCenterOverlay, 4);
+            Panel.SetZIndex(boostCenterOverlay, 50);
+            root.Children.Add(boostCenterOverlay);
 
             optimizationOverlay = new OptimizationFlowOverlay(
                 this,
@@ -204,6 +284,26 @@ namespace MajesticBoost
             controls.Orientation = Orientation.Horizontal;
             controls.HorizontalAlignment = HorizontalAlignment.Right;
             controls.VerticalAlignment = VerticalAlignment.Top;
+
+            var center = MakeCenterButton();
+            center.Margin = new Thickness(0, 0, 8, 0);
+            center.Click += delegate
+            {
+                if (boostCenterOverlay != null)
+                {
+                    if (boostCenterOverlay.IsOpen)
+                    {
+                        boostCenterOverlay.HandleEscape();
+                        return;
+                    }
+                    preflightForBoost = false;
+                    boostCenterOverlay.SetSettings(centerSettings);
+                    boostCenterOverlay.SetPreflight(latestPreflight);
+                    boostCenterOverlay.SetSessionReport(currentSession ?? lastSession);
+                    boostCenterOverlay.OpenReadiness(false);
+                }
+            };
+            controls.Children.Add(center);
 
             var version = MakeText(GetApplicationVersion(), 11.5, "#FF8B8B8B", FontWeights.Bold);
             version.FontFamily = LoadMajesticSemiboldFontFamily();
@@ -450,6 +550,14 @@ namespace MajesticBoost
             keepDiscordToggle.IsChecked = GetPreference(values, "KeepDiscord");
             keepEpicToggle.IsChecked = GetPreference(values, "KeepEpic");
             keepSteamToggle.IsChecked = GetPreference(values, "KeepSteam");
+            centerSettings.AutoBoost = GetPreference(values, "AutoBoost");
+            centerSettings.CheckBeforeBoost = values.ContainsKey("CheckBeforeBoost")
+                ? GetPreference(values, "CheckBeforeBoost")
+                : true;
+            centerSettings.KeepOneDrive = GetPreference(values, "KeepOneDrive");
+            centerSettings.KeepTeams = GetPreference(values, "KeepTeams");
+            centerSettings.KeepWallpaper = GetPreference(values, "KeepWallpaper");
+            centerSettings.KeepNvidiaOverlay = GetPreference(values, "KeepNvidiaOverlay");
         }
 
         private void SaveBoostPreferences()
@@ -464,7 +572,13 @@ namespace MajesticBoost
                     {
                         "KeepDiscord=" + (keepDiscordToggle.IsChecked == true),
                         "KeepEpic=" + (keepEpicToggle.IsChecked == true),
-                        "KeepSteam=" + (keepSteamToggle.IsChecked == true)
+                        "KeepSteam=" + (keepSteamToggle.IsChecked == true),
+                        "AutoBoost=" + centerSettings.AutoBoost,
+                        "CheckBeforeBoost=" + centerSettings.CheckBeforeBoost,
+                        "KeepOneDrive=" + centerSettings.KeepOneDrive,
+                        "KeepTeams=" + centerSettings.KeepTeams,
+                        "KeepWallpaper=" + centerSettings.KeepWallpaper,
+                        "KeepNvidiaOverlay=" + centerSettings.KeepNvidiaOverlay
                     },
                     new UTF8Encoding(false));
             }
@@ -692,13 +806,95 @@ namespace MajesticBoost
             }
             else
             {
+                RequestBoostStart();
+            }
+        }
+
+        private void RequestBoostStart()
+        {
+            if (demoMode)
+            {
+                StartBoost();
+                return;
+            }
+            if (centerSettings.CheckBeforeBoost && !preflightAccepted)
+            {
+                QueuePreflight(true, true);
+                return;
+            }
+            StartBoost();
+        }
+
+        private async void QueuePreflight(bool forBoost, bool showCenter)
+        {
+            int generation = Interlocked.Increment(ref preflightGeneration);
+            bool automaticRequest = automaticBoostStarting;
+            preflightForBoost = forBoost;
+            if (boostCenterOverlay != null && showCenter)
+            {
+                boostCenterOverlay.SetPreflight(null);
+                boostCenterOverlay.OpenReadiness(forBoost);
+            }
+
+            string optimizationStatus = "Unknown";
+            if (optimizationOverlay != null)
+            {
+                optimizationStatus = optimizationOverlay.GetOptimizationStatus();
+            }
+
+            BoostPreflightReport report = await Task.Run(delegate
+            {
+                return BoostPreflightService.Run(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    optimizationStatus);
+            });
+
+            if (generation != Interlocked.CompareExchange(ref preflightGeneration, 0, 0))
+            {
+                return;
+            }
+            latestPreflight = report;
+            if (boostCenterOverlay != null)
+            {
+                boostCenterOverlay.SetPreflight(report);
+            }
+
+            if (!forBoost)
+            {
+                return;
+            }
+            if (report != null && !report.HasWarnings)
+            {
+                if (boostActive || animationRunning)
+                {
+                    return;
+                }
+                if (automaticRequest &&
+                    (!centerSettings.AutoBoost ||
+                     !automaticBoostStarting ||
+                     !IsGameRunning()))
+                {
+                    automaticBoostStarting = false;
+                    return;
+                }
+                preflightAccepted = true;
+                if (boostCenterOverlay != null && boostCenterOverlay.IsOpen)
+                {
+                    boostCenterOverlay.HandleEscape();
+                }
                 StartBoost();
             }
         }
 
         private void StartBoost()
         {
+            if (animationRunning || boostActive)
+            {
+                return;
+            }
+            preflightForBoost = false;
             StopActiveBoostMaintenance();
+            BeginSession(automaticBoostStarting ? "Automatic" : "Manual");
             animationRunning = true;
             departureFinished = false;
             boostReady = false;
@@ -768,6 +964,35 @@ namespace MajesticBoost
                 if (keepSteamToggle == null || keepSteamToggle.IsChecked != true)
                 {
                     scriptArguments.Append(" -CloseSteam");
+                }
+                if (!centerSettings.KeepOneDrive)
+                {
+                    scriptArguments.Append(" -CloseOneDrive");
+                }
+                if (!centerSettings.KeepTeams)
+                {
+                    scriptArguments.Append(" -CloseTeams");
+                }
+                if (!centerSettings.KeepWallpaper)
+                {
+                    scriptArguments.Append(" -CloseWallpaper");
+                }
+                if (!centerSettings.KeepNvidiaOverlay)
+                {
+                    scriptArguments.Append(" -CloseNvidiaOverlay");
+                }
+                if (automaticBoostStarting || IsGameRunning())
+                {
+                    scriptArguments.Append(" -DoNotLaunchMajestic");
+                }
+                if (currentSession != null)
+                {
+                    string resultPath = System.IO.Path.Combine(
+                        BoostSessionReportStore.StateDirectory,
+                        "Game-Boost-" + currentSession.SessionId + ".result");
+                    scriptArguments.Append(" -ResultPath \"");
+                    scriptArguments.Append(resultPath);
+                    scriptArguments.Append("\"");
                 }
                 scriptArguments.Append(" -ReadySignalPath \"");
                 scriptArguments.Append(readinessSignalPath);
@@ -848,6 +1073,16 @@ namespace MajesticBoost
                 return;
             }
             boostReady = true;
+            if (currentSession != null)
+            {
+                currentSession.Status = "Active";
+                currentSession.AddAction(
+                    "ОДНОРАЗОВАЯ ПОДГОТОВКА",
+                    "Фоновые приложения обработаны один раз по выбранным переключателям.",
+                    BoostActionOutcome.Changed);
+                ImportBoostScriptResult(currentSession);
+                SaveCurrentSession();
+            }
             StartStarfield();
             caption.Text = "BOOST АКТИВЕН";
             caption.Foreground = BrushFrom("#FFE81C5A");
@@ -886,6 +1121,12 @@ namespace MajesticBoost
                 SetBoostAutomationState(true);
                 StartActiveBoostMaintenance();
                 StartRocketFloat();
+                automaticBoostStarting = false;
+                gameSeenDuringSession = IsGameRunning();
+                if (gameSeenDuringSession)
+                {
+                    lastGameSeenUtc = DateTime.UtcNow;
+                }
             };
             flightTranslation.BeginAnimation(TranslateTransform.XProperty, x);
             flightTranslation.BeginAnimation(TranslateTransform.YProperty, y);
@@ -916,6 +1157,8 @@ namespace MajesticBoost
             caption.Foreground = BrushFrom("#FFFF667A");
             animationRunning = false;
             boostButton.IsEnabled = true;
+            CompleteCurrentSession("Failed", message);
+            automaticBoostStarting = false;
         }
 
         private void StartBoostDeactivation()
@@ -977,6 +1220,8 @@ namespace MajesticBoost
                 caption.Text = "НАЖМИ, ЧТОБЫ АКТИВИРОВАТЬ";
                 caption.Foreground = BrushFrom("#FF8E8E8E");
                 SetBoostAutomationState(false);
+                CompleteCurrentSession("Completed", "Boost остановлен пользователем.");
+                preflightAccepted = false;
 
                 bool isHovered = boostButton.IsMouseOver;
                 SetRocketScaleImmediately(isHovered ? 1.08 : 1);
@@ -1077,7 +1322,7 @@ namespace MajesticBoost
             if (activeBoostTimer == null)
             {
                 activeBoostTimer = new DispatcherTimer();
-                activeBoostTimer.Interval = TimeSpan.FromSeconds(30);
+                activeBoostTimer.Interval = TimeSpan.FromSeconds(5);
                 activeBoostTimer.Tick += delegate { QueueActiveBoostMaintenance(); };
             }
             activeBoostTimer.Start();
@@ -1101,6 +1346,7 @@ namespace MajesticBoost
                 Interlocked.Increment(ref activeMaintenanceGeneration);
                 TryDeleteActiveBoostDemoSignal();
             }
+            RestoreOwnedGamePriorities();
         }
 
         private void QueueActiveBoostMaintenance()
@@ -1115,14 +1361,11 @@ namespace MajesticBoost
             }
 
             int generation = ReadActiveMaintenanceGeneration();
-            bool closeDiscord = keepDiscordToggle == null || keepDiscordToggle.IsChecked != true;
-            bool closeEpic = keepEpicToggle == null || keepEpicToggle.IsChecked != true;
-            bool closeSteam = keepSteamToggle == null || keepSteamToggle.IsChecked != true;
             Task.Run(delegate
             {
                 try
                 {
-                    RunActiveBoostMaintenance(generation, closeDiscord, closeEpic, closeSteam);
+                    RunActiveBoostMaintenance(generation);
                 }
                 catch (Exception ex)
                 {
@@ -1150,11 +1393,7 @@ namespace MajesticBoost
             });
         }
 
-        private void RunActiveBoostMaintenance(
-            int generation,
-            bool closeDiscord,
-            bool closeEpic,
-            bool closeSteam)
+        private void RunActiveBoostMaintenance(int generation)
         {
             if (!IsActiveMaintenanceGeneration(generation))
             {
@@ -1176,82 +1415,6 @@ namespace MajesticBoost
                 return;
             }
 
-            var processesToStop = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "SteelSeriesMoments",
-                "NVIDIA Overlay",
-                "nvsphelper64",
-                "wallpaper32",
-                "wallpaper64",
-                "WidgetService",
-                "Widgets",
-                "CrossDeviceService"
-            };
-            if (closeDiscord)
-            {
-                processesToStop.Add("Discord");
-            }
-            if (closeEpic)
-            {
-                processesToStop.Add("EpicGamesLauncher");
-                processesToStop.Add("EpicWebHelper");
-                processesToStop.Add("EpicOnlineServicesUserHelper");
-            }
-            if (closeSteam)
-            {
-                processesToStop.Add("steam");
-                processesToStop.Add("steamwebhelper");
-                processesToStop.Add("GameOverlayUI");
-            }
-
-            foreach (string processName in processesToStop)
-            {
-                if (!IsActiveMaintenanceGeneration(generation))
-                {
-                    return;
-                }
-                Process[] processes;
-                try
-                {
-                    processes = Process.GetProcessesByName(processName);
-                }
-                catch
-                {
-                    continue;
-                }
-
-                foreach (Process process in processes)
-                {
-                    try
-                    {
-                        bool stopped = false;
-                        int processId = 0;
-                        string actualName = null;
-                        lock (activeMaintenanceSync)
-                        {
-                            if (!IsActiveMaintenanceGeneration(generation))
-                            {
-                                continue;
-                            }
-                            processId = process.Id;
-                            actualName = process.ProcessName;
-                            process.Kill();
-                            stopped = true;
-                        }
-                        if (stopped)
-                        {
-                            AppendActiveBoostLog(
-                                "Stopped " + actualName + " (PID " + processId + ") during active Boost.");
-                        }
-                    }
-                    catch { }
-                    finally
-                    {
-                        process.Dispose();
-                    }
-                }
-            }
-
             foreach (string gameName in new[] { "GTA5", "GTA5_Enhanced" })
             {
                 if (!IsActiveMaintenanceGeneration(generation))
@@ -1271,32 +1434,157 @@ namespace MajesticBoost
                 {
                     try
                     {
-                        bool priorityChanged = false;
-                        string priorityMessage = null;
+                        int processId = game.Id;
+                        DateTime startTimeUtc = game.StartTime.ToUniversalTime();
+                        string actualName = game.ProcessName;
+                        ProcessPriorityClass originalPriority = game.PriorityClass;
+                        bool alreadyTracked;
                         lock (activeMaintenanceSync)
                         {
                             if (!IsActiveMaintenanceGeneration(generation))
                             {
                                 continue;
                             }
-                            if (game.PriorityClass != ProcessPriorityClass.High)
+                            TrackedGamePriority existing;
+                            alreadyTracked = trackedGamePriorities.TryGetValue(processId, out existing) &&
+                                existing.StartTimeUtc == startTimeUtc;
+                            if (!alreadyTracked)
                             {
-                                game.PriorityClass = ProcessPriorityClass.High;
-                                priorityMessage =
-                                    "Set " + game.ProcessName + " (PID " + game.Id +
-                                    ") priority to High during active Boost.";
-                                priorityChanged = true;
+                                trackedGamePriorities[processId] = new TrackedGamePriority
+                                {
+                                    ProcessId = processId,
+                                    StartTimeUtc = startTimeUtc,
+                                    ProcessName = actualName,
+                                    OriginalPriority = originalPriority,
+                                    ChangedByBoost = false
+                                };
+                            }
+                            gameSeenDuringSession = true;
+                            lastGameSeenUtc = DateTime.UtcNow;
+                        }
+                        if (alreadyTracked)
+                        {
+                            continue;
+                        }
+
+                        bool canRaise =
+                            originalPriority == ProcessPriorityClass.Normal ||
+                            originalPriority == ProcessPriorityClass.BelowNormal ||
+                            originalPriority == ProcessPriorityClass.Idle;
+                        if (!canRaise)
+                        {
+                            RecordSessionAction(
+                                actualName + " — ПРИОРИТЕТ",
+                                "Существующий приоритет " + originalPriority + " сохранён.",
+                                BoostActionOutcome.AlreadyOptimal);
+                            continue;
+                        }
+
+                        bool priorityChanged = false;
+                        lock (activeMaintenanceSync)
+                        {
+                            if (!IsActiveMaintenanceGeneration(generation))
+                            {
+                                continue;
+                            }
+                            TrackedGamePriority tracked;
+                            if (trackedGamePriorities.TryGetValue(processId, out tracked) &&
+                                tracked.StartTimeUtc == startTimeUtc)
+                            {
+                                ProcessPriorityClass currentPriority = game.PriorityClass;
+                                if (currentPriority == originalPriority &&
+                                    (currentPriority == ProcessPriorityClass.Normal ||
+                                     currentPriority == ProcessPriorityClass.BelowNormal ||
+                                     currentPriority == ProcessPriorityClass.Idle))
+                                {
+                                    game.PriorityClass = ProcessPriorityClass.AboveNormal;
+                                    tracked.ChangedByBoost = true;
+                                    priorityChanged = true;
+                                }
                             }
                         }
-                        if (priorityChanged)
+                        if (!priorityChanged)
                         {
-                            AppendActiveBoostLog(priorityMessage);
+                            RecordSessionAction(
+                                actualName + " — ПРИОРИТЕТ",
+                                "Внешнее изменение приоритета сохранено.",
+                                BoostActionOutcome.ExternalOverridePreserved);
+                            continue;
+                        }
+                        AppendActiveBoostLog(
+                            "Set " + actualName + " (PID " + processId +
+                            ") priority to AboveNormal.");
+                        RecordSessionAction(
+                            actualName + " — ПРИОРИТЕТ",
+                            "Приоритет " + originalPriority + " → AboveNormal. Исходное значение сохранено.",
+                            BoostActionOutcome.Changed);
+                        if (currentSession != null)
+                        {
+                            currentSession.GameName = actualName;
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        RecordSessionAction(
+                            gameName + " — ПРИОРИТЕТ",
+                            "Не удалось изменить приоритет: " + ex.Message,
+                            BoostActionOutcome.Skipped);
+                    }
                     finally
                     {
                         game.Dispose();
+                    }
+                }
+            }
+        }
+
+        private void RestoreOwnedGamePriorities()
+        {
+            List<TrackedGamePriority> tracked;
+            lock (activeMaintenanceSync)
+            {
+                tracked = trackedGamePriorities.Values.ToList();
+                trackedGamePriorities.Clear();
+            }
+
+            foreach (TrackedGamePriority item in tracked)
+            {
+                if (!item.ChangedByBoost)
+                {
+                    continue;
+                }
+                Process process = null;
+                try
+                {
+                    process = Process.GetProcessById(item.ProcessId);
+                    if (process.StartTime.ToUniversalTime() != item.StartTimeUtc)
+                    {
+                        continue;
+                    }
+                    ProcessPriorityClass current = process.PriorityClass;
+                    if (current != ProcessPriorityClass.AboveNormal)
+                    {
+                        RecordSessionAction(
+                            item.ProcessName + " — ПРИОРИТЕТ",
+                            "Внешнее изменение " + current + " сохранено; Boost его не перезаписал.",
+                            BoostActionOutcome.ExternalOverridePreserved);
+                        continue;
+                    }
+                    process.PriorityClass = item.OriginalPriority;
+                    RecordSessionAction(
+                        item.ProcessName + " — ПРИОРИТЕТ",
+                        "Восстановлен исходный приоритет " + item.OriginalPriority + ".",
+                        BoostActionOutcome.Restored);
+                }
+                catch
+                {
+                    // The game may already be closed; there is nothing left to restore.
+                }
+                finally
+                {
+                    if (process != null)
+                    {
+                        process.Dispose();
                     }
                 }
             }
@@ -1356,6 +1644,386 @@ namespace MajesticBoost
             catch { }
         }
 
+        private void BeginSession(string trigger)
+        {
+            if (currentSession != null)
+            {
+                CompleteCurrentSession("Interrupted", "Начата новая сессия Boost.");
+            }
+            currentSession = BoostSessionReport.Start(trigger);
+            currentSession.AddAction(
+                "ПАМЯТЬ ДО ЗАПУСКА",
+                FormatMemory(currentSession.AvailableMemoryStartBytes) + " доступно.",
+                BoostActionOutcome.AlreadyOptimal);
+            if (keepDiscordToggle != null && keepDiscordToggle.IsChecked == true)
+            {
+                currentSession.AddAction(
+                    "DISCORD",
+                    "Сохранён по вашему выбору.",
+                    BoostActionOutcome.Preserved);
+            }
+            if (keepEpicToggle != null && keepEpicToggle.IsChecked == true)
+            {
+                currentSession.AddAction(
+                    "EPIC GAMES",
+                    "Сохранён по вашему выбору.",
+                    BoostActionOutcome.Preserved);
+            }
+            if (keepSteamToggle != null && keepSteamToggle.IsChecked == true)
+            {
+                currentSession.AddAction(
+                    "STEAM",
+                    "Сохранён по вашему выбору.",
+                    BoostActionOutcome.Preserved);
+            }
+            SaveCurrentSession();
+        }
+
+        private void RecordSessionAction(
+            string title,
+            string detail,
+            BoostActionOutcome outcome)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                try
+                {
+                    Dispatcher.BeginInvoke(new Action(delegate
+                    {
+                        RecordSessionAction(title, detail, outcome);
+                    }));
+                }
+                catch { }
+                return;
+            }
+            if (currentSession == null)
+            {
+                return;
+            }
+            currentSession.AddAction(title, detail, outcome);
+            SaveCurrentSession();
+        }
+
+        private void ImportBoostScriptResult(BoostSessionReport report)
+        {
+            if (report == null || demoMode)
+            {
+                return;
+            }
+            string path = System.IO.Path.Combine(
+                BoostSessionReportStore.StateDirectory,
+                "Game-Boost-" + report.SessionId + ".result");
+            try
+            {
+                if (!File.Exists(path) || new FileInfo(path).Length > 256 * 1024)
+                {
+                    return;
+                }
+                int stopped = 0;
+                foreach (string line in File.ReadAllLines(path, Encoding.UTF8))
+                {
+                    int separator = line.IndexOf('=');
+                    if (separator <= 0)
+                    {
+                        continue;
+                    }
+                    string key = line.Substring(0, separator).Trim();
+                    string value = line.Substring(separator + 1).Trim();
+                    if (key.StartsWith("Process", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string[] parts = value.Split('|');
+                        string processName = parts.Length > 0 ? parts[0] : value;
+                        report.AddAction(
+                            processName.ToUpperInvariant(),
+                            "Закрыт во время одноразовой подготовки.",
+                            BoostActionOutcome.Changed);
+                        stopped++;
+                    }
+                    else if (key.StartsWith("Warning", StringComparison.OrdinalIgnoreCase))
+                    {
+                        report.AddAction(
+                            "ПРЕДУПРЕЖДЕНИЕ ПОДГОТОВКИ",
+                            value,
+                            BoostActionOutcome.Failed);
+                    }
+                }
+                if (stopped == 0)
+                {
+                    report.AddAction(
+                        "ФОНОВЫЕ ПРОЦЕССЫ",
+                        "Выбранные процессы уже не были запущены.",
+                        BoostActionOutcome.AlreadyOptimal);
+                }
+            }
+            catch (Exception ex)
+            {
+                report.AddAction(
+                    "ОТЧЁТ ПОДГОТОВКИ",
+                    "Не удалось прочитать подробности: " + ex.Message,
+                    BoostActionOutcome.Skipped);
+            }
+            finally
+            {
+                try { if (File.Exists(path)) File.Delete(path); }
+                catch { }
+            }
+        }
+
+        private void SaveCurrentSession()
+        {
+            if (currentSession == null)
+            {
+                return;
+            }
+            try
+            {
+                BoostSessionReportStore.Save(currentSession);
+                if (boostCenterOverlay != null)
+                {
+                    boostCenterOverlay.SetSessionReport(currentSession);
+                }
+            }
+            catch { }
+        }
+
+        private void CompleteCurrentSession(string status, string reason)
+        {
+            if (currentSession == null)
+            {
+                return;
+            }
+            currentSession.Complete(status, reason);
+            currentSession.AddAction(
+                "ПАМЯТЬ ПОСЛЕ СЕССИИ",
+                FormatMemory(currentSession.AvailableMemoryEndBytes) + " доступно.",
+                BoostActionOutcome.AlreadyOptimal);
+            try { BoostSessionReportStore.Save(currentSession); }
+            catch { }
+            lastSession = currentSession;
+            currentSession = null;
+            if (boostCenterOverlay != null)
+            {
+                boostCenterOverlay.SetSessionReport(lastSession);
+            }
+        }
+
+        private static string FormatMemory(long bytes)
+        {
+            if (bytes <= 0)
+            {
+                return "данные недоступны";
+            }
+            return (bytes / 1073741824d).ToString("0.0") + " ГБ";
+        }
+
+        private void StartGameWatcher()
+        {
+            if (gameWatcherTimer == null)
+            {
+                gameWatcherTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(3)
+                };
+                gameWatcherTimer.Tick += delegate { PollGameWatcher(); };
+            }
+            gameWatcherTimer.Start();
+            PollGameWatcher();
+        }
+
+        private void PollGameWatcher()
+        {
+            bool gameRunning = IsGameRunning();
+            if (gameRunning)
+            {
+                lastGameSeenUtc = DateTime.UtcNow;
+                if (boostActive)
+                {
+                    gameSeenDuringSession = true;
+                }
+            }
+
+            if (boostActive &&
+                gameSeenDuringSession &&
+                !gameRunning &&
+                DateTime.UtcNow - lastGameSeenUtc >= TimeSpan.FromSeconds(10) &&
+                !animationRunning)
+            {
+                StartBoostDeactivation();
+                return;
+            }
+
+            if (!gameRunning)
+            {
+                if (!boostActive && !animationRunning)
+                {
+                    automaticBoostStarting = false;
+                }
+                return;
+            }
+
+            bool anotherFlowVisible =
+                (updateOverlay != null && updateOverlay.ConsumesApplicationInput) ||
+                (optimizationOverlay != null && optimizationOverlay.IsFlowVisible);
+            if (!boostActive &&
+                !animationRunning &&
+                !automaticBoostStarting &&
+                centerSettings.AutoBoost &&
+                !anotherFlowVisible)
+            {
+                automaticBoostStarting = true;
+                preflightAccepted = latestPreflight != null &&
+                    !latestPreflight.HasWarnings &&
+                    DateTime.UtcNow - latestPreflight.CapturedUtc < TimeSpan.FromMinutes(10);
+                RequestBoostStart();
+            }
+        }
+
+        private static bool IsGameRunning()
+        {
+            foreach (string name in new[] { "GTA5", "GTA5_Enhanced" })
+            {
+                Process[] processes = new Process[0];
+                try
+                {
+                    processes = Process.GetProcessesByName(name);
+                    if (processes.Length > 0)
+                    {
+                        return true;
+                    }
+                }
+                catch { }
+                finally
+                {
+                    foreach (Process process in processes)
+                    {
+                        process.Dispose();
+                    }
+                }
+            }
+            return false;
+        }
+
+        private async void BoostCenterBenchmarkRequested(
+            object sender,
+            BoostBenchmarkRequestEventArgs e)
+        {
+            if (benchmarkCancellation != null)
+            {
+                return;
+            }
+
+            benchmarkCancellation = new CancellationTokenSource();
+            var progress = new Progress<PerformanceCaptureProgress>(delegate(PerformanceCaptureProgress item)
+            {
+                if (boostCenterOverlay != null)
+                {
+                    boostCenterOverlay.SetBenchmarkProgress(
+                        "ТЕСТ ПРОИЗВОДИТЕЛЬНОСТИ",
+                        item == null ? "Подготовка измерения." : item.Message,
+                        item == null ? 0 : item.Percent);
+                }
+            });
+
+            try
+            {
+                PerformanceCaptureAttemptResult result;
+                if (e != null && e.Elevate)
+                {
+                    result = await PerformanceCaptureService.RetryElevatedAsync(
+                        lastCaptureAttempt,
+                        progress,
+                        benchmarkCancellation.Token);
+                }
+                else
+                {
+                    result = await PerformanceCaptureService.CaptureRunningGameAsync(
+                        progress,
+                        benchmarkCancellation.Token);
+                }
+
+                lastCaptureAttempt = result;
+                if (result != null &&
+                    result.Status == PerformanceCaptureStatus.Completed &&
+                    result.Performance != null)
+                {
+                    StorePerformanceResult(result.Performance);
+                    boostCenterOverlay.SetBenchmarkMessage(
+                        "ТЕСТ ЗАВЕРШЁН",
+                        string.Format(
+                            "Средний FPS {0:0.0}, 1% low {1:0.0}, P95 {2:0.0} мс.",
+                            result.Performance.AverageFps,
+                            result.Performance.OnePercentLowFps,
+                            result.Performance.P95FrameTimeMs),
+                        false);
+                }
+                else if (result != null && result.CanRetryElevated)
+                {
+                    boostCenterOverlay.SetBenchmarkNeedsElevation(result.Message);
+                }
+                else
+                {
+                    boostCenterOverlay.SetBenchmarkMessage(
+                        "ЗАМЕР НЕ ВЫПОЛНЕН",
+                        result == null ? "PresentMon не вернул результат." : result.Message,
+                        true);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                boostCenterOverlay.SetBenchmarkMessage(
+                    "ЗАМЕР ОТМЕНЁН",
+                    "Измерение производительности остановлено.",
+                    true);
+            }
+            catch (Exception ex)
+            {
+                boostCenterOverlay.SetBenchmarkMessage(
+                    "ЗАМЕР НЕ ВЫПОЛНЕН",
+                    ex.Message,
+                    true);
+            }
+            finally
+            {
+                benchmarkCancellation.Dispose();
+                benchmarkCancellation = null;
+            }
+        }
+
+        private void StorePerformanceResult(BoostPerformanceResult performance)
+        {
+            if (performance == null)
+            {
+                return;
+            }
+            if (currentSession != null)
+            {
+                currentSession.Performance = performance;
+                currentSession.AddAction(
+                    "ТЕСТ ПРОИЗВОДИТЕЛЬНОСТИ",
+                    performance.Frames + " кадров проанализировано.",
+                    BoostActionOutcome.Changed);
+                SaveCurrentSession();
+                return;
+            }
+
+            BoostSessionReport report = lastSession ?? BoostSessionReport.Start("Benchmark");
+            report.Performance = performance;
+            report.AddAction(
+                "ТЕСТ ПРОИЗВОДИТЕЛЬНОСТИ",
+                performance.Frames + " кадров проанализировано.",
+                BoostActionOutcome.Changed);
+            if (!report.EndedUtc.HasValue)
+            {
+                report.Complete("Completed", "Ручной тест производительности.");
+            }
+            BoostSessionReportStore.Save(report);
+            lastSession = report;
+            if (boostCenterOverlay != null)
+            {
+                boostCenterOverlay.SetSessionReport(lastSession);
+            }
+        }
+
         private void SetBoostAutomationState(bool active)
         {
             AutomationProperties.SetName(
@@ -1366,6 +2034,27 @@ namespace MajesticBoost
                 active
                     ? "Останавливает активный контроль фоновых процессов. Применённые системные изменения не откатываются."
                     : "Отключает лишние фоновые процессы, поддерживает приоритет игры и запускает Majestic.");
+        }
+
+        private void SetMainContentVisible(bool visible)
+        {
+            Visibility state = visible ? Visibility.Visible : Visibility.Hidden;
+            if (titleSection != null)
+            {
+                titleSection.Visibility = state;
+            }
+            if (boostButtonSection != null)
+            {
+                boostButtonSection.Visibility = state;
+            }
+            if (caption != null)
+            {
+                caption.Visibility = state;
+            }
+            if (preferenceSection != null)
+            {
+                preferenceSection.Visibility = state;
+            }
         }
 
         private void AnimateRocketColor(bool colorized, int milliseconds)
@@ -1419,6 +2108,24 @@ namespace MajesticBoost
                 return;
             }
 
+            if (boostCenterOverlay != null && boostCenterOverlay.ConsumesApplicationInput)
+            {
+                boostCenterOverlay.HandleKey(e);
+                return;
+            }
+
+            if (e.Key == Key.OemComma &&
+                (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                preflightForBoost = false;
+                boostCenterOverlay.SetSettings(centerSettings);
+                boostCenterOverlay.SetPreflight(latestPreflight);
+                boostCenterOverlay.SetSessionReport(currentSession ?? lastSession);
+                boostCenterOverlay.OpenSettings();
+                e.Handled = true;
+                return;
+            }
+
             if (e.Key == Key.Escape)
             {
                 Close();
@@ -1451,6 +2158,36 @@ namespace MajesticBoost
             if (optimizationOverlay != null)
             {
                 optimizationOverlay.ShowIfRequired();
+            }
+            lastSession = BoostSessionReportStore.LoadLast();
+            if (lastSession != null && !lastSession.EndedUtc.HasValue)
+            {
+                lastSession.AddAction(
+                    "ПРЕДЫДУЩАЯ СЕССИЯ",
+                    "Отчёт был безопасно завершён при следующем запуске приложения.",
+                    BoostActionOutcome.Skipped);
+                lastSession.Complete(
+                    "Interrupted",
+                    "Предыдущая сессия завершилась вместе с приложением или Windows.");
+                BoostSessionReportStore.Save(lastSession);
+            }
+            if (boostCenterOverlay != null)
+            {
+                boostCenterOverlay.SetSettings(centerSettings);
+                boostCenterOverlay.SetSessionReport(lastSession);
+            }
+            QueuePreflight(false, false);
+            StartGameWatcher();
+
+            if (HasLaunchArgument(launchArguments, "--demo-center") &&
+                boostCenterOverlay != null)
+            {
+                boostCenterOverlay.OpenReadiness(false);
+            }
+            else if (HasLaunchArgument(launchArguments, "--demo-report") &&
+                     boostCenterOverlay != null)
+            {
+                boostCenterOverlay.OpenReport();
             }
         }
 
@@ -1489,11 +2226,21 @@ namespace MajesticBoost
         private void WindowClosed(object sender, EventArgs e)
         {
             boostActive = false;
+            Interlocked.Increment(ref preflightGeneration);
+            if (benchmarkCancellation != null)
+            {
+                benchmarkCancellation.Cancel();
+            }
+            if (gameWatcherTimer != null)
+            {
+                gameWatcherTimer.Stop();
+            }
             if (readinessTimer != null)
             {
                 readinessTimer.Stop();
             }
             StopActiveBoostMaintenance();
+            CompleteCurrentSession("Completed", "Приложение закрыто.");
             TryDeleteReadinessSignal();
             StopBoostProcess();
         }
@@ -1543,6 +2290,78 @@ namespace MajesticBoost
                 }
             }
             return false;
+        }
+
+        private static Button MakeCenterButton()
+        {
+            var backgroundBrush = new SolidColorBrush(Color.FromArgb(0, 27, 27, 27));
+            var glyphBrush = new SolidColorBrush(Color.FromRgb(139, 139, 139));
+            var button = new Button
+            {
+                Width = 30,
+                Height = 30,
+                Background = backgroundBrush,
+                Foreground = glyphBrush,
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand,
+                ToolTip = "Центр Boost",
+                Template = MakeChromeButtonTemplate()
+            };
+            AutomationProperties.SetName(button, "Открыть центр Boost");
+
+            button.Content = new TextBlock
+            {
+                Text = "\u2699",
+                FontFamily = new FontFamily("Segoe UI Symbol"),
+                FontSize = 15,
+                FontWeight = FontWeights.Normal,
+                Foreground = glyphBrush,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var lift = new TranslateTransform();
+            button.RenderTransform = lift;
+            button.RenderTransformOrigin = new Point(0.5, 0.5);
+            button.MouseEnter += delegate
+            {
+                var ease = new SineEase { EasingMode = EasingMode.EaseInOut };
+                backgroundBrush.BeginAnimation(
+                    SolidColorBrush.ColorProperty,
+                    new ColorAnimation(
+                        Color.FromRgb(45, 45, 45),
+                        TimeSpan.FromMilliseconds(210)) { EasingFunction = ease });
+                glyphBrush.BeginAnimation(
+                    SolidColorBrush.ColorProperty,
+                    new ColorAnimation(
+                        Colors.White,
+                        TimeSpan.FromMilliseconds(210)) { EasingFunction = ease });
+                lift.BeginAnimation(
+                    TranslateTransform.YProperty,
+                    new DoubleAnimation(
+                        -1,
+                        TimeSpan.FromMilliseconds(240)) { EasingFunction = ease });
+            };
+            button.MouseLeave += delegate
+            {
+                var ease = new SineEase { EasingMode = EasingMode.EaseInOut };
+                backgroundBrush.BeginAnimation(
+                    SolidColorBrush.ColorProperty,
+                    new ColorAnimation(
+                        Color.FromArgb(0, 27, 27, 27),
+                        TimeSpan.FromMilliseconds(240)) { EasingFunction = ease });
+                glyphBrush.BeginAnimation(
+                    SolidColorBrush.ColorProperty,
+                    new ColorAnimation(
+                        Color.FromRgb(139, 139, 139),
+                        TimeSpan.FromMilliseconds(240)) { EasingFunction = ease });
+                lift.BeginAnimation(
+                    TranslateTransform.YProperty,
+                    new DoubleAnimation(
+                        0,
+                        TimeSpan.FromMilliseconds(260)) { EasingFunction = ease });
+            };
+            return button;
         }
 
         private static Button MakeWindowButton(string accessibleName, bool isClose)
@@ -1639,22 +2458,56 @@ namespace MajesticBoost
         private static ControlTemplate MakeTransparentButtonTemplate()
         {
             var template = new ControlTemplate(typeof(Button));
+            var border = new FrameworkElementFactory(typeof(Border));
+            border.Name = "focusBorder";
+            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
+            border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
+            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
             var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
             presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
             presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
             presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
-            template.VisualTree = presenter;
+            border.AppendChild(presenter);
+            template.VisualTree = border;
+            var focus = new Trigger
+            {
+                Property = UIElement.IsKeyboardFocusedProperty,
+                Value = true
+            };
+            focus.Setters.Add(new Setter(
+                Border.BorderBrushProperty,
+                BrushFrom("#FFF4F4F4"),
+                "focusBorder"));
+            template.Triggers.Add(focus);
             return template;
         }
 
         private static ControlTemplate MakeTransparentCheckBoxTemplate()
         {
             var template = new ControlTemplate(typeof(CheckBox));
+            var border = new FrameworkElementFactory(typeof(Border));
+            border.Name = "focusBorder";
+            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+            border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
+            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
             var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
             presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
             presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
             presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
-            template.VisualTree = presenter;
+            border.AppendChild(presenter);
+            template.VisualTree = border;
+            var focus = new Trigger
+            {
+                Property = UIElement.IsKeyboardFocusedProperty,
+                Value = true
+            };
+            focus.Setters.Add(new Setter(
+                Border.BorderBrushProperty,
+                BrushFrom("#FFF4F4F4"),
+                "focusBorder"));
+            template.Triggers.Add(focus);
             return template;
         }
 
@@ -1662,8 +2515,11 @@ namespace MajesticBoost
         {
             var template = new ControlTemplate(typeof(Button));
             var border = new FrameworkElementFactory(typeof(Border));
+            border.Name = "focusBorder";
             border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
             border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
+            border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(1.5));
             var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
             presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
             presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
@@ -1671,6 +2527,16 @@ namespace MajesticBoost
             presenter.SetValue(TextElement.ForegroundProperty, new TemplateBindingExtension(Control.ForegroundProperty));
             border.AppendChild(presenter);
             template.VisualTree = border;
+            var focus = new Trigger
+            {
+                Property = UIElement.IsKeyboardFocusedProperty,
+                Value = true
+            };
+            focus.Setters.Add(new Setter(
+                Border.BorderBrushProperty,
+                BrushFrom("#FFF4F4F4"),
+                "focusBorder"));
+            template.Triggers.Add(focus);
             return template;
         }
 

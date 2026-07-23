@@ -27,6 +27,7 @@ namespace MajesticBoost
             Applying,
             RebootRequired,
             RecoveryRequired,
+            ManualRestoreConfirmation,
             Restoring,
             Failure
         }
@@ -126,6 +127,78 @@ namespace MajesticBoost
         public bool IsFlowVisible
         {
             get { return Visibility == Visibility.Visible; }
+        }
+
+        internal string GetOptimizationStatus()
+        {
+            GlobalTransactionInfo transaction;
+            if (TryReadGlobalTransaction(out transaction))
+            {
+                if (transaction.Version < 2)
+                {
+                    return "Unknown";
+                }
+
+                if (string.Equals(transaction.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Active";
+                }
+
+                if (IsRecoveryStatus(transaction.Status))
+                {
+                    return "NeedsRecovery";
+                }
+
+                if (IsRestoredStatus(transaction.Status))
+                {
+                    return "Restored";
+                }
+
+                return "Unknown";
+            }
+
+            bool pointerExists;
+            if (!TryGetGlobalTransactionPointerPresence(out pointerExists) || pointerExists)
+            {
+                return "Unknown";
+            }
+
+            string completedStatePath;
+            if (TryReadCompletedMarker(out completedStatePath))
+            {
+                return "Restored";
+            }
+
+            DateTime appliedUtc;
+            string pendingStatePathFromMarker;
+            if (TryReadPendingMarker(out pendingStatePathFromMarker, out appliedUtc))
+            {
+                return "Unknown";
+            }
+
+            return "None";
+        }
+
+        internal bool ShowManualRestore()
+        {
+            if (IsFlowVisible)
+            {
+                return false;
+            }
+
+            GlobalTransactionInfo transaction;
+            if (!TryReadGlobalTransaction(out transaction) ||
+                transaction.Version < 2 ||
+                !string.Equals(transaction.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            pendingStatePath = transaction.StatePath;
+            allowOwnerClose = false;
+            rollbackRequested = false;
+            ShowManualRestoreConfirmation();
+            return true;
         }
 
         public void ShowIfRequired()
@@ -271,6 +344,10 @@ namespace MajesticBoost
             else if (state == FlowState.RecoveryRequired)
             {
                 FocusPreferredButton();
+            }
+            else if (state == FlowState.ManualRestoreConfirmation)
+            {
+                CancelManualRestore();
             }
             else if (state == FlowState.Failure)
             {
@@ -674,6 +751,91 @@ namespace MajesticBoost
             Grid.SetRow(buttons, 2);
             cardContent.Children.Add(buttons);
             FocusPreferredButton();
+        }
+
+        private void ShowManualRestoreConfirmation()
+        {
+            state = FlowState.ManualRestoreConfirmation;
+            Visibility = Visibility.Visible;
+            cardContent.Children.Clear();
+            cardContent.RowDefinitions.Clear();
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(68) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            cardContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(50) });
+
+            var header = BuildHeader(
+                "ВОССТАНОВИТЬ WINDOWS",
+                "Будут возвращены только параметры, изменённые Majestic Boost.");
+            Grid.SetRow(header, 0);
+            cardContent.Children.Add(header);
+
+            var body = new StackPanel
+            {
+                Width = 306,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+
+            var title = MakeText(
+                "ОТКАТ СИСТЕМНОЙ ОПТИМИЗАЦИИ",
+                13.5,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold);
+            title.TextAlignment = TextAlignment.Center;
+            body.Children.Add(title);
+
+            var description = MakeText(
+                "Программа использует сохранённую резервную копию и не трогает параметры, которые с тех пор изменили другие приложения или вы сами.",
+                10.7,
+                MutedColor,
+                regularFont,
+                FontWeights.Normal);
+            description.TextAlignment = TextAlignment.Center;
+            description.Margin = new Thickness(0, 9, 0, 0);
+            body.Children.Add(description);
+
+            var notice = MakeText(
+                "Для восстановления Windows запросит права администратора.",
+                10,
+                MutedColor,
+                semiboldFont,
+                FontWeights.SemiBold);
+            notice.TextAlignment = TextAlignment.Center;
+            notice.Margin = new Thickness(0, 10, 0, 0);
+            body.Children.Add(notice);
+
+            Grid.SetRow(body, 1);
+            cardContent.Children.Add(body);
+
+            var buttons = BuildButtonRow();
+            var cancelButton = MakeActionButton("ОТМЕНА", false);
+            cancelButton.Width = 112;
+            cancelButton.Click += delegate { CancelManualRestore(); };
+            AutomationProperties.SetName(cancelButton, "Отменить ручное восстановление");
+            buttons.Children.Add(cancelButton);
+
+            var restoreButton = MakeActionButton("ВОССТАНОВИТЬ", true);
+            restoreButton.Width = 174;
+            restoreButton.Margin = new Thickness(10, 0, 0, 0);
+            restoreButton.IsDefault = true;
+            restoreButton.Click += delegate { BeginRestoreAndClose(); };
+            AutomationProperties.SetName(
+                restoreButton,
+                "Восстановить исходные настройки из активной резервной копии");
+            buttons.Children.Add(restoreButton);
+            preferredFocusButton = restoreButton;
+
+            Grid.SetRow(buttons, 2);
+            cardContent.Children.Add(buttons);
+            FocusPreferredButton();
+        }
+
+        private void CancelManualRestore()
+        {
+            pendingStatePath = null;
+            HideFlow();
         }
 
         private void RestartButtonClick(object sender, RoutedEventArgs e)
@@ -1424,6 +1586,38 @@ namespace MajesticBoost
                 string.Equals(status, "ApplyFailed", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(status, "RestoreIncomplete", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(status, "Restoring", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsRestoredStatus(string status)
+        {
+            return
+                string.Equals(status, "Restored", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "RestoredWithConflicts", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "AlreadyRestored", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "AbortedNoChanges", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "SupersededLegacy", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryGetGlobalTransactionPointerPresence(out bool exists)
+        {
+            exists = false;
+            try
+            {
+                string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                if (string.IsNullOrWhiteSpace(programData))
+                {
+                    return false;
+                }
+
+                string stateRoot = Path.GetFullPath(Path.Combine(programData, "CodexGamingOptimization"));
+                string pointerPath = Path.Combine(stateRoot, "latest-state.txt");
+                exists = File.Exists(pointerPath);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static bool TryReadJsonInteger(string json, string propertyName, out int value)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -7,6 +8,9 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
@@ -16,8 +20,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Installer for Majestic Boost")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.5.1.0")]
-[assembly: AssemblyFileVersion("1.5.1.0")]
+[assembly: AssemblyVersion("1.6.0.0")]
+[assembly: AssemblyFileVersion("1.6.0.0")]
 
 namespace MajesticBoostSetup
 {
@@ -154,7 +158,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.5.1";
+        public const string ProductVersion = "1.6.0";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);
@@ -162,12 +166,20 @@ namespace MajesticBoostSetup
         public static readonly string InstalledGameBoostScript = Path.Combine(InstallDirectory, "Game-Boost.ps1");
         public static readonly string InstalledMaxFpsApplyScript = Path.Combine(InstallDirectory, "MaxFPS-Apply.ps1");
         public static readonly string InstalledMaxFpsRestoreScript = Path.Combine(InstallDirectory, "MaxFPS-Restore.ps1");
+        public static readonly string PresentMonDirectory = Path.Combine(InstallDirectory, "Tools", "PresentMon");
+        public static readonly string InstalledPresentMon = Path.Combine(PresentMonDirectory, "PresentMon.exe");
+        public static readonly string InstalledPresentMonLicense = Path.Combine(PresentMonDirectory, "LICENSE.txt");
+        public static readonly string InstalledPresentMonThirdParty = Path.Combine(PresentMonDirectory, "THIRD_PARTY.txt");
         public static readonly string UninstallerExe = Path.Combine(InstallDirectory, "Uninstall.exe");
 
         private const string UninstallRegistryPath =
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MajesticBoost";
         private const string AppPathsRegistryPath =
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\MajesticBoost.exe";
+        private const AccessControlSections CaptureSecuritySections =
+            AccessControlSections.Access |
+            AccessControlSections.Owner |
+            AccessControlSections.Group;
 
         public static void Install(bool createDesktopShortcut, Action<int, string> progress = null)
         {
@@ -176,7 +188,12 @@ namespace MajesticBoostSetup
             Directory.CreateDirectory(InstallDirectory);
             ReportProgress(progress, 5, "Подготовка папки установки");
 
-            InstallPayloadsAtomically(progress);
+            InstallPayloadsAtomically(progress, delegate
+            {
+            PostInstallRegistrationSnapshot registrationSnapshot =
+                CapturePostInstallRegistration();
+            try
+            {
             ReportProgress(progress, 76, "Обновление компонентов удаления");
 
             string startMenuDirectory = Path.Combine(
@@ -230,6 +247,23 @@ namespace MajesticBoostSetup
                 appPath.SetValue("Path", InstallDirectory, RegistryValueKind.String);
             }
             ReportProgress(progress, 100, "Обновление установлено");
+            }
+            catch (Exception registrationException)
+            {
+                try
+                {
+                    RestorePostInstallRegistration(registrationSnapshot);
+                }
+                catch (Exception compensationException)
+                {
+                    throw new AggregateException(
+                        "Installation registration failed and its previous state could not be restored completely.",
+                        registrationException,
+                        compensationException);
+                }
+                throw;
+            }
+            });
         }
 
         public static bool GetDesktopShortcutPreference()
@@ -355,6 +389,7 @@ namespace MajesticBoostSetup
                 {
                     Directory.Delete(localData, true);
                 }
+                TryPruneProtectedCaptureFiles(true);
 
                 if (!quiet)
                 {
@@ -401,151 +436,794 @@ namespace MajesticBoostSetup
             }
         }
 
-        private static void InstallPayloadsAtomically(Action<int, string> progress = null)
+        private sealed class ShortcutSnapshot
+        {
+            public string Path;
+            public bool Existed;
+            public byte[] Contents;
+            public FileAttributes Attributes;
+            public DateTime LastWriteTimeUtc;
+        }
+
+        private sealed class RegistryKeySnapshot
+        {
+            public string Name;
+            public bool Existed;
+            public readonly List<RegistryValueSnapshot> Values =
+                new List<RegistryValueSnapshot>();
+            public readonly List<RegistryKeySnapshot> Children =
+                new List<RegistryKeySnapshot>();
+        }
+
+        private sealed class RegistryValueSnapshot
+        {
+            public string Name;
+            public object Value;
+            public RegistryValueKind Kind;
+        }
+
+        private sealed class PostInstallRegistrationSnapshot
+        {
+            public ShortcutSnapshot StartMenuShortcut;
+            public ShortcutSnapshot DesktopShortcut;
+            public bool StartMenuDirectoryExisted;
+            public RegistryKeySnapshot UninstallKey;
+            public RegistryKeySnapshot AppPathsKey;
+        }
+
+        private static PostInstallRegistrationSnapshot CapturePostInstallRegistration()
+        {
+            string startMenuDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
+                ProductName);
+            string desktopShortcut = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                ProductName + ".lnk");
+            var snapshot = new PostInstallRegistrationSnapshot
+            {
+                StartMenuShortcut = CaptureShortcut(Path.Combine(
+                    startMenuDirectory,
+                    ProductName + ".lnk")),
+                DesktopShortcut = CaptureShortcut(desktopShortcut),
+                StartMenuDirectoryExisted = Directory.Exists(startMenuDirectory)
+            };
+
+            using (RegistryKey baseKey = RegistryKey.OpenBaseKey(
+                RegistryHive.LocalMachine,
+                RegistryView.Registry64))
+            {
+                snapshot.UninstallKey = CaptureRegistryKey(baseKey, UninstallRegistryPath);
+                snapshot.AppPathsKey = CaptureRegistryKey(baseKey, AppPathsRegistryPath);
+            }
+            return snapshot;
+        }
+
+        private static ShortcutSnapshot CaptureShortcut(string path)
+        {
+            var snapshot = new ShortcutSnapshot
+            {
+                Path = path,
+                Existed = File.Exists(path)
+            };
+            if (snapshot.Existed)
+            {
+                snapshot.Contents = File.ReadAllBytes(path);
+                snapshot.Attributes = File.GetAttributes(path);
+                snapshot.LastWriteTimeUtc = File.GetLastWriteTimeUtc(path);
+            }
+            return snapshot;
+        }
+
+        private static RegistryKeySnapshot CaptureRegistryKey(RegistryKey parent, string path)
+        {
+            RegistryKey key = parent.OpenSubKey(path, false);
+            if (key == null)
+            {
+                return new RegistryKeySnapshot { Name = path, Existed = false };
+            }
+            using (key)
+            {
+                RegistryKeySnapshot snapshot = CaptureRegistryTree(key, path);
+                snapshot.Existed = true;
+                return snapshot;
+            }
+        }
+
+        private static RegistryKeySnapshot CaptureRegistryTree(RegistryKey key, string name)
+        {
+            var snapshot = new RegistryKeySnapshot { Name = name, Existed = true };
+            foreach (string valueName in key.GetValueNames())
+            {
+                snapshot.Values.Add(new RegistryValueSnapshot
+                {
+                    Name = valueName,
+                    Value = key.GetValue(
+                        valueName,
+                        null,
+                        RegistryValueOptions.DoNotExpandEnvironmentNames),
+                    Kind = key.GetValueKind(valueName)
+                });
+            }
+            foreach (string childName in key.GetSubKeyNames())
+            {
+                using (RegistryKey child = key.OpenSubKey(childName, false))
+                {
+                    if (child == null)
+                    {
+                        throw new IOException(
+                            "An installation registry key changed while it was being backed up.");
+                    }
+                    snapshot.Children.Add(CaptureRegistryTree(child, childName));
+                }
+            }
+            return snapshot;
+        }
+
+        private static void RestorePostInstallRegistration(
+            PostInstallRegistrationSnapshot snapshot)
+        {
+            var failures = new List<Exception>();
+            using (RegistryKey baseKey = RegistryKey.OpenBaseKey(
+                RegistryHive.LocalMachine,
+                RegistryView.Registry64))
+            {
+                TryCompensation(
+                    delegate { RestoreRegistryKey(baseKey, snapshot.AppPathsKey); },
+                    failures);
+                TryCompensation(
+                    delegate { RestoreRegistryKey(baseKey, snapshot.UninstallKey); },
+                    failures);
+            }
+            TryCompensation(
+                delegate { RestoreShortcut(snapshot.DesktopShortcut); },
+                failures);
+            TryCompensation(
+                delegate { RestoreShortcut(snapshot.StartMenuShortcut); },
+                failures);
+
+            if (!snapshot.StartMenuDirectoryExisted)
+            {
+                TryDeleteEmptyDirectory(Path.GetDirectoryName(
+                    snapshot.StartMenuShortcut.Path));
+            }
+            if (failures.Count != 0)
+            {
+                throw new AggregateException(
+                    "One or more installation registration items could not be restored.",
+                    failures);
+            }
+        }
+
+        private static void TryCompensation(Action action, List<Exception> failures)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception exception)
+            {
+                failures.Add(exception);
+            }
+        }
+
+        private static void RestoreShortcut(ShortcutSnapshot snapshot)
+        {
+            if (!snapshot.Existed)
+            {
+                DeleteIfExists(snapshot.Path);
+                return;
+            }
+
+            string directory = Path.GetDirectoryName(snapshot.Path);
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            if (File.Exists(snapshot.Path))
+            {
+                File.SetAttributes(snapshot.Path, FileAttributes.Normal);
+            }
+            File.WriteAllBytes(snapshot.Path, snapshot.Contents);
+            File.SetLastWriteTimeUtc(snapshot.Path, snapshot.LastWriteTimeUtc);
+            File.SetAttributes(snapshot.Path, snapshot.Attributes);
+        }
+
+        private static void RestoreRegistryKey(
+            RegistryKey baseKey,
+            RegistryKeySnapshot snapshot)
+        {
+            baseKey.DeleteSubKeyTree(snapshot.Name, false);
+            if (!snapshot.Existed)
+            {
+                return;
+            }
+
+            using (RegistryKey key = baseKey.CreateSubKey(snapshot.Name))
+            {
+                if (key == null)
+                {
+                    throw new IOException(
+                        "The previous installation registry key could not be recreated.");
+                }
+                RestoreRegistryTree(key, snapshot);
+            }
+        }
+
+        private static void RestoreRegistryTree(
+            RegistryKey key,
+            RegistryKeySnapshot snapshot)
+        {
+            foreach (RegistryValueSnapshot value in snapshot.Values)
+            {
+                key.SetValue(value.Name, value.Value, value.Kind);
+            }
+            foreach (RegistryKeySnapshot childSnapshot in snapshot.Children)
+            {
+                using (RegistryKey child = key.CreateSubKey(childSnapshot.Name))
+                {
+                    if (child == null)
+                    {
+                        throw new IOException(
+                            "A previous installation registry subkey could not be recreated.");
+                    }
+                    RestoreRegistryTree(child, childSnapshot);
+                }
+            }
+        }
+
+        private sealed class PayloadTransactionItem
+        {
+            public string ResourceName;
+            public string StagePath;
+            public string DestinationPath;
+            public string BackupPath;
+            public string ProgressText;
+            public bool CopyInstaller;
+            public bool Executable;
+            public bool PresentMon;
+            public bool DestinationExisted;
+            public bool Committed;
+            public bool Restored = true;
+        }
+
+        private sealed class CaptureDirectoryTransaction
+        {
+            public string CommonDataDirectory;
+            public string ProductDirectory;
+            public string CaptureDirectory;
+            public bool ProductExisted;
+            public bool CaptureExisted;
+            public string ProductSecuritySddl;
+            public string CaptureSecuritySddl;
+            public bool ProductTouched;
+            public bool CaptureTouched;
+            public bool Restored = true;
+        }
+
+        private static void InstallPayloadsAtomically(Action<int, string> progress, Action registerInstallation)
         {
             string token = Guid.NewGuid().ToString("N");
-            string appStage = Path.Combine(InstallDirectory, ".MajesticBoost-" + token + ".stage");
-            string gameBoostStage = Path.Combine(InstallDirectory, ".Game-Boost-" + token + ".stage");
-            string maxFpsApplyStage = Path.Combine(InstallDirectory, ".MaxFPS-Apply-" + token + ".stage");
-            string maxFpsRestoreStage = Path.Combine(InstallDirectory, ".MaxFPS-Restore-" + token + ".stage");
-            string uninstallerStage = Path.Combine(InstallDirectory, ".Uninstall-" + token + ".stage");
-            string appBackup = Path.Combine(InstallDirectory, ".MajesticBoost-" + token + ".backup");
-            string gameBoostBackup = Path.Combine(InstallDirectory, ".Game-Boost-" + token + ".backup");
-            string maxFpsApplyBackup = Path.Combine(InstallDirectory, ".MaxFPS-Apply-" + token + ".backup");
-            string maxFpsRestoreBackup = Path.Combine(InstallDirectory, ".MaxFPS-Restore-" + token + ".backup");
-            string uninstallerBackup = Path.Combine(InstallDirectory, ".Uninstall-" + token + ".backup");
-            bool appExisted = File.Exists(InstalledExe);
-            bool gameBoostExisted = File.Exists(InstalledGameBoostScript);
-            bool maxFpsApplyExisted = File.Exists(InstalledMaxFpsApplyScript);
-            bool maxFpsRestoreExisted = File.Exists(InstalledMaxFpsRestoreScript);
-            bool uninstallerExisted = File.Exists(UninstallerExe);
-            bool appCommitted = false;
-            bool gameBoostCommitted = false;
-            bool maxFpsApplyCommitted = false;
-            bool maxFpsRestoreCommitted = false;
-            bool uninstallerCommitted = false;
-            bool appRestored = true;
-            bool gameBoostRestored = true;
-            bool maxFpsApplyRestored = true;
-            bool maxFpsRestoreRestored = true;
-            bool uninstallerRestored = true;
+            var items = new List<PayloadTransactionItem>
+            {
+                CreatePayloadItem(token, "Game-Boost", "MajesticBoost.GameBoost.ps1", InstalledGameBoostScript, "игровых настроек", false, false),
+                CreatePayloadItem(token, "MaxFPS-Apply", "MajesticBoost.MaxFPSApply.ps1", InstalledMaxFpsApplyScript, "профиля производительности", false, false),
+                CreatePayloadItem(token, "MaxFPS-Restore", "MajesticBoost.MaxFPSRestore.ps1", InstalledMaxFpsRestoreScript, "компонентов восстановления", false, false),
+                CreatePayloadItem(token, "PresentMon-License", "MajesticBoost.PresentMon.License.txt", InstalledPresentMonLicense, "лицензии измерителя FPS", false, false),
+                CreatePayloadItem(token, "PresentMon-ThirdParty", "MajesticBoost.PresentMon.ThirdParty.txt", InstalledPresentMonThirdParty, "уведомлений сторонних компонентов", false, false),
+                CreatePayloadItem(token, "PresentMon", "MajesticBoost.PresentMon.exe", InstalledPresentMon, "измерителя FPS", false, true),
+                CreatePayloadItem(token, "Uninstall", null, UninstallerExe, "компонентов удаления", true, false),
+                CreatePayloadItem(token, "MajesticBoost", "MajesticBoost.Payload.exe", InstalledExe, "файлов программы", true, false)
+            };
+            items[6].CopyInstaller = true;
             bool installationSucceeded = false;
+            CaptureDirectoryTransaction captureDirectories = null;
 
             try
             {
-                ReportProgress(progress, 12, "Распаковка файлов программы");
-                ExtractResource("MajesticBoost.Payload.exe", appStage);
-                ReportProgress(progress, 17, "Распаковка игровых настроек");
-                ExtractResource("MajesticBoost.GameBoost.ps1", gameBoostStage);
-                ReportProgress(progress, 21, "Распаковка профиля производительности");
-                ExtractResource("MajesticBoost.MaxFPSApply.ps1", maxFpsApplyStage);
-                ReportProgress(progress, 25, "Распаковка компонентов восстановления");
-                ExtractResource("MajesticBoost.MaxFPSRestore.ps1", maxFpsRestoreStage);
-                File.Copy(Application.ExecutablePath, uninstallerStage, false);
+                for (int index = 0; index < items.Count; index++)
+                {
+                    PayloadTransactionItem item = items[index];
+                    ReportProgress(
+                        progress,
+                        10 + index * 2,
+                        "Распаковка " + item.ProgressText);
+                    if (item.CopyInstaller)
+                    {
+                        File.Copy(Application.ExecutablePath, item.StagePath, false);
+                    }
+                    else
+                    {
+                        ExtractResource(item.ResourceName, item.StagePath);
+                    }
+                }
 
-                // Do not alter the existing installation until every payload is ready.
-                ReportProgress(progress, 30, "Проверка файлов программы");
-                ValidateStagedPayload(appStage, true);
-                ReportProgress(progress, 35, "Проверка игровых настроек");
-                ValidateStagedPayload(gameBoostStage, false);
-                ReportProgress(progress, 40, "Проверка профиля производительности");
-                ValidateStagedPayload(maxFpsApplyStage, false);
-                ReportProgress(progress, 44, "Проверка компонентов восстановления");
-                ValidateStagedPayload(maxFpsRestoreStage, false);
-                ReportProgress(progress, 45, "Проверка компонентов удаления");
-                ValidateStagedPayload(uninstallerStage, true);
+                // No installed file is touched until every embedded payload exists
+                // and passes its own integrity validation.
+                for (int index = 0; index < items.Count; index++)
+                {
+                    PayloadTransactionItem item = items[index];
+                    ReportProgress(
+                        progress,
+                        28 + index * 2,
+                        "Проверка " + item.ProgressText);
+                    ValidateStagedPayload(item.StagePath, item.Executable);
+                    if (item.PresentMon)
+                    {
+                        ValidatePresentMonPayload(item.StagePath);
+                    }
+                }
 
-                // Keep the currently installed version usable until every embedded
-                // payload has been extracted and validated successfully.
                 StopInstalledApplication();
-                ReportProgress(progress, 46, "Остановка запущенной версии");
+                ReportProgress(progress, 45, "Остановка запущенной версии");
+                captureDirectories = PrepareCaptureDirectoryTransaction();
+                ApplyCaptureDirectoryTransaction(captureDirectories);
+                ReportProgress(progress, 47, "Защита папки измерений");
 
-                // Publish dependency scripts first and the application itself last.
-                ReportProgress(progress, 49, "Установка игровых настроек");
-                CommitStagedFile(gameBoostStage, InstalledGameBoostScript, gameBoostBackup, gameBoostExisted);
-                gameBoostCommitted = true;
-                ReportProgress(progress, 55, "Установка профиля производительности");
-                CommitStagedFile(maxFpsApplyStage, InstalledMaxFpsApplyScript, maxFpsApplyBackup, maxFpsApplyExisted);
-                maxFpsApplyCommitted = true;
-                ReportProgress(progress, 61, "Установка компонентов восстановления");
-                CommitStagedFile(maxFpsRestoreStage, InstalledMaxFpsRestoreScript, maxFpsRestoreBackup, maxFpsRestoreExisted);
-                maxFpsRestoreCommitted = true;
-                ReportProgress(progress, 65, "Установка компонентов удаления");
-                CommitStagedFile(uninstallerStage, UninstallerExe, uninstallerBackup, uninstallerExisted);
-                uninstallerCommitted = true;
-                ReportProgress(progress, 68, "Установка новой версии программы");
-                CommitStagedFile(appStage, InstalledExe, appBackup, appExisted);
-                appCommitted = true;
+                // Dependencies are published first; the main application remains
+                // the final commit marker for the transaction.
+                for (int index = 0; index < items.Count; index++)
+                {
+                    PayloadTransactionItem item = items[index];
+                    string directory = Path.GetDirectoryName(item.DestinationPath);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    ReportProgress(
+                        progress,
+                        48 + index * 3,
+                        "Установка " + item.ProgressText);
+                    CommitStagedFile(
+                        item.StagePath,
+                        item.DestinationPath,
+                        item.BackupPath,
+                        item.DestinationExisted);
+                    item.Committed = true;
+                }
+                if (registerInstallation != null)
+                {
+                    registerInstallation();
+                }
                 installationSucceeded = true;
                 ReportProgress(progress, 72, "Файлы программы обновлены");
             }
             catch
             {
-                // Roll back in the exact reverse order of the commits above.
-                if (appCommitted)
+                for (int index = items.Count - 1; index >= 0; index--)
                 {
-                    appRestored = RestoreCommittedFile(InstalledExe, appBackup, appExisted);
+                    PayloadTransactionItem item = items[index];
+                    if (item.Committed)
+                    {
+                        item.Restored = RestoreCommittedFile(
+                            item.DestinationPath,
+                            item.BackupPath,
+                            item.DestinationExisted);
+                    }
                 }
-                if (uninstallerCommitted)
+                if (captureDirectories != null)
                 {
-                    uninstallerRestored = RestoreCommittedFile(
-                        UninstallerExe,
-                        uninstallerBackup,
-                        uninstallerExisted);
-                }
-                if (maxFpsRestoreCommitted)
-                {
-                    maxFpsRestoreRestored = RestoreCommittedFile(
-                        InstalledMaxFpsRestoreScript,
-                        maxFpsRestoreBackup,
-                        maxFpsRestoreExisted);
-                }
-                if (maxFpsApplyCommitted)
-                {
-                    maxFpsApplyRestored = RestoreCommittedFile(
-                        InstalledMaxFpsApplyScript,
-                        maxFpsApplyBackup,
-                        maxFpsApplyExisted);
-                }
-                if (gameBoostCommitted)
-                {
-                    gameBoostRestored = RestoreCommittedFile(
-                        InstalledGameBoostScript,
-                        gameBoostBackup,
-                        gameBoostExisted);
+                    captureDirectories.Restored =
+                        RollbackCaptureDirectoryTransaction(captureDirectories);
                 }
                 throw;
             }
             finally
             {
-                TryDeleteIfExists(appStage);
-                TryDeleteIfExists(gameBoostStage);
-                TryDeleteIfExists(maxFpsApplyStage);
-                TryDeleteIfExists(maxFpsRestoreStage);
-                TryDeleteIfExists(uninstallerStage);
-
-                // Preserve a backup whenever restoring that payload failed.
-                if (installationSucceeded || !appCommitted || appRestored)
+                foreach (PayloadTransactionItem item in items)
                 {
-                    TryDeleteIfExists(appBackup);
+                    TryDeleteIfExists(item.StagePath);
+                    if (installationSucceeded || !item.Committed || item.Restored)
+                    {
+                        TryDeleteIfExists(item.BackupPath);
+                    }
                 }
-                if (installationSucceeded || !maxFpsRestoreCommitted || maxFpsRestoreRestored)
+                if (!installationSucceeded)
                 {
-                    TryDeleteIfExists(maxFpsRestoreBackup);
-                }
-                if (installationSucceeded || !uninstallerCommitted || uninstallerRestored)
-                {
-                    TryDeleteIfExists(uninstallerBackup);
-                }
-                if (installationSucceeded || !maxFpsApplyCommitted || maxFpsApplyRestored)
-                {
-                    TryDeleteIfExists(maxFpsApplyBackup);
-                }
-                if (installationSucceeded || !gameBoostCommitted || gameBoostRestored)
-                {
-                    TryDeleteIfExists(gameBoostBackup);
+                    TryDeleteEmptyDirectory(PresentMonDirectory);
+                    TryDeleteEmptyDirectory(Path.GetDirectoryName(PresentMonDirectory));
                 }
             }
+        }
+
+        private static CaptureDirectoryTransaction PrepareCaptureDirectoryTransaction()
+        {
+            string commonDataDirectory;
+            string productDirectory;
+            string captureDirectory;
+            ResolveProtectedCapturePaths(
+                out commonDataDirectory,
+                out productDirectory,
+                out captureDirectory);
+
+            ValidateCaptureDirectory(commonDataDirectory, true, "ProgramData");
+            ValidateCaptureDirectory(productDirectory, false, "MajesticBoost");
+            ValidateCaptureDirectory(captureDirectory, false, "Captures");
+
+            bool productExisted = Directory.Exists(productDirectory);
+            bool captureExisted = Directory.Exists(captureDirectory);
+            if (!productExisted && captureExisted)
+            {
+                throw new IOException(
+                    "The capture directory exists without its protected product parent.");
+            }
+
+            return new CaptureDirectoryTransaction
+            {
+                CommonDataDirectory = commonDataDirectory,
+                ProductDirectory = productDirectory,
+                CaptureDirectory = captureDirectory,
+                ProductExisted = productExisted,
+                CaptureExisted = captureExisted,
+                ProductSecuritySddl = productExisted
+                    ? CaptureDirectorySecuritySddl(productDirectory)
+                    : null,
+                CaptureSecuritySddl = captureExisted
+                    ? CaptureDirectorySecuritySddl(captureDirectory)
+                    : null
+            };
+        }
+
+        private static void ApplyCaptureDirectoryTransaction(
+            CaptureDirectoryTransaction transaction)
+        {
+            if (transaction == null)
+            {
+                throw new ArgumentNullException("transaction");
+            }
+
+            EnsureCaptureDirectoryState(
+                transaction.ProductDirectory,
+                transaction.ProductExisted,
+                "MajesticBoost");
+            transaction.ProductTouched = true;
+            ApplySecureCaptureDirectory(
+                transaction.ProductDirectory,
+                transaction.ProductExisted,
+                false);
+
+            // The protected parent is tightened before the child is touched, so
+            // an unelevated user cannot swap the Captures directory underneath
+            // the elevated installer.
+            EnsureCaptureDirectoryState(
+                transaction.CaptureDirectory,
+                transaction.CaptureExisted,
+                "Captures");
+            transaction.CaptureTouched = true;
+            ApplySecureCaptureDirectory(
+                transaction.CaptureDirectory,
+                transaction.CaptureExisted,
+                true);
+        }
+
+        private static DirectorySecurity CreateCaptureDirectorySecurity(
+            bool allowInheritedFileCleanup)
+        {
+            var security = new DirectorySecurity();
+            security.SetAccessRuleProtection(true, false);
+
+            var administrators = new SecurityIdentifier(
+                WellKnownSidType.BuiltinAdministratorsSid,
+                null);
+            var system = new SecurityIdentifier(
+                WellKnownSidType.LocalSystemSid,
+                null);
+            var authenticatedUsers = new SecurityIdentifier(
+                WellKnownSidType.AuthenticatedUserSid,
+                null);
+            security.SetOwner(administrators);
+            security.SetGroup(administrators);
+
+            const InheritanceFlags inheritance =
+                InheritanceFlags.ContainerInherit |
+                InheritanceFlags.ObjectInherit;
+            security.AddAccessRule(new FileSystemAccessRule(
+                system,
+                FileSystemRights.FullControl,
+                inheritance,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            security.AddAccessRule(new FileSystemAccessRule(
+                administrators,
+                FileSystemRights.FullControl,
+                inheritance,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            security.AddAccessRule(new FileSystemAccessRule(
+                authenticatedUsers,
+                FileSystemRights.ReadAndExecute,
+                inheritance,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            if (allowInheritedFileCleanup)
+            {
+                // Standard users still cannot create or modify entries in the
+                // Captures directory. This object-only inherited right lets the
+                // originating user delete the admin-created CSV after copying it
+                // down from an over-the-shoulder UAC capture.
+                security.AddAccessRule(new FileSystemAccessRule(
+                    authenticatedUsers,
+                    FileSystemRights.Delete,
+                    InheritanceFlags.ObjectInherit,
+                    PropagationFlags.InheritOnly,
+                    AccessControlType.Allow));
+            }
+            return security;
+        }
+
+        private static void ApplySecureCaptureDirectory(
+            string path,
+            bool existed,
+            bool allowInheritedFileCleanup)
+        {
+            DirectorySecurity security = CreateCaptureDirectorySecurity(
+                allowInheritedFileCleanup);
+            if (!existed)
+            {
+                Directory.CreateDirectory(path, security);
+            }
+            ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+            Directory.SetAccessControl(path, security);
+            ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+        }
+
+        private static bool RollbackCaptureDirectoryTransaction(
+            CaptureDirectoryTransaction transaction)
+        {
+            bool captureRestored = true;
+            if (transaction.CaptureTouched && !transaction.CaptureExisted)
+            {
+                captureRestored =
+                    TryDeleteCreatedCaptureDirectory(transaction.CaptureDirectory);
+            }
+
+            bool productRestored = true;
+            if (transaction.ProductTouched)
+            {
+                productRestored = transaction.ProductExisted
+                    ? TryRestoreCaptureDirectorySecurity(
+                        transaction.ProductDirectory,
+                        transaction.ProductSecuritySddl)
+                    : TryDeleteCreatedCaptureDirectory(transaction.ProductDirectory);
+            }
+
+            // Restore the child only after the original parent ACL is back.
+            // If restoring the parent failed, keeping the child protected is
+            // safer than restoring a possibly user-writable previous child ACL.
+            if (transaction.CaptureTouched && transaction.CaptureExisted)
+            {
+                captureRestored = productRestored &&
+                    TryRestoreCaptureDirectorySecurity(
+                        transaction.CaptureDirectory,
+                        transaction.CaptureSecuritySddl);
+            }
+            return productRestored && captureRestored;
+        }
+
+        private static bool TryRestoreCaptureDirectorySecurity(
+            string path,
+            string securitySddl)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(securitySddl))
+                {
+                    return false;
+                }
+                ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+                var security = new DirectorySecurity();
+                security.SetSecurityDescriptorSddlForm(
+                    securitySddl,
+                    CaptureSecuritySections);
+                Directory.SetAccessControl(path, security);
+                ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryDeleteCreatedCaptureDirectory(string path)
+        {
+            try
+            {
+                if (!Directory.Exists(path))
+                {
+                    return !File.Exists(path);
+                }
+                ValidateCaptureDirectory(path, true, Path.GetFileName(path));
+                if (Directory.GetFileSystemEntries(path).Length != 0)
+                {
+                    return false;
+                }
+                Directory.Delete(path, false);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string CaptureDirectorySecuritySddl(string path)
+        {
+            DirectorySecurity security = Directory.GetAccessControl(
+                path,
+                CaptureSecuritySections);
+            return security.GetSecurityDescriptorSddlForm(CaptureSecuritySections);
+        }
+
+        private static void EnsureCaptureDirectoryState(
+            string path,
+            bool expectedToExist,
+            string name)
+        {
+            bool exists = Directory.Exists(path);
+            if (exists != expectedToExist ||
+                (!exists && File.Exists(path)))
+            {
+                throw new IOException(
+                    "The protected " + name +
+                    " directory changed during installation.");
+            }
+            ValidateCaptureDirectory(path, expectedToExist, name);
+        }
+
+        private static void ResolveProtectedCapturePaths(
+            out string commonDataDirectory,
+            out string productDirectory,
+            out string captureDirectory)
+        {
+            string commonData = Environment.GetFolderPath(
+                Environment.SpecialFolder.CommonApplicationData);
+            if (string.IsNullOrWhiteSpace(commonData))
+            {
+                throw new DirectoryNotFoundException(
+                    "The system ProgramData directory is unavailable.");
+            }
+
+            commonDataDirectory = Path.GetFullPath(commonData);
+            productDirectory = Path.GetFullPath(Path.Combine(
+                commonDataDirectory,
+                "MajesticBoost"));
+            captureDirectory = Path.GetFullPath(Path.Combine(
+                productDirectory,
+                "Captures"));
+            if (!IsStrictChildPath(commonDataDirectory, productDirectory) ||
+                !IsStrictChildPath(productDirectory, captureDirectory))
+            {
+                throw new IOException(
+                    "The protected capture directory resolved outside ProgramData.");
+            }
+        }
+
+        private static bool IsStrictChildPath(string parentPath, string childPath)
+        {
+            string prefix = parentPath.TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            return childPath.Length > prefix.Length &&
+                   childPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void ValidateCaptureDirectory(
+            string path,
+            bool required,
+            string name)
+        {
+            if (!Directory.Exists(path))
+            {
+                if (File.Exists(path))
+                {
+                    throw new IOException(
+                        "A file occupies the protected " + name + " directory path.");
+                }
+                if (required)
+                {
+                    throw new DirectoryNotFoundException(
+                        "The protected " + name + " directory is unavailable.");
+                }
+                return;
+            }
+
+            FileAttributes attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException(
+                    "The protected " + name + " directory cannot be a reparse point.");
+            }
+        }
+
+        private static void TryPruneProtectedCaptureFiles(bool removeDirectories)
+        {
+            try
+            {
+                string commonDataDirectory;
+                string productDirectory;
+                string captureDirectory;
+                ResolveProtectedCapturePaths(
+                    out commonDataDirectory,
+                    out productDirectory,
+                    out captureDirectory);
+                ValidateCaptureDirectory(commonDataDirectory, true, "ProgramData");
+                ValidateCaptureDirectory(productDirectory, false, "MajesticBoost");
+                ValidateCaptureDirectory(captureDirectory, false, "Captures");
+                if (!Directory.Exists(captureDirectory))
+                {
+                    return;
+                }
+
+                string capturePrefix = captureDirectory.TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                foreach (string candidate in Directory.GetFiles(
+                    captureDirectory,
+                    "MajesticBoost-PresentMon-*.csv",
+                    SearchOption.TopDirectoryOnly))
+                {
+                    try
+                    {
+                        string fullPath = Path.GetFullPath(candidate);
+                        string fileName = Path.GetFileName(fullPath);
+                        if (!fullPath.StartsWith(
+                                capturePrefix,
+                                StringComparison.OrdinalIgnoreCase) ||
+                            !Regex.IsMatch(
+                                fileName,
+                                @"^MajesticBoost-PresentMon-[0-9a-f]{32}\.csv$",
+                                RegexOptions.IgnoreCase |
+                                RegexOptions.CultureInvariant) ||
+                            (File.GetAttributes(fullPath) &
+                             FileAttributes.ReparsePoint) != 0)
+                        {
+                            continue;
+                        }
+                        File.Delete(fullPath);
+                    }
+                    catch
+                    {
+                        // Continue pruning other exact capture artifacts.
+                    }
+                }
+
+                if (removeDirectories)
+                {
+                    TryDeleteCreatedCaptureDirectory(captureDirectory);
+                    TryDeleteCreatedCaptureDirectory(productDirectory);
+                }
+            }
+            catch
+            {
+                // Capture staging is temporary; an unsafe or busy path is left
+                // untouched rather than making uninstall destructive.
+            }
+        }
+
+        private static PayloadTransactionItem CreatePayloadItem(
+            string token,
+            string stageName,
+            string resourceName,
+            string destination,
+            string progressText,
+            bool executable,
+            bool presentMon)
+        {
+            return new PayloadTransactionItem
+            {
+                ResourceName = resourceName,
+                StagePath = Path.Combine(
+                    InstallDirectory,
+                    "." + stageName + "-" + token + ".stage"),
+                DestinationPath = destination,
+                BackupPath = Path.Combine(
+                    InstallDirectory,
+                    "." + stageName + "-" + token + ".backup"),
+                ProgressText = progressText,
+                Executable = executable,
+                PresentMon = presentMon,
+                DestinationExisted = File.Exists(destination)
+            };
         }
 
         private static void EnsureInstallIsNotDowngrade()
@@ -604,6 +1282,38 @@ namespace MajesticBoostSetup
                 payloadVersion != expectedVersion)
             {
                 throw new InvalidDataException("Встроенный исполняемый файл имеет неверную версию или имя продукта.");
+            }
+        }
+
+        private static void ValidatePresentMonPayload(string path)
+        {
+            const long expectedLength = 956768;
+            const string expectedSha256 =
+                "9bec3083069f58f911e6a512f4806db51a27bd096103087bc1d05ef54c80a191";
+            var file = new FileInfo(path);
+            if (!file.Exists || file.Length != expectedLength)
+            {
+                throw new InvalidDataException("Встроенный измеритель FPS имеет неверный размер.");
+            }
+
+            string actualHash;
+            using (var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                if (input.ReadByte() != 'M' || input.ReadByte() != 'Z')
+                {
+                    throw new InvalidDataException("Встроенный измеритель FPS повреждён.");
+                }
+                input.Position = 0;
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    actualHash = BitConverter.ToString(sha256.ComputeHash(input))
+                        .Replace("-", string.Empty)
+                        .ToLowerInvariant();
+                }
+            }
+            if (!string.Equals(actualHash, expectedSha256, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Не совпадает контрольная сумма измерителя FPS.");
             }
         }
 
@@ -776,6 +1486,9 @@ namespace MajesticBoostSetup
                 InstalledGameBoostScript,
                 InstalledMaxFpsApplyScript,
                 InstalledMaxFpsRestoreScript,
+                InstalledPresentMon,
+                InstalledPresentMonLicense,
+                InstalledPresentMonThirdParty,
                 UninstallerExe
             })
             {
@@ -827,6 +1540,23 @@ namespace MajesticBoostSetup
             {
                 // Cleanup must not turn a successful commit or the original
                 // installation error into a different failure.
+            }
+        }
+
+        private static void TryDeleteEmptyDirectory(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) &&
+                    Directory.Exists(path) &&
+                    Directory.GetFileSystemEntries(path).Length == 0)
+                {
+                    Directory.Delete(path, false);
+                }
+            }
+            catch
+            {
+                // A harmless empty directory can be removed by a later install.
             }
         }
     }

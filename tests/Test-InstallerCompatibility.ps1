@@ -12,7 +12,7 @@ if ($PSVersionTable.PSEdition -cne 'Desktop' -or $PSVersionTable.PSVersion.Major
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if (-not $InstallerPath) {
-    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.5.1.exe'
+    $InstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-1.6.0.exe'
 }
 if (-not $LatestInstallerPath) {
     $LatestInstallerPath = Join-Path $projectRoot 'dist\MajesticBoost-Setup-Latest.exe'
@@ -27,8 +27,8 @@ if ($installerHash -cne $latestHash) {
 }
 
 $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($InstallerPath)
-if ($versionInfo.ProductName -cne 'Majestic Boost' -or $versionInfo.FileVersion -cne '1.5.1.0') {
-    throw 'Installer product metadata does not match release 1.5.1.'
+if ($versionInfo.ProductName -cne 'Majestic Boost' -or $versionInfo.FileVersion -cne '1.6.0.0') {
+    throw 'Installer product metadata does not match release 1.6.0.'
 }
 
 $assembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($InstallerPath))
@@ -56,11 +56,11 @@ function Test-DowngradeDecision {
     }
 }
 
-Test-DowngradeDecision -Installed '1.4.1.0' -Setup '1.5.1.0' -Expected $false
-Test-DowngradeDecision -Installed '1.5.1.0' -Setup '1.5.1.0' -Expected $false
-Test-DowngradeDecision -Installed '1.5.2.0' -Setup '1.5.1.0' -Expected $true
-Test-DowngradeDecision -Installed '2.0.0.0' -Setup '1.5.1.0' -Expected $true
-Test-DowngradeDecision -Installed 'invalid' -Setup '1.5.1.0' -Expected $false
+Test-DowngradeDecision -Installed '1.5.1.0' -Setup '1.6.0.0' -Expected $false
+Test-DowngradeDecision -Installed '1.6.0.0' -Setup '1.6.0.0' -Expected $false
+Test-DowngradeDecision -Installed '1.6.1.0' -Setup '1.6.0.0' -Expected $true
+Test-DowngradeDecision -Installed '2.0.0.0' -Setup '1.6.0.0' -Expected $true
+Test-DowngradeDecision -Installed 'invalid' -Setup '1.6.0.0' -Expected $false
 
 $payloadStream = $assembly.GetManifestResourceStream('MajesticBoost.Payload.exe')
 if (-not $payloadStream) {
@@ -71,8 +71,8 @@ try {
     try {
         $payloadStream.CopyTo($memory)
         $payloadAssembly = [Reflection.Assembly]::Load($memory.ToArray())
-        if ($payloadAssembly.GetName().Version.ToString() -cne '1.5.1.0') {
-            throw 'Embedded application version does not match installer version 1.5.1.'
+        if ($payloadAssembly.GetName().Version.ToString() -cne '1.6.0.0') {
+            throw 'Embedded application version does not match installer version 1.6.0.'
         }
     }
     finally {
@@ -83,23 +83,81 @@ finally {
     $payloadStream.Dispose()
 }
 
+$presentMonStream = $assembly.GetManifestResourceStream('MajesticBoost.PresentMon.exe')
+if (-not $presentMonStream) {
+    throw 'Embedded PresentMon payload is missing.'
+}
+try {
+    if ($presentMonStream.Length -ne 956768) {
+        throw 'Embedded PresentMon payload has the wrong length.'
+    }
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = ([BitConverter]::ToString($sha.ComputeHash($presentMonStream))).Replace('-', '').ToLowerInvariant()
+        if ($hash -cne '9bec3083069f58f911e6a512f4806db51a27bd096103087bc1d05ef54c80a191') {
+            throw 'Embedded PresentMon payload has the wrong SHA-256.'
+        }
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+finally {
+    $presentMonStream.Dispose()
+}
+foreach ($noticeName in @(
+    'MajesticBoost.PresentMon.License.txt',
+    'MajesticBoost.PresentMon.ThirdParty.txt'
+)) {
+    $notice = $assembly.GetManifestResourceStream($noticeName)
+    if (-not $notice -or $notice.Length -eq 0) {
+        throw "Embedded PresentMon notice is missing: $noticeName"
+    }
+    $notice.Dispose()
+}
+
 $source = [IO.File]::ReadAllText((Join-Path $projectRoot 'MajesticBoostInstaller\Program.cs'))
-$lastPayloadValidation = $source.IndexOf('ValidateStagedPayload(maxFpsRestoreStage, false);', [StringComparison]::Ordinal)
-$stopInstalledApp = $source.IndexOf('StopInstalledApplication();', $lastPayloadValidation, [StringComparison]::Ordinal)
-$uninstallerCommit = $source.IndexOf('CommitStagedFile(uninstallerStage, UninstallerExe,', $lastPayloadValidation, [StringComparison]::Ordinal)
-$firstCommit = $source.IndexOf('CommitStagedFile(gameBoostStage,', $lastPayloadValidation, [StringComparison]::Ordinal)
-if ($lastPayloadValidation -lt 0 -or $stopInstalledApp -le $lastPayloadValidation -or
-    $firstCommit -le $stopInstalledApp -or $uninstallerCommit -le $firstCommit) {
+$validationLoop = $source.IndexOf('ValidateStagedPayload(item.StagePath, item.Executable);', [StringComparison]::Ordinal)
+$stopInstalledApp = $source.IndexOf('StopInstalledApplication();', $validationLoop, [StringComparison]::Ordinal)
+$commitLoop = $source.IndexOf('CommitStagedFile(', $stopInstalledApp, [StringComparison]::Ordinal)
+if ($validationLoop -lt 0 -or $stopInstalledApp -le $validationLoop -or
+    $commitLoop -le $stopInstalledApp) {
     throw 'Installer must validate every payload before stopping the old app and committing files.'
+}
+$registrationCapture = $source.IndexOf(
+    'CapturePostInstallRegistration();',
+    [StringComparison]::Ordinal)
+$registrationCommit = $source.IndexOf(
+    'registerInstallation();',
+    $commitLoop,
+    [StringComparison]::Ordinal)
+$transactionSuccess = $source.IndexOf(
+    'installationSucceeded = true;',
+    $registrationCommit,
+    [StringComparison]::Ordinal)
+$registrationCompensation = $source.IndexOf(
+    'RestorePostInstallRegistration(registrationSnapshot);',
+    $registrationCapture,
+    [StringComparison]::Ordinal)
+if ($registrationCapture -lt 0 -or $registrationCompensation -le $registrationCapture -or
+    $registrationCommit -le $commitLoop -or $transactionSuccess -le $registrationCommit) {
+    throw 'Shortcuts and registry registration must participate in the payload transaction with compensation.'
 }
 if ($source.Contains('File.Copy(Application.ExecutablePath, UninstallerExe, true)')) {
     throw 'Uninstall.exe is still published outside the payload transaction.'
 }
 foreach ($requiredText in @(
-    'ValidateStagedPayload(uninstallerStage, true)',
-    'TryDeleteIfExists(appStage)',
+    'ValidatePresentMonPayload(item.StagePath)',
+    'TryDeleteIfExists(item.StagePath)',
+    'MajesticBoost.PresentMon.exe',
+    'items.Count - 1; index >= 0; index--',
     'GetDesktopShortcutPreference()',
     'ScheduleUpdateSourceCleanupIfNeeded()',
+    'CaptureRegistryTree(child, childName)',
+    'RestoreRegistryKey(baseKey, snapshot.AppPathsKey)',
+    'RestoreRegistryKey(baseKey, snapshot.UninstallKey)',
+    'RestoreShortcut(snapshot.DesktopShortcut)',
+    'RestoreShortcut(snapshot.StartMenuShortcut)',
     '^MajesticBoost\.Update\.[0-9a-f]{32}$'
 )) {
     if (-not $source.Contains($requiredText)) {

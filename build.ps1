@@ -12,13 +12,29 @@ $wpfRoot = Join-Path $frameworkRoot 'WPF'
 $compiler = Join-Path $frameworkRoot 'csc.exe'
 $workDirectory = Join-Path $projectRoot 'work'
 $distDirectory = Join-Path $projectRoot 'dist'
+$releaseVersion = '1.6.0'
 $appOutput = Join-Path $workDirectory 'MajesticBoost.exe'
-$setupOutput = Join-Path $workDirectory 'MajesticBoost-Setup-1.5.1.exe'
-$versionedSetupOutput = Join-Path $distDirectory 'MajesticBoost-Setup-1.5.1.exe'
+$setupOutput = Join-Path $workDirectory "MajesticBoost-Setup-$releaseVersion.exe"
+$versionedSetupOutput = Join-Path $distDirectory "MajesticBoost-Setup-$releaseVersion.exe"
 $latestSetupOutput = Join-Path $distDirectory 'MajesticBoost-Setup-Latest.exe'
+$presentMonPath = Join-Path $projectRoot 'third_party\PresentMon\PresentMon.exe'
+$presentMonLicensePath = Join-Path $projectRoot 'third_party\PresentMon\LICENSE.txt'
+$presentMonThirdPartyPath = Join-Path $projectRoot 'third_party\PresentMon\THIRD_PARTY.txt'
 
 if (-not (Test-Path -LiteralPath $compiler)) {
     throw ".NET Framework C# compiler not found: $compiler"
+}
+
+$presentMon = Get-Item -LiteralPath $presentMonPath -ErrorAction Stop
+$presentMonHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $presentMonPath).Hash.ToLowerInvariant()
+if ($presentMon.Length -ne 956768 -or
+    $presentMonHash -cne '9bec3083069f58f911e6a512f4806db51a27bd096103087bc1d05ef54c80a191') {
+    throw 'Pinned PresentMon 2.5.1 binary failed its size or SHA-256 validation.'
+}
+foreach ($licensePath in @($presentMonLicensePath, $presentMonThirdPartyPath)) {
+    if (-not (Test-Path -LiteralPath $licensePath) -or (Get-Item -LiteralPath $licensePath).Length -eq 0) {
+        throw "PresentMon notice is missing or empty: $licensePath"
+    }
 }
 
 [void](New-Item -ItemType Directory -Path $workDirectory -Force)
@@ -39,6 +55,9 @@ $appArguments = @(
     "/reference:$wpfRoot\PresentationFramework.dll",
     "/out:$appOutput",
     "$projectRoot\MajesticBoost\Program.cs",
+    "$projectRoot\MajesticBoost\BoostFeatures.cs",
+    "$projectRoot\MajesticBoost\BoostCenterOverlay.cs",
+    "$projectRoot\MajesticBoost\PerformanceCapture.cs",
     "$projectRoot\MajesticBoost\OptimizationFlow.cs",
     "$projectRoot\MajesticBoost\UpdateFlow.cs"
 )
@@ -62,6 +81,9 @@ $setupArguments = @(
     "/resource:$projectRoot\outputs\Game-Boost.ps1,MajesticBoost.GameBoost.ps1",
     "/resource:$projectRoot\outputs\MaxFPS-Apply.ps1,MajesticBoost.MaxFPSApply.ps1",
     "/resource:$projectRoot\outputs\MaxFPS-Restore.ps1,MajesticBoost.MaxFPSRestore.ps1",
+    "/resource:$presentMonPath,MajesticBoost.PresentMon.exe",
+    "/resource:$presentMonLicensePath,MajesticBoost.PresentMon.License.txt",
+    "/resource:$presentMonThirdPartyPath,MajesticBoost.PresentMon.ThirdParty.txt",
     "/out:$setupOutput",
     "$projectRoot\MajesticBoostInstaller\Program.cs"
 )

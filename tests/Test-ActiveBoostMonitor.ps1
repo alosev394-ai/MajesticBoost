@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param(
+    # Retained so existing build/test callers do not need to change.
     [string]$ApplicationPath
 )
 
@@ -10,106 +11,199 @@ if ($PSVersionTable.PSEdition -cne 'Desktop' -or $PSVersionTable.PSVersion.Major
 }
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-if (-not $ApplicationPath) {
-    $ApplicationPath = Join-Path $projectRoot 'dist\MajesticBoost.exe'
-}
-$ApplicationPath = (Resolve-Path -LiteralPath $ApplicationPath).Path
 $scriptPath = Join-Path $projectRoot 'outputs\Game-Boost.ps1'
-$programPath = Join-Path $projectRoot 'MajesticBoost\Program.cs'
-$testRoot = Join-Path $env:TEMP ('MajesticBoost-ActiveMonitor-Test-' + [Guid]::NewGuid().ToString('N'))
-$readySignalPath = Join-Path $testRoot 'ready.flag'
+$testRoot = Join-Path $env:TEMP ('MajesticBoost-OneShot-Test-' + [Guid]::NewGuid().ToString('N'))
 
 try {
     [void](New-Item -ItemType Directory -Path $testRoot)
 
-    $programSource = [IO.File]::ReadAllText($programPath)
+    $scriptSource = [IO.File]::ReadAllText($scriptPath)
     foreach ($requiredText in @(
-        'activeBoostTimer.Interval = TimeSpan.FromSeconds(30)',
-        'StartActiveBoostMaintenance()',
-        'StopActiveBoostMaintenance()',
-        'keepDiscordToggle.IsChecked != true',
-        'keepEpicToggle.IsChecked != true',
-        'keepSteamToggle.IsChecked != true',
-        'Process.GetProcessesByName(gameName)',
-        'ProcessPriorityClass.High',
-        'MakeText(GetApplicationVersion()',
-        'Assembly.GetExecutingAssembly().GetName().Version'
+        '[switch]$CloseDiscord',
+        '[switch]$CloseEpic',
+        '[switch]$CloseSteam',
+        '[switch]$CloseOneDrive',
+        '[switch]$CloseTeams',
+        '[switch]$CloseWallpaper',
+        '[switch]$CloseNvidiaOverlay',
+        '[string]$ReadySignalPath',
+        '[string]$ResultPath',
+        'Status=Completed'
     )) {
-        if (-not $programSource.Contains($requiredText)) {
-            throw "Active Boost policy is missing: $requiredText"
+        if (-not $scriptSource.Contains($requiredText)) {
+            throw "One-shot Active Boost contract is missing: $requiredText"
         }
     }
-    if ($programSource.Contains('ActiveSessionPath')) {
-        throw 'The application still contains the retired external active-session monitor.'
-    }
-    if ($programSource.Contains('GetMajesticLauncherVersion')) {
-        throw 'The chrome still reads the Majestic Launcher version instead of the application version.'
+
+    foreach ($forbiddenPattern in @(
+        '(?i)\bChatGPT\b',
+        '(?i)\bPriorityClass\b',
+        '(?i)\bProcessPriorityClass\b',
+        '(?i)\bSet-BoostGamePriority\b',
+        '(?i)\bHigh\b',
+        '(?i)\bRealTime\b',
+        '(?i)\bActiveSessionPath\b',
+        '(?i)\bStart-Sleep\b'
+    )) {
+        if ($scriptSource -match $forbiddenPattern) {
+            throw "The one-shot preparation script contains forbidden behavior: $forbiddenPattern"
+        }
     }
 
+    $defaultRequestedNames = New-Object Collections.Generic.List[string]
+    $defaultReadySignalPath = Join-Path $testRoot 'default\ready.flag'
+    $defaultResultPath = Join-Path $testRoot 'default\result.ini'
     & {
-        param($ProductionScript, $FixtureRoot, $ReadyPath)
+        param($ProductionScript, $FixtureRoot, $ReadyPath, $ReportPath, $RequestedNames)
 
         $env:LOCALAPPDATA = $FixtureRoot
 
         function Get-Process {
             [CmdletBinding()]
             param([string[]]$Name)
+            foreach ($processName in $Name) {
+                $RequestedNames.Add($processName)
+            }
             return @()
         }
 
         function Get-CimInstance {
             [CmdletBinding()]
             param([string]$ClassName, [string]$Filter)
+            throw 'NVIDIA discovery must not run unless CloseNvidiaOverlay is selected.'
+        }
+
+        function Start-Process {
+            [CmdletBinding()]
+            param(
+                [string]$FilePath,
+                [object[]]$ArgumentList,
+                [string]$WindowStyle
+            )
+            throw "Unexpected process launch during fixture: $FilePath"
+        }
+
+        & $ProductionScript `
+            -DoNotLaunchMajestic `
+            -ReadySignalPath $ReadyPath `
+            -ResultPath $ReportPath
+    } $scriptPath (Join-Path $testRoot 'default') $defaultReadySignalPath $defaultResultPath $defaultRequestedNames
+
+    if (-not (Test-Path -LiteralPath $defaultReadySignalPath)) {
+        throw 'The one-shot preparation script did not publish its readiness signal.'
+    }
+    if (-not (Test-Path -LiteralPath $defaultResultPath)) {
+        throw 'The one-shot preparation script did not publish its structured result.'
+    }
+    $defaultResult = [IO.File]::ReadAllText($defaultResultPath)
+    foreach ($requiredResultText in @('[GameBoost]', 'FormatVersion=1', 'Status=Completed')) {
+        if (-not $defaultResult.Contains($requiredResultText)) {
+            throw "The structured result is missing: $requiredResultText"
+        }
+    }
+
+    foreach ($requiredDefaultProcess in @(
+        'SteelSeriesMoments',
+        'WidgetService',
+        'Widgets',
+        'CrossDeviceService'
+    )) {
+        if (-not $defaultRequestedNames.Contains($requiredDefaultProcess)) {
+            throw "The safe default preparation list is missing: $requiredDefaultProcess"
+        }
+    }
+
+    foreach ($optInProcess in @(
+        'Discord',
+        'EpicGamesLauncher',
+        'steam',
+        'OneDrive',
+        'ms-teams',
+        'Teams',
+        'wallpaper32',
+        'wallpaper64',
+        'NVIDIA Overlay',
+        'nvsphelper64'
+    )) {
+        if ($defaultRequestedNames.Contains($optInProcess)) {
+            throw "An opt-in process is closed by default: $optInProcess"
+        }
+    }
+
+    $optInRequestedNames = New-Object Collections.Generic.List[string]
+    $cimDiscoveryCount = New-Object Collections.Generic.List[int]
+    $cimDiscoveryCount.Add(0)
+    $optInReadySignalPath = Join-Path $testRoot 'opt-in\ready.flag'
+    $optInResultPath = Join-Path $testRoot 'opt-in\result.ini'
+    & {
+        param($ProductionScript, $FixtureRoot, $ReadyPath, $ReportPath, $RequestedNames, $CimCounter)
+
+        $env:LOCALAPPDATA = $FixtureRoot
+
+        function Get-Process {
+            [CmdletBinding()]
+            param([string[]]$Name)
+            foreach ($processName in $Name) {
+                $RequestedNames.Add($processName)
+            }
             return @()
         }
 
-        & $ProductionScript -DoNotLaunchMajestic -ReadySignalPath $ReadyPath
-    } $scriptPath $testRoot $readySignalPath
+        function Get-CimInstance {
+            [CmdletBinding()]
+            param([string]$ClassName, [string]$Filter)
+            $CimCounter[0] = $CimCounter[0] + 1
+            return @()
+        }
 
-    if (-not (Test-Path -LiteralPath $readySignalPath)) {
-        throw 'The one-shot preparation script did not publish its readiness signal.'
+        function Start-Process {
+            [CmdletBinding()]
+            param(
+                [string]$FilePath,
+                [object[]]$ArgumentList,
+                [string]$WindowStyle
+            )
+            throw "Unexpected process launch during fixture: $FilePath"
+        }
+
+        & $ProductionScript `
+            -CloseDiscord `
+            -CloseEpic `
+            -CloseSteam `
+            -CloseOneDrive `
+            -CloseTeams `
+            -CloseWallpaper `
+            -CloseNvidiaOverlay `
+            -DoNotLaunchMajestic `
+            -ReadySignalPath $ReadyPath `
+            -ResultPath $ReportPath
+    } $scriptPath (Join-Path $testRoot 'opt-in') $optInReadySignalPath $optInResultPath $optInRequestedNames $cimDiscoveryCount
+
+    foreach ($requiredOptInProcess in @(
+        'Discord',
+        'EpicGamesLauncher',
+        'EpicWebHelper',
+        'EpicOnlineServicesUserHelper',
+        'steam',
+        'steamwebhelper',
+        'GameOverlayUI',
+        'OneDrive',
+        'ms-teams',
+        'Teams',
+        'wallpaper32',
+        'wallpaper64',
+        'NVIDIA Overlay',
+        'nvsphelper64'
+    )) {
+        if (-not $optInRequestedNames.Contains($requiredOptInProcess)) {
+            throw "An opt-in process group is missing: $requiredOptInProcess"
+        }
+    }
+    if ($cimDiscoveryCount[0] -ne 1) {
+        throw 'NVIDIA SPUser discovery must run exactly once when CloseNvidiaOverlay is selected.'
     }
 
-    $scriptSource = [IO.File]::ReadAllText($scriptPath)
-    if ($scriptSource.Contains('ActiveSessionPath') -or $scriptSource.Contains('Start-Sleep')) {
-        throw 'The one-shot preparation script still contains a persistent polling monitor.'
-    }
-
-    $child = $null
-    $childId = $null
-    try {
-        $child = Start-Process `
-            -FilePath (Join-Path $env:WINDIR 'System32\ping.exe') `
-            -ArgumentList '-t', '127.0.0.1' `
-            -WindowStyle Hidden `
-            -PassThru
-        $childId = $child.Id
-        $assembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($ApplicationPath))
-        $windowType = $assembly.GetType('MajesticBoost.BoostWindow', $true, $false)
-        $window = [Runtime.Serialization.FormatterServices]::GetUninitializedObject($windowType)
-        $flags = [Reflection.BindingFlags]::Instance -bor [Reflection.BindingFlags]::NonPublic
-        $processField = $windowType.GetField('boostProcess', $flags)
-        $stopMethod = $windowType.GetMethod('StopBoostProcess', $flags)
-        $processField.SetValue($window, $child)
-        [void]$stopMethod.Invoke($window, @())
-        $deadline = [DateTime]::UtcNow.AddSeconds(3)
-        while ([DateTime]::UtcNow -lt $deadline -and (Get-Process -Id $childId -ErrorAction SilentlyContinue)) {
-            Start-Sleep -Milliseconds 50
-        }
-        if (Get-Process -Id $childId -ErrorAction SilentlyContinue) {
-            throw 'StopBoostProcess did not terminate the exact tracked child process.'
-        }
-        if ($processField.GetValue($window) -ne $null) {
-            throw 'StopBoostProcess did not clear the tracked child reference.'
-        }
-    }
-    finally {
-        if ($childId -and (Get-Process -Id $childId -ErrorAction SilentlyContinue)) {
-            Stop-Process -Id $childId -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    'Active Boost in-process monitor regression test passed.'
+    'Active Boost one-shot preparation regression test passed.'
 }
 finally {
     if (Test-Path -LiteralPath $testRoot) {

@@ -5,9 +5,11 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Net.Cache;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Automation;
@@ -422,6 +424,10 @@ namespace MajesticBoost
             "https://raw.githubusercontent.com/alosev394-ai/MajesticBoost/main/update-v2.json";
         private const string ManifestSignatureUrl =
             "https://raw.githubusercontent.com/alosev394-ai/MajesticBoost/main/update-v2.json.sig";
+        private const string RepositoryHeadUrl =
+            "https://api.github.com/repos/alosev394-ai/MajesticBoost/git/ref/heads/main";
+        private const string RepositoryRawPrefix =
+            "https://raw.githubusercontent.com/alosev394-ai/MajesticBoost/";
         private const string InstallerUrlPrefix =
             "https://raw.githubusercontent.com/alosev394-ai/MajesticBoost/main/dist/MajesticBoost-Setup-";
         private const string UpdateSigningPublicKeyXml =
@@ -429,9 +435,13 @@ namespace MajesticBoost
         private const int ManifestSchemaVersion = 1;
         private const int ManifestMaximumBytes = 16384;
         private const int SignatureMaximumBytes = 1024;
+        private const int RepositoryHeadMaximumBytes = 4096;
         private const int Rsa3072SignatureBytes = 384;
         private const long InstallerMaximumBytes = 268435456L;
-        private const int ManifestTimeoutMilliseconds = 12000;
+        private const int ManifestRequestTimeoutMilliseconds = 5000;
+        private const int ManifestTotalTimeoutMilliseconds = 20000;
+        private const int ManifestFetchAttempts = 3;
+        private const int ManifestRetryDelayMilliseconds = 700;
         private const int DownloadReadTimeoutMilliseconds = 20000;
         private const int DownloadTotalTimeoutMilliseconds = 120000;
 
@@ -640,8 +650,72 @@ namespace MajesticBoost
 
         private UpdateManifest FetchAndValidateManifest()
         {
-            byte[] payload = DownloadSmallFile(ManifestUrl, ManifestMaximumBytes);
-            byte[] signaturePayload = DownloadSmallFile(ManifestSignatureUrl, SignatureMaximumBytes);
+            byte[] payload = null;
+            byte[] signaturePayload = null;
+            Exception lastTransientFailure = null;
+            Stopwatch totalTimer = Stopwatch.StartNew();
+            for (int attempt = 1; attempt <= ManifestFetchAttempts; attempt++)
+            {
+                string cacheToken = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0:x16}-{1}",
+                    DateTime.UtcNow.Ticks,
+                    attempt);
+                try
+                {
+                    byte[] headPayload = DownloadSmallFile(
+                        BuildRepositoryHeadRequestAddress(cacheToken),
+                        RepositoryHeadMaximumBytes,
+                        GetManifestRequestTimeout(totalTimer),
+                        totalTimer,
+                        ManifestTotalTimeoutMilliseconds);
+                    string commitSha = ParseRepositoryHeadCommit(headPayload);
+                    payload = DownloadSmallFile(
+                        BuildImmutableManifestAddress(
+                            commitSha,
+                            "update-v2.json"),
+                        ManifestMaximumBytes,
+                        GetManifestRequestTimeout(totalTimer),
+                        totalTimer,
+                        ManifestTotalTimeoutMilliseconds);
+                    signaturePayload = DownloadSmallFile(
+                        BuildImmutableManifestAddress(
+                            commitSha,
+                            "update-v2.json.sig"),
+                        SignatureMaximumBytes,
+                        GetManifestRequestTimeout(totalTimer),
+                        totalTimer,
+                        ManifestTotalTimeoutMilliseconds);
+                    lastTransientFailure = null;
+                    break;
+                }
+                catch (WebException ex)
+                {
+                    if (!IsTransientManifestFailure(ex) ||
+                        attempt >= ManifestFetchAttempts)
+                    {
+                        throw;
+                    }
+                    lastTransientFailure = ex;
+                    Log(
+                        "Temporary update check failure; retry " +
+                        attempt.ToString(CultureInfo.InvariantCulture) +
+                        " of " +
+                        ManifestFetchAttempts.ToString(CultureInfo.InvariantCulture) +
+                        ": " +
+                        DescribeException(ex));
+                    WaitForManifestRetry(
+                        totalTimer,
+                        ManifestRetryDelayMilliseconds * attempt,
+                        ex);
+                }
+            }
+            if (payload == null || signaturePayload == null)
+            {
+                throw new WebException(
+                    "The signed update manifest could not be downloaded.",
+                    lastTransientFailure);
+            }
             byte[] signature = DecodeManifestSignature(signaturePayload);
             VerifyManifestSignature(payload, signature);
             string json = new UTF8Encoding(false, true).GetString(payload);
@@ -706,6 +780,178 @@ namespace MajesticBoost
                 Sha256 = sha256.ToUpperInvariant(),
                 Size = size
             };
+        }
+
+        private static string BuildRepositoryHeadRequestAddress(
+            string cacheToken)
+        {
+            Uri uri;
+            if (!Uri.TryCreate(RepositoryHeadUrl, UriKind.Absolute, out uri) ||
+                !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal) ||
+                !string.Equals(
+                    uri.Host,
+                    "api.github.com",
+                    StringComparison.OrdinalIgnoreCase) ||
+                !uri.IsDefaultPort ||
+                !string.IsNullOrEmpty(uri.Query) ||
+                !string.IsNullOrEmpty(uri.Fragment) ||
+                string.IsNullOrWhiteSpace(cacheToken))
+            {
+                throw new InvalidDataException("Manifest request URL is invalid.");
+            }
+
+            var builder = new UriBuilder(uri)
+            {
+                Query = "mb=" + Uri.EscapeDataString(cacheToken)
+            };
+            return builder.Uri.AbsoluteUri;
+        }
+
+        private static string ParseRepositoryHeadCommit(byte[] payload)
+        {
+            if (payload == null ||
+                payload.Length == 0 ||
+                payload.Length > RepositoryHeadMaximumBytes)
+            {
+                throw new InvalidDataException("Repository head response size is invalid.");
+            }
+            string json = new UTF8Encoding(false, true).GetString(payload);
+            Dictionary<string, JsonValue> root;
+            if (!new JsonParser(json).TryParseRootObject(out root))
+            {
+                throw new InvalidDataException("Repository head response is not valid JSON.");
+            }
+            JsonValue objectValue = RequireField(
+                root,
+                "object",
+                JsonValueKind.Object);
+            JsonValue shaValue = RequireField(
+                objectValue.ObjectValue,
+                "sha",
+                JsonValueKind.String);
+            JsonValue typeValue = RequireField(
+                objectValue.ObjectValue,
+                "type",
+                JsonValueKind.String);
+            if (!string.Equals(typeValue.Text, "commit", StringComparison.Ordinal) ||
+                !IsCommitSha(shaValue.Text))
+            {
+                throw new InvalidDataException("Repository head is not a valid commit.");
+            }
+            return shaValue.Text;
+        }
+
+        private static bool IsCommitSha(string value)
+        {
+            if (string.IsNullOrEmpty(value) || value.Length != 40)
+            {
+                return false;
+            }
+            for (int index = 0; index < value.Length; index++)
+            {
+                char character = value[index];
+                if (!((character >= '0' && character <= '9') ||
+                      (character >= 'a' && character <= 'f')))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static string BuildImmutableManifestAddress(
+            string commitSha,
+            string fileName)
+        {
+            if (!IsCommitSha(commitSha) ||
+                (!string.Equals(
+                    fileName,
+                    "update-v2.json",
+                    StringComparison.Ordinal) &&
+                 !string.Equals(
+                    fileName,
+                    "update-v2.json.sig",
+                    StringComparison.Ordinal)))
+            {
+                throw new InvalidDataException("Immutable manifest path is invalid.");
+            }
+            return RepositoryRawPrefix + commitSha + "/" + fileName;
+        }
+
+        private static int GetManifestRequestTimeout(Stopwatch totalTimer)
+        {
+            if (totalTimer == null)
+            {
+                throw new ArgumentNullException("totalTimer");
+            }
+            long remaining =
+                ManifestTotalTimeoutMilliseconds - totalTimer.ElapsedMilliseconds;
+            if (remaining < 500)
+            {
+                throw new WebException(
+                    "The update check exceeded its total time budget.",
+                    WebExceptionStatus.Timeout);
+            }
+            return (int)Math.Min(
+                ManifestRequestTimeoutMilliseconds,
+                remaining);
+        }
+
+        private static void WaitForManifestRetry(
+            Stopwatch totalTimer,
+            int delayMilliseconds,
+            Exception previousFailure)
+        {
+            if (totalTimer == null)
+            {
+                throw new ArgumentNullException("totalTimer");
+            }
+            long remaining =
+                ManifestTotalTimeoutMilliseconds - totalTimer.ElapsedMilliseconds;
+            if (delayMilliseconds <= 0 || remaining <= delayMilliseconds + 500L)
+            {
+                throw new WebException(
+                    "The update check exceeded its total time budget.",
+                    previousFailure,
+                    WebExceptionStatus.Timeout,
+                    null);
+            }
+            Thread.Sleep(delayMilliseconds);
+        }
+
+        private static bool IsTransientManifestFailure(WebException exception)
+        {
+            if (exception == null)
+            {
+                return false;
+            }
+            switch (exception.Status)
+            {
+                case WebExceptionStatus.ConnectFailure:
+                case WebExceptionStatus.ConnectionClosed:
+                case WebExceptionStatus.KeepAliveFailure:
+                case WebExceptionStatus.NameResolutionFailure:
+                case WebExceptionStatus.PipelineFailure:
+                case WebExceptionStatus.ProxyNameResolutionFailure:
+                case WebExceptionStatus.ReceiveFailure:
+                case WebExceptionStatus.SendFailure:
+                case WebExceptionStatus.Timeout:
+                    return true;
+
+                case WebExceptionStatus.ProtocolError:
+                    var response = exception.Response as HttpWebResponse;
+                    if (response == null)
+                    {
+                        return false;
+                    }
+                    int statusCode = (int)response.StatusCode;
+                    return statusCode == 408 ||
+                           statusCode == 429 ||
+                           (statusCode >= 500 && statusCode <= 599);
+
+                default:
+                    return false;
+            }
         }
 
         private static void VerifyManifestSignature(byte[] manifestBytes, byte[] signatureBytes)
@@ -787,36 +1033,114 @@ namespace MajesticBoost
             return value;
         }
 
-        private static byte[] DownloadSmallFile(string address, int maximumBytes)
+        private static byte[] DownloadSmallFile(
+            string address,
+            int maximumBytes,
+            int timeoutMilliseconds,
+            Stopwatch totalTimer,
+            int totalTimeoutMilliseconds)
         {
-            HttpWebRequest request = CreateRequest(address, ManifestTimeoutMilliseconds);
-            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            if (totalTimer == null)
             {
-                ValidateResponse(response, maximumBytes, null, address);
-                using (Stream source = response.GetResponseStream())
-                using (var destination = new MemoryStream())
+                throw new ArgumentNullException("totalTimer");
+            }
+            if (timeoutMilliseconds <= 0 || totalTimeoutMilliseconds <= 0)
+            {
+                throw new ArgumentOutOfRangeException("timeoutMilliseconds");
+            }
+
+            long remaining =
+                totalTimeoutMilliseconds - totalTimer.ElapsedMilliseconds;
+            if (remaining <= 0)
+            {
+                throw new WebException(
+                    "The update check exceeded its total time budget.",
+                    WebExceptionStatus.Timeout);
+            }
+            int deadlineMilliseconds = (int)Math.Min(
+                timeoutMilliseconds,
+                Math.Min(remaining, int.MaxValue));
+            HttpWebRequest request = CreateRequest(
+                address,
+                deadlineMilliseconds);
+            int deadlineReached = 0;
+            using (var deadlineTimer = new Timer(
+                state =>
                 {
-                    byte[] buffer = new byte[4096];
-                    int total = 0;
-                    while (true)
+                    Interlocked.Exchange(ref deadlineReached, 1);
+                    try
                     {
-                        int read = source.Read(buffer, 0, buffer.Length);
-                        if (read <= 0)
-                        {
-                            break;
-                        }
-                        total += read;
-                        if (total > maximumBytes)
-                        {
-                            throw new InvalidDataException("Response exceeds the allowed size.");
-                        }
-                        destination.Write(buffer, 0, read);
+                        ((HttpWebRequest)state).Abort();
                     }
-                    if (total == 0)
+                    catch
                     {
-                        throw new InvalidDataException("Response is empty.");
                     }
-                    return destination.ToArray();
+                },
+                request,
+                deadlineMilliseconds,
+                Timeout.Infinite))
+            {
+                try
+                {
+                    using (HttpWebResponse response =
+                        (HttpWebResponse)request.GetResponse())
+                    {
+                        ValidateResponse(response, maximumBytes, null, address);
+                        using (Stream source = response.GetResponseStream())
+                        using (var destination = new MemoryStream())
+                        {
+                            byte[] buffer = new byte[4096];
+                            int total = 0;
+                            while (true)
+                            {
+                                int read = source.Read(buffer, 0, buffer.Length);
+                                if (Interlocked.CompareExchange(
+                                    ref deadlineReached,
+                                    0,
+                                    0) != 0 ||
+                                    totalTimer.ElapsedMilliseconds >=
+                                        totalTimeoutMilliseconds)
+                                {
+                                    throw new WebException(
+                                        "The update check exceeded its time budget.",
+                                        WebExceptionStatus.Timeout);
+                                }
+                                if (read <= 0)
+                                {
+                                    break;
+                                }
+                                total += read;
+                                if (total > maximumBytes)
+                                {
+                                    throw new InvalidDataException(
+                                        "Response exceeds the allowed size.");
+                                }
+                                destination.Write(buffer, 0, read);
+                            }
+                            if (total == 0)
+                            {
+                                throw new InvalidDataException(
+                                    "Response is empty.");
+                            }
+                            return destination.ToArray();
+                        }
+                    }
+                }
+                catch (WebException ex)
+                {
+                    if (Interlocked.CompareExchange(
+                        ref deadlineReached,
+                        0,
+                        0) != 0 ||
+                        totalTimer.ElapsedMilliseconds >= totalTimeoutMilliseconds)
+                    {
+                        throw new WebException(
+                            "The update check exceeded its time budget.",
+                            ex,
+                            WebExceptionStatus.Timeout,
+                            null);
+                    }
+                    throw;
                 }
             }
         }
@@ -1260,9 +1584,13 @@ namespace MajesticBoost
             request.AutomaticDecompression = DecompressionMethods.None;
             request.Timeout = timeoutMilliseconds;
             request.ReadWriteTimeout = timeoutMilliseconds;
+            request.CachePolicy = new HttpRequestCachePolicy(
+                HttpRequestCacheLevel.NoCacheNoStore);
             request.UserAgent = "MajesticBoost-Updater/" + GetCurrentVersion();
             request.Accept = "application/json, application/octet-stream;q=0.9, */*;q=0.1";
             request.Headers[HttpRequestHeader.AcceptEncoding] = "identity";
+            request.Headers[HttpRequestHeader.CacheControl] = "no-cache";
+            request.Headers[HttpRequestHeader.Pragma] = "no-cache";
             request.KeepAlive = false;
             return request;
         }

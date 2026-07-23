@@ -17,7 +17,7 @@ $installer = [IO.File]::ReadAllText((Join-Path $projectRoot 'MajesticBoostInstal
 $build = [IO.File]::ReadAllText((Join-Path $projectRoot 'build.ps1'))
 
 foreach ($required in @(
-    'AssemblyVersion("1.6.0.0")',
+    'AssemblyVersion("1.6.1.0")',
     'ProcessPriorityClass.AboveNormal',
     'OriginalPriority = originalPriority',
     'process.StartTime.ToUniversalTime() != item.StartTimeUtc',

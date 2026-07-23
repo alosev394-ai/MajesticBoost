@@ -36,7 +36,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 Результат появится в `dist`:
 
 - `MajesticBoost.exe` — бинарник приложения для тестирования и установщика;
-- `MajesticBoost-Setup-1.6.0.exe` — рекомендуемый установщик;
+- `MajesticBoost-Setup-1.6.1.exe` — рекомендуемый установщик;
 - `MajesticBoost-Setup-Latest.exe` — стабильное имя актуального универсального установщика.
 
 Установщик также публикует закреплённый официальный `PresentMon.exe` вместе с `LICENSE.txt` и `THIRD_PARTY.txt` в `Tools\PresentMon`. Перед сборкой и запуском его размер и SHA-256 проверяются.

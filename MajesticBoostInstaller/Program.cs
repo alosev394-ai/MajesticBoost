@@ -20,8 +20,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Installer for Majestic Boost")]
 [assembly: AssemblyCompany("Codex Gaming Optimization")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.0.0")]
-[assembly: AssemblyFileVersion("1.6.0.0")]
+[assembly: AssemblyVersion("1.6.1.0")]
+[assembly: AssemblyFileVersion("1.6.1.0")]
 
 namespace MajesticBoostSetup
 {
@@ -158,7 +158,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.6.0";
+        public const string ProductVersion = "1.6.1";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);

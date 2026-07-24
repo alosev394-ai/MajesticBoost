@@ -21,8 +21,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("Silus Suspect")]
 [assembly: AssemblyCopyright("© Silus Suspect")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.4.0")]
-[assembly: AssemblyFileVersion("1.6.4.0")]
+[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyFileVersion("1.7.0.0")]
 
 namespace MajesticBoostSetup
 {
@@ -129,7 +129,18 @@ namespace MajesticBoostSetup
 
             if (uninstall)
             {
-                InstallerEngine.Uninstall(quiet);
+                try
+                {
+                    InstallerEngine.Uninstall(quiet);
+                }
+                catch
+                {
+                    Environment.ExitCode = 1;
+                    if (!quiet)
+                    {
+                        throw;
+                    }
+                }
                 return;
             }
 
@@ -159,7 +170,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.6.4";
+        public const string ProductVersion = "1.7.0";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);
@@ -181,8 +192,21 @@ namespace MajesticBoostSetup
             AccessControlSections.Access |
             AccessControlSections.Owner |
             AccessControlSections.Group;
+        private const int OptimizationStatePointerMaximumBytes = 4096;
+        private const int OptimizationStateMaximumBytes = 2 * 1024 * 1024;
 
         public static void Install(bool createDesktopShortcut, Action<int, string> progress = null)
+        {
+            using (FileStream systemTransactionGuard =
+                AcquireSystemTransactionGuard("установку или обновление"))
+            {
+                InstallWithSystemTransactionGuard(createDesktopShortcut, progress);
+            }
+        }
+
+        private static void InstallWithSystemTransactionGuard(
+            bool createDesktopShortcut,
+            Action<int, string> progress)
         {
             ReportProgress(progress, 0, "Подготовка обновления");
             EnsureInstallIsNotDowngrade();
@@ -344,6 +368,384 @@ namespace MajesticBoostSetup
             }
         }
 
+        private static FileStream AcquireSystemTransactionGuard(string operation)
+        {
+            string programData = Environment.GetFolderPath(
+                Environment.SpecialFolder.CommonApplicationData);
+            if (string.IsNullOrWhiteSpace(programData))
+            {
+                throw new DirectoryNotFoundException(
+                    "Не удалось определить защищённую папку ProgramData.");
+            }
+
+            string stateRoot = Path.GetFullPath(Path.Combine(
+                programData,
+                "CodexGamingOptimization"));
+            return AcquireSystemTransactionGuardAtRoot(stateRoot, operation);
+        }
+
+        private static FileStream AcquireSystemTransactionGuardAtRoot(
+            string stateRoot,
+            string operation)
+        {
+            if (string.IsNullOrWhiteSpace(stateRoot))
+            {
+                throw new ArgumentException(
+                    "Protected optimization state root is required.",
+                    "stateRoot");
+            }
+
+            string fullStateRoot = Path.GetFullPath(stateRoot);
+            string parent = Path.GetDirectoryName(fullStateRoot);
+            if (string.IsNullOrWhiteSpace(parent) ||
+                !Directory.Exists(parent) ||
+                !IsPathFreeOfReparsePoints(parent))
+            {
+                throw new IOException(
+                    "Не удалось безопасно проверить папку системной оптимизации.");
+            }
+            if (File.Exists(fullStateRoot))
+            {
+                throw new IOException(
+                    "Путь системной оптимизации занят файлом.");
+            }
+            if (!Directory.Exists(fullStateRoot))
+            {
+                Directory.CreateDirectory(fullStateRoot);
+            }
+            if (!IsPathFreeOfReparsePoints(fullStateRoot))
+            {
+                throw new IOException(
+                    "Папка системной оптимизации не прошла проверку безопасности.");
+            }
+
+            string lockPath = Path.GetFullPath(Path.Combine(
+                fullStateRoot,
+                "transaction.lock"));
+            if (!IsDirectChildPath(fullStateRoot, lockPath) ||
+                Directory.Exists(lockPath) ||
+                (File.Exists(lockPath) && !IsPathFreeOfReparsePoints(lockPath)))
+            {
+                throw new IOException(
+                    "Файл блокировки системной оптимизации имеет небезопасный путь.");
+            }
+
+            FileStream guard;
+            try
+            {
+                guard = new FileStream(
+                    lockPath,
+                    FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite,
+                    FileShare.None,
+                    1,
+                    FileOptions.None);
+            }
+            catch (IOException exception)
+            {
+                throw new InvalidOperationException(
+                    "Нельзя продолжить " + operation +
+                    ": сейчас выполняется настройка или восстановление Windows. " +
+                    "Дождитесь завершения операции в Majestic Boost и повторите попытку.",
+                    exception);
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                throw new InvalidOperationException(
+                    "Нельзя безопасно проверить системную транзакцию перед тем, как продолжить " +
+                    operation + ". Повторите попытку с правами администратора.",
+                    exception);
+            }
+            catch (System.Security.SecurityException exception)
+            {
+                throw new InvalidOperationException(
+                    "Windows запретила проверку системной транзакции перед тем, как продолжить " +
+                    operation + ".",
+                    exception);
+            }
+
+            if (!IsPathFreeOfReparsePoints(lockPath))
+            {
+                guard.Dispose();
+                throw new IOException(
+                    "Файл блокировки системной оптимизации изменился во время проверки.");
+            }
+            return guard;
+        }
+
+        private static void EnsureUninstallStateAllowsRemoval()
+        {
+            string programData = Environment.GetFolderPath(
+                Environment.SpecialFolder.CommonApplicationData);
+            if (string.IsNullOrWhiteSpace(programData))
+            {
+                throw new DirectoryNotFoundException(
+                    "Не удалось определить защищённую папку ProgramData.");
+            }
+
+            EnsureUninstallStateAllowsRemovalAtRoot(Path.GetFullPath(Path.Combine(
+                programData,
+                "CodexGamingOptimization")));
+        }
+
+        private static void EnsureUninstallStateAllowsRemovalAtRoot(string stateRoot)
+        {
+            string fullStateRoot = Path.GetFullPath(stateRoot);
+            if (!Directory.Exists(fullStateRoot) ||
+                !IsPathFreeOfReparsePoints(fullStateRoot))
+            {
+                throw new IOException(
+                    "Папка системной оптимизации не прошла проверку безопасности.");
+            }
+
+            string expectedPointerPath = Path.GetFullPath(Path.Combine(
+                fullStateRoot,
+                "latest-state.txt"));
+            string[] pointerEntries = Directory.GetFileSystemEntries(
+                fullStateRoot,
+                "latest-state.txt",
+                SearchOption.TopDirectoryOnly);
+            if (pointerEntries.Length == 0)
+            {
+                return;
+            }
+            if (pointerEntries.Length != 1 ||
+                !PathsEqual(pointerEntries[0], expectedPointerPath) ||
+                Directory.Exists(expectedPointerPath) ||
+                !File.Exists(expectedPointerPath) ||
+                !IsPathFreeOfReparsePoints(expectedPointerPath))
+            {
+                throw CreateUnsafeUninstallStateException(
+                    "указатель latest-state.txt неоднозначен или небезопасен");
+            }
+
+            string candidatePath;
+            try
+            {
+                candidatePath = ReadBoundedUtf8File(
+                    expectedPointerPath,
+                    OptimizationStatePointerMaximumBytes).Trim();
+            }
+            catch (Exception exception)
+            {
+                throw CreateUnsafeUninstallStateException(
+                    "latest-state.txt нельзя безопасно прочитать",
+                    exception);
+            }
+            if (string.IsNullOrWhiteSpace(candidatePath) ||
+                candidatePath.IndexOfAny(new[] { '\0', '\r', '\n' }) >= 0 ||
+                !Path.IsPathRooted(candidatePath))
+            {
+                throw CreateUnsafeUninstallStateException(
+                    "указатель latest-state.txt повреждён");
+            }
+
+            string fullStatePath;
+            try
+            {
+                fullStatePath = Path.GetFullPath(candidatePath);
+            }
+            catch (Exception exception)
+            {
+                throw CreateUnsafeUninstallStateException(
+                    "путь к резервной копии повреждён",
+                    exception);
+            }
+
+            string backupsRoot = Path.GetFullPath(Path.Combine(
+                fullStateRoot,
+                "Backups"));
+            string stateDirectory = Path.GetDirectoryName(fullStatePath);
+            string stateDirectoryParent = string.IsNullOrWhiteSpace(stateDirectory)
+                ? null
+                : Path.GetDirectoryName(stateDirectory);
+            if (!string.Equals(
+                    Path.GetFileName(fullStatePath),
+                    "state.json",
+                    StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(stateDirectory) ||
+                string.IsNullOrWhiteSpace(stateDirectoryParent) ||
+                !PathsEqual(stateDirectoryParent, backupsRoot) ||
+                !File.Exists(fullStatePath) ||
+                !IsPathFreeOfReparsePoints(fullStatePath))
+            {
+                throw CreateUnsafeUninstallStateException(
+                    "state.json должен быть прямым потомком защищённой папки Backups");
+            }
+
+            string json;
+            try
+            {
+                json = ReadBoundedUtf8File(
+                    fullStatePath,
+                    OptimizationStateMaximumBytes);
+            }
+            catch (Exception exception)
+            {
+                throw CreateUnsafeUninstallStateException(
+                    "state.json нельзя безопасно прочитать",
+                    exception);
+            }
+            string trimmedJson = json.Trim();
+            if (trimmedJson.Length < 2 ||
+                trimmedJson[0] != '{' ||
+                trimmedJson[trimmedJson.Length - 1] != '}')
+            {
+                throw CreateUnsafeUninstallStateException(
+                    "state.json повреждён или не завершён");
+            }
+
+            const string statusPattern =
+                "\\\"Status\\\"\\s*:\\s*\\\"(?<value>(?:\\\\.|[^\\\"\\\\])*)\\\"";
+            MatchCollection statusMatches = Regex.Matches(
+                trimmedJson,
+                statusPattern,
+                RegexOptions.CultureInvariant);
+            if (statusMatches.Count != 1)
+            {
+                throw CreateUnsafeUninstallStateException(
+                    "статус системной транзакции отсутствует или неоднозначен");
+            }
+
+            string status = statusMatches[0].Groups["value"].Value;
+            if (status.Length == 0 ||
+                status.Length > 64 ||
+                !Regex.IsMatch(
+                    status,
+                    "^[A-Za-z]+$",
+                    RegexOptions.CultureInvariant))
+            {
+                throw CreateUnsafeUninstallStateException(
+                    "статус системной транзакции повреждён");
+            }
+            if (IsCompletedRestoreStatus(status))
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "Удаление остановлено: системная оптимизация Windows ещё не восстановлена " +
+                "(статус: " + status + "). Откройте Majestic Boost, нажмите " +
+                "«ВОССТАНОВИТЬ WINDOWS» и дождитесь завершения восстановления. " +
+                "Резервная копия сохранена.");
+        }
+
+        private static InvalidOperationException CreateUnsafeUninstallStateException(
+            string reason,
+            Exception innerException = null)
+        {
+            return new InvalidOperationException(
+                "Удаление остановлено: состояние системной оптимизации нельзя " +
+                "однозначно и безопасно проверить (" + reason + "). Откройте Majestic Boost, " +
+                "нажмите «ВОССТАНОВИТЬ WINDOWS» и только после успешного восстановления " +
+                "повторите удаление. Резервная копия не удалена.",
+                innerException);
+        }
+
+        private static bool IsCompletedRestoreStatus(string status)
+        {
+            return
+                string.Equals(status, "Restored", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "RestoredWithConflicts", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "AlreadyRestored", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "AbortedNoChanges", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "SupersededLegacy", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ReadBoundedUtf8File(string path, int maximumBytes)
+        {
+            using (var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                4096,
+                FileOptions.SequentialScan))
+            {
+                if (stream.Length <= 0 || stream.Length > maximumBytes)
+                {
+                    throw new InvalidDataException(
+                        "Protected optimization state file has an invalid size.");
+                }
+                using (var reader = new StreamReader(
+                    stream,
+                    new UTF8Encoding(false, true),
+                    true,
+                    4096,
+                    false))
+                {
+                    return reader.ReadToEnd();
+                }
+            }
+        }
+
+        private static bool IsDirectChildPath(string parentPath, string childPath)
+        {
+            string fullParent = Path.GetFullPath(parentPath).TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+            string fullChild = Path.GetFullPath(childPath);
+            return string.Equals(
+                Path.GetDirectoryName(fullChild),
+                fullParent,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool PathsEqual(string left, string right)
+        {
+            try
+            {
+                return string.Equals(
+                    Path.GetFullPath(left).TrimEnd(
+                        Path.DirectorySeparatorChar,
+                        Path.AltDirectorySeparatorChar),
+                    Path.GetFullPath(right).TrimEnd(
+                        Path.DirectorySeparatorChar,
+                        Path.AltDirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsPathFreeOfReparsePoints(string path)
+        {
+            try
+            {
+                string normalized = Path.GetFullPath(path);
+                string root = Path.GetPathRoot(normalized);
+                if (string.IsNullOrWhiteSpace(root))
+                {
+                    return false;
+                }
+
+                string current = root;
+                string remainder = normalized.Substring(root.Length);
+                string[] segments = remainder.Split(
+                    new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                    StringSplitOptions.RemoveEmptyEntries);
+                for (int index = 0; index < segments.Length; index++)
+                {
+                    current = Path.Combine(current, segments[index]);
+                    if (!Directory.Exists(current) && !File.Exists(current))
+                    {
+                        return false;
+                    }
+                    if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public static void Uninstall(bool quiet)
         {
             if (!quiet)
@@ -362,6 +764,10 @@ namespace MajesticBoostSetup
 
             try
             {
+                using (FileStream systemTransactionGuard =
+                    AcquireSystemTransactionGuard("удаление"))
+                {
+                EnsureUninstallStateAllowsRemoval();
                 StopInstalledApplication();
 
                 string desktopShortcut = Path.Combine(
@@ -422,6 +828,7 @@ namespace MajesticBoostSetup
                 cleanupInfo.CreateNoWindow = true;
                 cleanupInfo.WindowStyle = ProcessWindowStyle.Hidden;
                 Process.Start(cleanupInfo);
+                }
             }
             catch (Exception exception)
             {
@@ -434,6 +841,10 @@ namespace MajesticBoostSetup
                         MessageBoxIcon.Error);
                 }
                 Environment.ExitCode = 1;
+                if (quiet)
+                {
+                    throw;
+                }
             }
         }
 
@@ -2740,6 +3151,7 @@ namespace MajesticBoostSetup
         private Label statusLabel;
         private Panel progressFill;
         private bool installed;
+        private bool installOperationRunning;
 
         public InstallerForm()
         {
@@ -2882,6 +3294,10 @@ namespace MajesticBoostSetup
 
         private void InstallButtonClick(object sender, EventArgs e)
         {
+            if (installOperationRunning)
+            {
+                return;
+            }
             if (installed)
             {
                 InstallerEngine.LaunchInstalledApplication();
@@ -2889,6 +3305,8 @@ namespace MajesticBoostSetup
                 return;
             }
 
+            installOperationRunning = true;
+            bool createDesktopShortcut = desktopShortcut.Checked;
             installButton.Enabled = false;
             closeButton.Enabled = false;
             desktopShortcut.Enabled = false;
@@ -2896,42 +3314,108 @@ namespace MajesticBoostSetup
             statusLabel.ForeColor = Color.FromArgb(255, 139, 175);
             AnimateProgress(120);
 
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    InstallerEngine.Install(
+                        createDesktopShortcut,
+                        ReportInstallProgressFromWorker);
+                    PostToUi(InstallationCompleted);
+                }
+                catch (Exception exception)
+                {
+                    PostToUi(delegate { InstallationFailed(exception); });
+                }
+            });
+        }
+
+        private void ReportInstallProgressFromWorker(int percent, string stage)
+        {
+            PostToUi(delegate
+            {
+                int normalized = Math.Max(0, Math.Min(100, percent));
+                AnimateProgress(Math.Max(progressFill.Width, normalized * 480 / 100));
+                if (!string.IsNullOrWhiteSpace(stage))
+                {
+                    statusLabel.Text = stage;
+                }
+            });
+        }
+
+        private void InstallationCompleted()
+        {
+            installOperationRunning = false;
+            AnimateProgress(480);
+            statusLabel.Text = "УСТАНОВЛЕНО";
+            statusLabel.ForeColor = accent;
+            installButton.Text = "ЗАПУСТИТЬ";
+            installButton.AccessibleName = "Запустить Majestic Boost";
+            installButton.AccessibleDescription = "Запускает установленное приложение Majestic Boost";
+            installButton.Enabled = true;
+            closeButton.Enabled = true;
+            installed = true;
+        }
+
+        private void InstallationFailed(Exception exception)
+        {
+            installOperationRunning = false;
+            statusLabel.Text = "ОШИБКА УСТАНОВКИ";
+            statusLabel.ForeColor = Color.FromArgb(255, 102, 122);
+            installButton.Text = "ПОВТОРИТЬ";
+            installButton.AccessibleName = "Повторить установку Majestic Boost";
+            installButton.AccessibleDescription = "Повторно запускает установку приложения";
+            installButton.Enabled = true;
+            closeButton.Enabled = true;
+            desktopShortcut.Enabled = true;
+            MessageBox.Show(
+                "Не удалось установить Majestic Boost:\r\n" + exception.Message,
+                "Ошибка установки",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+
+        private void PostToUi(Action action)
+        {
+            if (action == null || IsDisposed || Disposing || !IsHandleCreated)
+            {
+                return;
+            }
             try
             {
-                InstallerEngine.Install(desktopShortcut.Checked);
-                AnimateProgress(480);
-                statusLabel.Text = "УСТАНОВЛЕНО";
-                statusLabel.ForeColor = accent;
-                installButton.Text = "ЗАПУСТИТЬ";
-                installButton.AccessibleName = "Запустить Majestic Boost";
-                installButton.AccessibleDescription = "Запускает установленное приложение Majestic Boost";
-                installButton.Enabled = true;
-                closeButton.Enabled = true;
-                installed = true;
+                if (InvokeRequired)
+                {
+                    BeginInvoke(action);
+                }
+                else
+                {
+                    action();
+                }
             }
-            catch (Exception exception)
+            catch (ObjectDisposedException)
             {
-                statusLabel.Text = "ОШИБКА УСТАНОВКИ";
-                statusLabel.ForeColor = Color.FromArgb(255, 102, 122);
-                installButton.Text = "ПОВТОРИТЬ";
-                installButton.AccessibleName = "Повторить установку Majestic Boost";
-                installButton.AccessibleDescription = "Повторно запускает установку приложения";
-                installButton.Enabled = true;
-                closeButton.Enabled = true;
-                desktopShortcut.Enabled = true;
-                MessageBox.Show(
-                    "Не удалось установить Majestic Boost:\r\n" + exception.Message,
-                    "Ошибка установки",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                // The installer was disposed while the worker was completing.
             }
+            catch (InvalidOperationException)
+            {
+                // The handle was destroyed while the worker was completing.
+            }
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (installOperationRunning && e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                return;
+            }
+            base.OnFormClosing(e);
         }
 
         private void AnimateProgress(int width)
         {
             progressFill.Width = Math.Max(0, Math.Min(480, width));
             progressFill.Refresh();
-            Application.DoEvents();
         }
 
         private static Label MakeLabel(string text, float size, FontStyle style, Color color)

@@ -26,22 +26,96 @@ using System.Windows.Threading;
 [assembly: AssemblyCompany("Silus Suspect")]
 [assembly: AssemblyCopyright("© Silus Suspect")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.6.4.0")]
-[assembly: AssemblyFileVersion("1.6.4.0")]
+[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyFileVersion("1.7.0.0")]
 
 namespace MajesticBoost
 {
     internal static class Program
     {
+        private const string ApplicationMutexName =
+            @"Local\SilusSuspect.MajesticBoost.Application";
+
         [STAThread]
         private static void Main(string[] args)
         {
-            var application = new Application();
-            var focusVisualStyle = new Style(typeof(Control));
-            focusVisualStyle.Setters.Add(new Setter(Control.TemplateProperty, null));
-            application.Resources[SystemParameters.FocusVisualStyleKey] = focusVisualStyle;
-            application.ShutdownMode = ShutdownMode.OnMainWindowClose;
-            application.Run(new BoostWindow(args));
+            using (var applicationMutex = new Mutex(false, ApplicationMutexName))
+            {
+                bool ownsMutex = false;
+                try
+                {
+                    try
+                    {
+                        ownsMutex = applicationMutex.WaitOne(0, false);
+                    }
+                    catch (AbandonedMutexException)
+                    {
+                        ownsMutex = true;
+                    }
+
+                    if (!ownsMutex)
+                    {
+                        MessageBox.Show(
+                            "Majestic Boost уже запущен.",
+                            "Majestic Boost",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                        return;
+                    }
+
+                    var application = new Application();
+                    var focusVisualStyle = new Style(typeof(Control));
+                    focusVisualStyle.Setters.Add(new Setter(Control.TemplateProperty, null));
+                    application.Resources[SystemParameters.FocusVisualStyleKey] = focusVisualStyle;
+                    application.ShutdownMode = ShutdownMode.OnMainWindowClose;
+                    application.DispatcherUnhandledException += delegate(
+                        object sender,
+                        DispatcherUnhandledExceptionEventArgs eventArgs)
+                    {
+                        CrashLog.Write(
+                            "Unhandled WPF dispatcher exception.",
+                            eventArgs.Exception);
+                    };
+                    AppDomain.CurrentDomain.UnhandledException += delegate(
+                        object sender,
+                        UnhandledExceptionEventArgs eventArgs)
+                    {
+                        CrashLog.Write(
+                            "Unhandled AppDomain exception.",
+                            eventArgs.ExceptionObject as Exception);
+                    };
+                    TaskScheduler.UnobservedTaskException += delegate(
+                        object sender,
+                        UnobservedTaskExceptionEventArgs eventArgs)
+                    {
+                        CrashLog.Write(
+                            "Unobserved task exception.",
+                            eventArgs.Exception);
+                        eventArgs.SetObserved();
+                    };
+                    try
+                    {
+                        application.Run(new BoostWindow(args));
+                    }
+                    catch (Exception ex)
+                    {
+                        CrashLog.Write("Application.Run failed.", ex);
+                        MessageBox.Show(
+                            "Majestic Boost столкнулся с ошибкой и безопасно остановлен. " +
+                            "Диагностика сохранена в LocalAppData\\MajesticBoost\\crash.log.",
+                            "Majestic Boost",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
+                    }
+                }
+                finally
+                {
+                    if (ownsMutex)
+                    {
+                        applicationMutex.ReleaseMutex();
+                    }
+                }
+            }
         }
     }
 
@@ -60,6 +134,15 @@ namespace MajesticBoost
             public string ProcessName;
             public ProcessPriorityClass OriginalPriority;
             public bool ChangedByBoost;
+        }
+
+        private sealed class GameCrashInfo
+        {
+            public DateTime CapturedUtc;
+            public string ApplicationName;
+            public string ExceptionCode;
+            public string FaultModule;
+            public string FaultOffset;
         }
 
         private Button boostButton;
@@ -106,6 +189,8 @@ namespace MajesticBoost
         private bool automaticBoostStarting;
         private bool gameSeenDuringSession;
         private DateTime lastGameSeenUtc;
+        private string deactivationSessionStatus = "Completed";
+        private string deactivationSessionReason = "Boost остановлен пользователем.";
         private BoostCenterSettings centerSettings = new BoostCenterSettings
         {
             CheckBeforeBoost = true
@@ -582,7 +667,10 @@ namespace MajesticBoost
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                CrashLog.Write("Could not read Boost preferences.", ex);
+            }
 
             // These three choices are session-only and always start disabled.
             keepDiscordToggle.IsChecked = false;
@@ -603,9 +691,8 @@ namespace MajesticBoost
             try
             {
                 string path = GetPreferencesPath();
-                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
-                File.WriteAllLines(
-                    path,
+                string content = string.Join(
+                    Environment.NewLine,
                     new[]
                     {
                         "AutoBoost=" + centerSettings.AutoBoost,
@@ -614,10 +701,15 @@ namespace MajesticBoost
                         "KeepTeams=" + centerSettings.KeepTeams,
                         "KeepWallpaper=" + centerSettings.KeepWallpaper,
                         "KeepNvidiaOverlay=" + centerSettings.KeepNvidiaOverlay
-                    },
-                    new UTF8Encoding(false));
+                    }) + Environment.NewLine;
+                BoostSessionReportStore.WriteAllTextAtomic(
+                    path,
+                    content);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                CrashLog.Write("Could not save Boost preferences.", ex);
+            }
         }
 
         private static bool GetPreference(Dictionary<string, bool> values, string name)
@@ -1192,12 +1284,19 @@ namespace MajesticBoost
             caption.Foreground = BrushFrom("#FFFF667A");
             animationRunning = false;
             boostButton.IsEnabled = true;
+            ImportBoostScriptResult(currentSession);
             CompleteCurrentSession("Failed", message);
             automaticBoostStarting = false;
         }
 
-        private void StartBoostDeactivation()
+        private void StartBoostDeactivation(
+            string sessionStatus = "Completed",
+            string sessionReason = "Boost остановлен пользователем.")
         {
+            deactivationSessionStatus = string.IsNullOrWhiteSpace(sessionStatus)
+                ? "Completed"
+                : sessionStatus;
+            deactivationSessionReason = sessionReason ?? string.Empty;
             animationRunning = true;
             boostButton.IsEnabled = false;
             boostActive = false;
@@ -1255,7 +1354,11 @@ namespace MajesticBoost
                 caption.Text = "НАЖМИ, ЧТОБЫ АКТИВИРОВАТЬ";
                 caption.Foreground = BrushFrom("#FF8E8E8E");
                 SetBoostAutomationState(false);
-                CompleteCurrentSession("Completed", "Boost остановлен пользователем.");
+                CompleteCurrentSession(
+                    deactivationSessionStatus,
+                    deactivationSessionReason);
+                deactivationSessionStatus = "Completed";
+                deactivationSessionReason = "Boost остановлен пользователем.";
                 preflightAccepted = false;
 
                 bool isHovered = boostButton.IsMouseOver;
@@ -1358,9 +1461,9 @@ namespace MajesticBoost
             {
                 if (IsActiveMaintenanceGeneration(generation))
                 {
-                    nextMemoryMaintenanceTimestamp =
-                        ActiveMemoryMaintenanceService.GetNextDueTimestamp(
-                            Stopwatch.GetTimestamp());
+                    // Capture the first pressure sample immediately. A relief action
+                    // still requires a second critical sample one minute later.
+                    nextMemoryMaintenanceTimestamp = Stopwatch.GetTimestamp();
                 }
             }
             if (activeBoostTimer == null)
@@ -1484,6 +1587,11 @@ namespace MajesticBoost
                         int processId = game.Id;
                         DateTime startTimeUtc = game.StartTime.ToUniversalTime();
                         string actualName = game.ProcessName;
+                        game.Refresh();
+                        UpdateGameMemoryTelemetry(
+                            actualName,
+                            Math.Max(0, game.WorkingSet64),
+                            Math.Max(0, game.PrivateMemorySize64));
                         ProcessPriorityClass originalPriority = game.PriorityClass;
                         bool alreadyTracked;
                         lock (activeMaintenanceSync)
@@ -1614,7 +1722,8 @@ namespace MajesticBoost
             }
 
             ActiveMemoryMaintenanceResult result = ActiveMemoryMaintenanceService.Run();
-            if (!result.Collected)
+            UpdateSessionMemoryTelemetry(result.Before);
+            if (!result.Attempted)
             {
                 return;
             }
@@ -1625,12 +1734,109 @@ namespace MajesticBoost
                 {
                     return;
                 }
-                Interlocked.Increment(ref activeMemoryMaintenanceCycles);
+                if (currentSession != null)
+                {
+                    currentSession.MemoryReliefAttempts++;
+                    if (result.Success)
+                    {
+                        currentSession.MemoryReliefSuccesses++;
+                        currentSession.MemoryReliefBytes +=
+                            Math.Max(0, result.ReclaimedWorkingSetBytes);
+                    }
+                }
             }
-            AppendActiveBoostLog(
-                "Optimized Majestic Boost managed heap under memory pressure: " +
-                result.ManagedHeapBeforeBytes + " -> " +
-                result.ManagedHeapAfterBytes + " bytes.");
+            if (result.Success)
+            {
+                Interlocked.Increment(ref activeMemoryMaintenanceCycles);
+                AppendActiveBoostLog(
+                    "Memory pressure relief succeeded for Majestic Boost only: working set " +
+                    FormatBytesInvariant(result.ReclaimedWorkingSetBytes) +
+                    ", managed heap " +
+                    result.ManagedHeapBeforeBytes + " -> " +
+                    result.ManagedHeapAfterBytes + " bytes.");
+                RecordSessionAction(
+                    "ЗАЩИТА ПАМЯТИ",
+                    "Majestic Boost отдал Windows " +
+                    FormatMemoryCompact(result.ReclaimedWorkingSetBytes) +
+                    " собственной памяти. GTA и системный кэш не выгружались.",
+                    BoostActionOutcome.Changed);
+            }
+            else
+            {
+                AppendActiveBoostLog(
+                    "Memory pressure relief did not reclaim measurable memory: status=" +
+                    result.Status + ", win32=" + result.NativeErrorCode +
+                    ", reason=" + result.Reason);
+            }
+        }
+
+        private void UpdateSessionMemoryTelemetry(MemoryPressureSnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.MetricsAvailable)
+            {
+                return;
+            }
+            lock (activeMaintenanceSync)
+            {
+                if (currentSession == null)
+                {
+                    return;
+                }
+                currentSession.MemorySamples++;
+                currentSession.MinimumAvailableMemoryBytes = MinimumPositive(
+                    currentSession.MinimumAvailableMemoryBytes,
+                    snapshot.AvailablePhysicalBytes);
+                currentSession.MinimumCommitHeadroomBytes = MinimumPositive(
+                    currentSession.MinimumCommitHeadroomBytes,
+                    snapshot.CommitHeadroomBytes);
+            }
+        }
+
+        private void UpdateGameMemoryTelemetry(
+            string processName,
+            long workingSetBytes,
+            long privateBytes)
+        {
+            lock (activeMaintenanceSync)
+            {
+                if (currentSession == null)
+                {
+                    return;
+                }
+                currentSession.GameName = processName ?? currentSession.GameName;
+                currentSession.PeakGameWorkingSetBytes = Math.Max(
+                    currentSession.PeakGameWorkingSetBytes,
+                    workingSetBytes);
+                currentSession.PeakGamePrivateBytes = Math.Max(
+                    currentSession.PeakGamePrivateBytes,
+                    privateBytes);
+            }
+        }
+
+        private static long MinimumPositive(long current, long candidate)
+        {
+            if (candidate <= 0)
+            {
+                return current;
+            }
+            return current <= 0 ? candidate : Math.Min(current, candidate);
+        }
+
+        private static string FormatBytesInvariant(long bytes)
+        {
+            return Math.Max(0, bytes).ToString(
+                System.Globalization.CultureInfo.InvariantCulture) + " bytes";
+        }
+
+        private static string FormatMemoryCompact(long bytes)
+        {
+            if (bytes <= 0)
+            {
+                return "0 МБ";
+            }
+            return (bytes / 1048576d).ToString(
+                "0.0",
+                System.Globalization.CultureInfo.CurrentCulture) + " МБ";
         }
 
         private void RestoreOwnedGamePriorities()
@@ -1746,10 +1952,12 @@ namespace MajesticBoost
                 CompleteCurrentSession("Interrupted", "Начата новая сессия Boost.");
             }
             Interlocked.Exchange(ref activeMemoryMaintenanceCycles, 0);
+            ActiveMemoryMaintenanceService.ResetPolicyState();
             currentSession = BoostSessionReport.Start(trigger);
             currentSession.AddAction(
                 "ПАМЯТЬ ДО ЗАПУСКА",
-                FormatMemory(currentSession.AvailableMemoryStartBytes) + " доступно.",
+                FormatMemory(currentSession.AvailableMemoryStartBytes) +
+                " доступно; сюда уже входит освобождаемый кэш Windows.",
                 BoostActionOutcome.AlreadyOptimal);
             if (keepDiscordToggle != null && keepDiscordToggle.IsChecked == true)
             {
@@ -1825,7 +2033,7 @@ namespace MajesticBoost
                     }
                     string key = line.Substring(0, separator).Trim();
                     string value = line.Substring(separator + 1).Trim();
-                    if (key.StartsWith("Process", StringComparison.OrdinalIgnoreCase))
+                    if (IsIndexedResultKey(key, "Process"))
                     {
                         string[] parts = value.Split('|');
                         string processName = parts.Length > 0 ? parts[0] : value;
@@ -1835,7 +2043,7 @@ namespace MajesticBoost
                             BoostActionOutcome.Changed);
                         stopped++;
                     }
-                    else if (key.StartsWith("Warning", StringComparison.OrdinalIgnoreCase))
+                    else if (IsIndexedResultKey(key, "Warning"))
                     {
                         report.AddAction(
                             "ПРЕДУПРЕЖДЕНИЕ ПОДГОТОВКИ",
@@ -1865,6 +2073,27 @@ namespace MajesticBoost
             }
         }
 
+        private static bool IsIndexedResultKey(string key, string prefix)
+        {
+            if (string.IsNullOrEmpty(key) ||
+                string.IsNullOrEmpty(prefix) ||
+                key.Length <= prefix.Length ||
+                !key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            for (int index = prefix.Length; index < key.Length; index++)
+            {
+                if (key[index] < '0' || key[index] > '9')
+                {
+                    return false;
+                }
+            }
+
+            return key[prefix.Length] != '0';
+        }
+
         private void SaveCurrentSession()
         {
             if (currentSession == null)
@@ -1891,18 +2120,34 @@ namespace MajesticBoost
             int memoryMaintenanceCycles =
                 Interlocked.CompareExchange(ref activeMemoryMaintenanceCycles, 0, 0);
             currentSession.ManagedMemoryMaintenanceCycles = memoryMaintenanceCycles;
-            if (memoryMaintenanceCycles > 0)
+            if (currentSession.MemoryReliefSuccesses > 0)
             {
                 currentSession.AddAction(
-                    "ОБСЛУЖИВАНИЕ ПАМЯТИ",
-                    "Собственная управляемая память Majestic Boost оптимизирована " +
-                    memoryMaintenanceCycles + " раз.",
+                    "ЗАЩИТА ПАМЯТИ",
+                    "Реально отдано Windows " +
+                    FormatMemoryCompact(currentSession.MemoryReliefBytes) +
+                    " собственной памяти Majestic Boost за " +
+                    currentSession.MemoryReliefSuccesses + " успешн. попыток из " +
+                    currentSession.MemoryReliefAttempts +
+                    ". Память GTA и системный кэш не выгружались.",
                     BoostActionOutcome.Changed);
+            }
+            else if (currentSession.MemoryReliefAttempts > 0)
+            {
+                currentSession.AddAction(
+                    "ЗАЩИТА ПАМЯТИ",
+                    "Критическое давление памяти было обнаружено, но Majestic Boost " +
+                    "не удерживал измеримого объёма, который можно было безопасно отдать Windows.",
+                    BoostActionOutcome.Skipped);
             }
             currentSession.Complete(status, reason);
             currentSession.AddAction(
                 "ПАМЯТЬ ПОСЛЕ СЕССИИ",
-                FormatMemory(currentSession.AvailableMemoryEndBytes) + " доступно.",
+                FormatMemory(currentSession.AvailableMemoryEndBytes) +
+                " доступно. Минимум за сессию: " +
+                FormatMemory(currentSession.MinimumAvailableMemoryBytes) +
+                "; минимальный запас commit: " +
+                FormatMemory(currentSession.MinimumCommitHeadroomBytes) + ".",
                 BoostActionOutcome.AlreadyOptimal);
             try { BoostSessionReportStore.Save(currentSession); }
             catch { }
@@ -1955,7 +2200,30 @@ namespace MajesticBoost
                 DateTime.UtcNow - lastGameSeenUtc >= TimeSpan.FromSeconds(10) &&
                 !animationRunning)
             {
-                StartBoostDeactivation();
+                GameCrashInfo crash;
+                HashSet<int> expectedProcessIds = GetTrackedGameProcessIds();
+                if (TryGetRecentGameCrash(
+                        lastGameSeenUtc.AddSeconds(-10),
+                        expectedProcessIds,
+                        out crash))
+                {
+                    StoreGameCrash(crash);
+                    RecordSessionAction(
+                        (crash.ApplicationName ?? "GTA5").ToUpperInvariant() +
+                        " — ЗАВЕРШЕНИЕ",
+                        BuildGameCrashDetail(crash),
+                        BoostActionOutcome.Failed);
+                    StartBoostDeactivation(
+                        "GameCrashed",
+                        "Windows зарегистрировала аварийное завершение игры " +
+                        NormalizeCrashCode(crash.ExceptionCode) + ".");
+                }
+                else
+                {
+                    StartBoostDeactivation(
+                        "Completed",
+                        "Игра завершена; Active Boost остановлен автоматически.");
+                }
                 return;
             }
 
@@ -2008,6 +2276,193 @@ namespace MajesticBoost
                 }
             }
             return false;
+        }
+
+        private void StoreGameCrash(GameCrashInfo crash)
+        {
+            if (crash == null)
+            {
+                return;
+            }
+            lock (activeMaintenanceSync)
+            {
+                if (currentSession == null)
+                {
+                    return;
+                }
+                currentSession.GameCrashUtc = crash.CapturedUtc;
+                currentSession.GameCrashCode = NormalizeCrashCode(crash.ExceptionCode);
+                currentSession.GameCrashModule = crash.FaultModule ?? string.Empty;
+                currentSession.GameCrashOffset = crash.FaultOffset ?? string.Empty;
+            }
+        }
+
+        private HashSet<int> GetTrackedGameProcessIds()
+        {
+            lock (activeMaintenanceSync)
+            {
+                return new HashSet<int>(trackedGamePriorities.Keys);
+            }
+        }
+
+        private static bool TryGetRecentGameCrash(
+            DateTime earliestUtc,
+            ISet<int> expectedProcessIds,
+            out GameCrashInfo crash)
+        {
+            crash = null;
+            try
+            {
+                using (var log = new EventLog("Application"))
+                {
+                    int count = log.Entries.Count;
+                    int firstIndex = Math.Max(0, count - 256);
+                    DateTime latestAcceptedUtc = DateTime.UtcNow.AddMinutes(1);
+                    for (int index = count - 1; index >= firstIndex; index--)
+                    {
+                        EventLogEntry entry = log.Entries[index];
+                        DateTime eventUtc = entry.TimeGenerated.ToUniversalTime();
+                        if (eventUtc < earliestUtc)
+                        {
+                            break;
+                        }
+                        if (eventUtc > latestAcceptedUtc ||
+                            entry.InstanceId != 1000 ||
+                            !string.Equals(
+                                entry.Source,
+                                "Application Error",
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        string[] values = entry.ReplacementStrings ?? new string[0];
+                        string applicationName = values.Length > 0
+                            ? values[0]
+                            : string.Empty;
+                        if (!string.Equals(
+                                applicationName,
+                                "GTA5.exe",
+                                StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(
+                                applicationName,
+                                "GTA5_Enhanced.exe",
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        if (!IsExpectedCrashProcessId(
+                                expectedProcessIds,
+                                values.Length > 8 ? values[8] : null))
+                        {
+                            continue;
+                        }
+
+                        crash = new GameCrashInfo
+                        {
+                            CapturedUtc = eventUtc,
+                            ApplicationName = applicationName,
+                            FaultModule = values.Length > 3 ? values[3] : string.Empty,
+                            ExceptionCode = values.Length > 6 ? values[6] : string.Empty,
+                            FaultOffset = values.Length > 7 ? values[7] : string.Empty
+                        };
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("Game crash event lookup failed.", ex);
+            }
+            return false;
+        }
+
+        private static bool IsExpectedCrashProcessId(
+            ISet<int> expectedProcessIds,
+            string value)
+        {
+            if (expectedProcessIds == null || expectedProcessIds.Count == 0)
+            {
+                return true;
+            }
+
+            int processId;
+            return TryParseCrashProcessId(value, out processId) &&
+                expectedProcessIds.Contains(processId);
+        }
+
+        private static bool TryParseCrashProcessId(
+            string value,
+            out int processId)
+        {
+            processId = 0;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            string candidate = value.Trim();
+            if (candidate.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                return int.TryParse(
+                    candidate.Substring(2),
+                    System.Globalization.NumberStyles.AllowHexSpecifier,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out processId) &&
+                    processId > 0;
+            }
+
+            return int.TryParse(
+                candidate,
+                System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out processId) &&
+                processId > 0;
+        }
+
+        private static string BuildGameCrashDetail(GameCrashInfo crash)
+        {
+            string code = NormalizeCrashCode(crash == null
+                ? string.Empty
+                : crash.ExceptionCode);
+            string meaning;
+            if (string.Equals(code, "0xC0000005", StringComparison.OrdinalIgnoreCase))
+            {
+                meaning =
+                    "нарушение доступа; это не код нехватки оперативной памяти";
+            }
+            else if (string.Equals(code, "0xC0000017", StringComparison.OrdinalIgnoreCase))
+            {
+                meaning = "Windows сообщила о нехватке памяти для операции";
+            }
+            else
+            {
+                meaning = "код причины сохранён для диагностики";
+            }
+            return "Windows Event Log: " + code + " — " + meaning +
+                ". Модуль: " +
+                (string.IsNullOrWhiteSpace(crash == null ? null : crash.FaultModule)
+                    ? "не указан"
+                    : crash.FaultModule) +
+                "; смещение: " +
+                (string.IsNullOrWhiteSpace(crash == null ? null : crash.FaultOffset)
+                    ? "не указано"
+                    : crash.FaultOffset) + ".";
+        }
+
+        private static string NormalizeCrashCode(string value)
+        {
+            string code = (value ?? string.Empty).Trim();
+            if (code.Length == 0)
+            {
+                return "код не указан";
+            }
+            if (!code.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                code = "0x" + code;
+            }
+            return code.ToUpperInvariant().Replace("0X", "0x");
         }
 
         private async void BoostCenterBenchmarkRequested(
@@ -2278,7 +2733,16 @@ namespace MajesticBoost
                 lastSession.Complete(
                     "Interrupted",
                     "Предыдущая сессия завершилась вместе с приложением или Windows.");
-                BoostSessionReportStore.Save(lastSession);
+                try
+                {
+                    BoostSessionReportStore.Save(lastSession);
+                }
+                catch (Exception ex)
+                {
+                    CrashLog.Write(
+                        "Could not finalize the previous session report.",
+                        ex);
+                }
             }
             if (boostCenterOverlay != null)
             {
@@ -2334,6 +2798,10 @@ namespace MajesticBoost
 
         private void WindowClosed(object sender, EventArgs e)
         {
+            bool sessionWasRunning =
+                boostActive ||
+                animationRunning ||
+                boostProcess != null;
             boostActive = false;
             Interlocked.Increment(ref preflightGeneration);
             if (benchmarkCancellation != null)
@@ -2349,7 +2817,12 @@ namespace MajesticBoost
                 readinessTimer.Stop();
             }
             StopActiveBoostMaintenance();
-            CompleteCurrentSession("Completed", "Приложение закрыто.");
+            ImportBoostScriptResult(currentSession);
+            CompleteCurrentSession(
+                sessionWasRunning ? "Interrupted" : "Completed",
+                sessionWasRunning
+                    ? "Приложение закрыто до штатного завершения Boost."
+                    : "Приложение закрыто.");
             TryDeleteReadinessSignal();
             StopBoostProcess();
         }
@@ -2789,6 +3262,58 @@ namespace MajesticBoost
             var image = new DrawingImage(group);
             image.Freeze();
             return image;
+        }
+    }
+
+    internal static class CrashLog
+    {
+        private const long MaximumLogBytes = 512 * 1024;
+        private static readonly object Sync = new object();
+
+        public static void Write(string message, Exception exception)
+        {
+            try
+            {
+                lock (Sync)
+                {
+                    string directory = System.IO.Path.Combine(
+                        Environment.GetFolderPath(
+                            Environment.SpecialFolder.LocalApplicationData),
+                        "MajesticBoost");
+                    Directory.CreateDirectory(directory);
+                    string path = System.IO.Path.Combine(directory, "crash.log");
+                    string previousPath = System.IO.Path.Combine(
+                        directory,
+                        "crash.previous.log");
+                    if (File.Exists(path) &&
+                        new FileInfo(path).Length >= MaximumLogBytes)
+                    {
+                        if (File.Exists(previousPath))
+                        {
+                            File.Delete(previousPath);
+                        }
+                        File.Move(path, previousPath);
+                    }
+
+                    var entry = new StringBuilder();
+                    entry.Append('[');
+                    entry.Append(DateTime.UtcNow.ToString("o"));
+                    entry.Append("] ");
+                    entry.AppendLine(message ?? "Unknown application error.");
+                    if (exception != null)
+                    {
+                        entry.AppendLine(exception.ToString());
+                    }
+                    File.AppendAllText(
+                        path,
+                        entry.ToString(),
+                        new UTF8Encoding(false));
+                }
+            }
+            catch
+            {
+                // Crash logging must never trigger another application failure.
+            }
         }
     }
 }

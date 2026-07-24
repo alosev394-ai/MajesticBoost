@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$StatePath,
-    [string]$ResultPath
+    [string]$ResultPath,
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedUserSid
 )
 
 Set-StrictMode -Version 2.0
@@ -18,6 +20,15 @@ $latestStatePointer = Join-Path $stateRoot 'latest-state.txt'
 $transactionLockPath = Join-Path $stateRoot 'transaction.lock'
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $currentUserSid = $currentIdentity.User
+$expectedIdentitySid = try {
+    New-Object Security.Principal.SecurityIdentifier($ExpectedUserSid)
+}
+catch {
+    throw 'ExpectedUserSid is not a valid Windows security identifier.'
+}
+if (-not $currentUserSid -or $currentUserSid.Value -ine $expectedIdentitySid.Value) {
+    throw 'Elevation used a different Windows account. Sign in with an administrator account or grant administrator rights to the current account, then retry.'
+}
 $administratorsSid = New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
 $systemSid = New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
 $storageHadUntrustedWriteBeforeProtection = $false
@@ -78,6 +89,7 @@ if (-not (Test-IsAdministrator)) {
         $arguments += @('-StatePath', (Quote-ProcessArgument -Value $StatePath))
     }
     $arguments += @('-ResultPath', (Quote-ProcessArgument -Value $effectiveResultPath))
+    $arguments += @('-ExpectedUserSid', (Quote-ProcessArgument -Value $ExpectedUserSid))
     $trustedPowerShell = Join-Path $systemDirectory 'WindowsPowerShell\v1.0\powershell.exe'
     $process = Start-Process -FilePath $trustedPowerShell -Verb RunAs -ArgumentList $arguments -Wait -PassThru -WindowStyle Hidden
     exit $process.ExitCode

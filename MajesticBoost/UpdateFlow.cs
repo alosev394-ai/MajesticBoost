@@ -7,6 +7,7 @@ using System.IO;
 using System.Net;
 using System.Net.Cache;
 using System.Reflection;
+using System.Security;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -71,6 +72,19 @@ namespace MajesticBoost
             public string InstallerUrl;
             public string Sha256;
             public long Size;
+        }
+
+        private sealed class UpdateStorageException : IOException
+        {
+            public UpdateStorageException(string message)
+                : base(message)
+            {
+            }
+
+            public UpdateStorageException(string message, Exception innerException)
+                : base(message, innerException)
+            {
+            }
         }
 
         private struct SemanticVersion : IComparable<SemanticVersion>
@@ -440,6 +454,8 @@ namespace MajesticBoost
         private const long InstallerMaximumBytes = 268435456L;
         private const int ManifestRequestTimeoutMilliseconds = 5000;
         private const int ManifestTotalTimeoutMilliseconds = 20000;
+        private const int ManifestFallbackTotalTimeoutMilliseconds =
+            (2 * ManifestRequestTimeoutMilliseconds) + 2000;
         private const int ManifestFetchAttempts = 3;
         private const int ManifestRetryDelayMilliseconds = 700;
         private const int DownloadReadTimeoutMilliseconds = 20000;
@@ -470,6 +486,8 @@ namespace MajesticBoost
         private bool allowOwnerClose;
         private bool checkCompleted;
         private bool updateOperationRunning;
+        private string updateCheckDiagnostic;
+        private bool updateCheckRetryRecommended;
 
         public UpdateFlowOverlay(
             Window ownerWindow,
@@ -560,6 +578,16 @@ namespace MajesticBoost
             get { return availableUpdate == null ? null : availableUpdate.Version.ToString(); }
         }
 
+        public string UpdateCheckDiagnostic
+        {
+            get { return updateCheckDiagnostic; }
+        }
+
+        public bool UpdateCheckRetryRecommended
+        {
+            get { return updateCheckRetryRecommended; }
+        }
+
         /// <summary>
         /// Checks GitHub once for this overlay instance. True means the caller may
         /// continue into the normal startup flow; false means the update overlay owns
@@ -592,6 +620,8 @@ namespace MajesticBoost
         {
             allowOwnerClose = false;
             checkCompleted = false;
+            updateCheckDiagnostic = "Update check is running.";
+            updateCheckRetryRecommended = false;
             ShowChecking();
 
             if (demoMode)
@@ -624,7 +654,16 @@ namespace MajesticBoost
                 SemanticVersion currentVersion = GetCurrentVersion();
                 if (manifest.Version.CompareTo(currentVersion) <= 0)
                 {
-                    Log("Update check completed: current version is up to date.");
+                    if (updateCheckRetryRecommended)
+                    {
+                        Log(
+                            "No newer release was found in the validated signed-main fallback. " +
+                            "The immutable repository-ref check remains unavailable; retry is recommended.");
+                    }
+                    else
+                    {
+                        Log("Update check completed from an immutable commit: current version is up to date.");
+                    }
                     checkCompleted = true;
                     HideFlow();
                     return true;
@@ -641,7 +680,11 @@ namespace MajesticBoost
             {
                 // Availability and manifest problems are deliberately fail-open. A
                 // bad network day must not brick an otherwise usable installed app.
-                Log("Update check skipped: " + DescribeException(ex));
+                updateCheckDiagnostic =
+                    "Update status is unknown; the signed update source could not be verified: " +
+                    DescribeException(ex);
+                updateCheckRetryRecommended = true;
+                Log("Update check unavailable; retry is recommended: " + DescribeException(ex));
                 checkCompleted = true;
                 HideFlow();
                 return true;
@@ -653,6 +696,8 @@ namespace MajesticBoost
             byte[] payload = null;
             byte[] signaturePayload = null;
             Exception lastTransientFailure = null;
+            Exception repositoryRefFailure = null;
+            bool useSignedMainFallback = false;
             Stopwatch totalTimer = Stopwatch.StartNew();
             for (int attempt = 1; attempt <= ManifestFetchAttempts; attempt++)
             {
@@ -661,21 +706,27 @@ namespace MajesticBoost
                     "{0:x16}-{1}",
                     DateTime.UtcNow.Ticks,
                     attempt);
+                bool repositoryHeadResolved = false;
                 try
                 {
                     byte[] headPayload = DownloadSmallFile(
                         BuildRepositoryHeadRequestAddress(cacheToken),
                         RepositoryHeadMaximumBytes,
-                        GetManifestRequestTimeout(totalTimer),
+                        GetManifestRequestTimeout(
+                            totalTimer,
+                            ManifestTotalTimeoutMilliseconds),
                         totalTimer,
                         ManifestTotalTimeoutMilliseconds);
                     string commitSha = ParseRepositoryHeadCommit(headPayload);
+                    repositoryHeadResolved = true;
                     payload = DownloadSmallFile(
                         BuildImmutableManifestAddress(
                             commitSha,
                             "update-v2.json"),
                         ManifestMaximumBytes,
-                        GetManifestRequestTimeout(totalTimer),
+                        GetManifestRequestTimeout(
+                            totalTimer,
+                            ManifestTotalTimeoutMilliseconds),
                         totalTimer,
                         ManifestTotalTimeoutMilliseconds);
                     signaturePayload = DownloadSmallFile(
@@ -683,7 +734,9 @@ namespace MajesticBoost
                             commitSha,
                             "update-v2.json.sig"),
                         SignatureMaximumBytes,
-                        GetManifestRequestTimeout(totalTimer),
+                        GetManifestRequestTimeout(
+                            totalTimer,
+                            ManifestTotalTimeoutMilliseconds),
                         totalTimer,
                         ManifestTotalTimeoutMilliseconds);
                     lastTransientFailure = null;
@@ -691,6 +744,17 @@ namespace MajesticBoost
                 }
                 catch (WebException ex)
                 {
+                    if (!repositoryHeadResolved &&
+                        IsRepositoryRefFallbackEligible(ex, attempt))
+                    {
+                        repositoryRefFailure = ex;
+                        useSignedMainFallback = true;
+                        Log(
+                            "GitHub repository ref is unavailable; attempting the " +
+                            "strictly verified signed-main manifest fallback: " +
+                            DescribeException(ex));
+                        break;
+                    }
                     if (!IsTransientManifestFailure(ex) ||
                         attempt >= ManifestFetchAttempts)
                     {
@@ -710,14 +774,89 @@ namespace MajesticBoost
                         ex);
                 }
             }
+            if (useSignedMainFallback)
+            {
+                Stopwatch fallbackTimer = Stopwatch.StartNew();
+                try
+                {
+                    payload = DownloadSmallFile(
+                        BuildSignedMainManifestAddress("update-v2.json"),
+                        ManifestMaximumBytes,
+                        GetManifestRequestTimeout(
+                            fallbackTimer,
+                            ManifestFallbackTotalTimeoutMilliseconds),
+                        fallbackTimer,
+                        ManifestFallbackTotalTimeoutMilliseconds);
+                    signaturePayload = DownloadSmallFile(
+                        BuildSignedMainManifestAddress("update-v2.json.sig"),
+                        SignatureMaximumBytes,
+                        GetManifestRequestTimeout(
+                            fallbackTimer,
+                            ManifestFallbackTotalTimeoutMilliseconds),
+                        fallbackTimer,
+                        ManifestFallbackTotalTimeoutMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    updateCheckDiagnostic =
+                        "GitHub repository ref and the signed-main fallback are unavailable: " +
+                        DescribeException(ex);
+                    updateCheckRetryRecommended = true;
+                    throw new WebException(
+                        "The signed-main manifest fallback could not be downloaded.",
+                        ex,
+                        ex is WebException
+                            ? ((WebException)ex).Status
+                            : WebExceptionStatus.UnknownError,
+                        null);
+                }
+            }
             if (payload == null || signaturePayload == null)
             {
                 throw new WebException(
                     "The signed update manifest could not be downloaded.",
                     lastTransientFailure);
             }
+            UpdateManifest manifest = VerifyAndParseManifest(
+                payload,
+                signaturePayload);
+            if (useSignedMainFallback)
+            {
+                updateCheckDiagnostic =
+                    "GitHub repository ref was unavailable, but the signed main-branch " +
+                    "manifest passed RSA, URL, version, size, and SHA-256 validation. " +
+                    "An immutable-source retry is recommended.";
+                updateCheckRetryRecommended = true;
+                Log(
+                    "Signed-main fallback validated successfully after repository-ref failure: " +
+                    DescribeException(repositoryRefFailure));
+            }
+            else
+            {
+                updateCheckDiagnostic =
+                    "Update manifest was verified from an immutable repository commit.";
+                updateCheckRetryRecommended = false;
+            }
+            return manifest;
+        }
+
+        private static UpdateManifest VerifyAndParseManifest(
+            byte[] payload,
+            byte[] signaturePayload)
+        {
             byte[] signature = DecodeManifestSignature(signaturePayload);
             VerifyManifestSignature(payload, signature);
+            return ParseAndValidateManifest(payload);
+        }
+
+        private static UpdateManifest ParseAndValidateManifest(byte[] payload)
+        {
+            if (payload == null || payload.Length == 0 ||
+                payload.Length > ManifestMaximumBytes)
+            {
+                throw new InvalidDataException("Manifest payload size is invalid.");
+            }
+
             string json = new UTF8Encoding(false, true).GetString(payload);
             Dictionary<string, JsonValue> root;
             if (!new JsonParser(json).TryParseRootObject(out root))
@@ -780,6 +919,46 @@ namespace MajesticBoost
                 Sha256 = sha256.ToUpperInvariant(),
                 Size = size
             };
+        }
+
+        private static string BuildSignedMainManifestAddress(string fileName)
+        {
+            if (string.Equals(fileName, "update-v2.json", StringComparison.Ordinal))
+            {
+                return ValidateSignedMainManifestAddress(
+                    ManifestUrl,
+                    "update-v2.json");
+            }
+            if (string.Equals(fileName, "update-v2.json.sig", StringComparison.Ordinal))
+            {
+                return ValidateSignedMainManifestAddress(
+                    ManifestSignatureUrl,
+                    "update-v2.json.sig");
+            }
+            throw new InvalidDataException("Signed-main manifest path is invalid.");
+        }
+
+        private static string ValidateSignedMainManifestAddress(
+            string address,
+            string expectedFileName)
+        {
+            string expectedAddress =
+                RepositoryRawPrefix + "main/" + expectedFileName;
+            Uri uri;
+            if (!string.Equals(address, expectedAddress, StringComparison.Ordinal) ||
+                !Uri.TryCreate(address, UriKind.Absolute, out uri) ||
+                !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal) ||
+                !string.Equals(
+                    uri.Host,
+                    "raw.githubusercontent.com",
+                    StringComparison.OrdinalIgnoreCase) ||
+                !uri.IsDefaultPort ||
+                !string.IsNullOrEmpty(uri.Query) ||
+                !string.IsNullOrEmpty(uri.Fragment))
+            {
+                throw new InvalidDataException("Signed-main manifest URL is invalid.");
+            }
+            return uri.AbsoluteUri;
         }
 
         private static string BuildRepositoryHeadRequestAddress(
@@ -878,14 +1057,34 @@ namespace MajesticBoost
             return RepositoryRawPrefix + commitSha + "/" + fileName;
         }
 
-        private static int GetManifestRequestTimeout(Stopwatch totalTimer)
+        private static int GetManifestRequestTimeout(
+            Stopwatch totalTimer,
+            int totalTimeoutMilliseconds)
         {
             if (totalTimer == null)
             {
                 throw new ArgumentNullException("totalTimer");
             }
+            return CalculateManifestRequestTimeout(
+                totalTimer.ElapsedMilliseconds,
+                totalTimeoutMilliseconds);
+        }
+
+        private static int CalculateManifestRequestTimeout(
+            long elapsedMilliseconds,
+            int totalTimeoutMilliseconds)
+        {
+            if (elapsedMilliseconds < 0)
+            {
+                throw new ArgumentOutOfRangeException("elapsedMilliseconds");
+            }
+            if (totalTimeoutMilliseconds <= 0)
+            {
+                throw new ArgumentOutOfRangeException("totalTimeoutMilliseconds");
+            }
+
             long remaining =
-                ManifestTotalTimeoutMilliseconds - totalTimer.ElapsedMilliseconds;
+                totalTimeoutMilliseconds - elapsedMilliseconds;
             if (remaining < 500)
             {
                 throw new WebException(
@@ -917,6 +1116,85 @@ namespace MajesticBoost
                     null);
             }
             Thread.Sleep(delayMilliseconds);
+        }
+
+        private static bool IsRepositoryRefFallbackEligible(
+            WebException exception,
+            int attempt)
+        {
+            if (exception == null)
+            {
+                return false;
+            }
+
+            int httpStatusCode = 0;
+            var response = exception.Response as HttpWebResponse;
+            if (response != null)
+            {
+                httpStatusCode = (int)response.StatusCode;
+            }
+            return ShouldUseRepositoryRefFallback(
+                exception.Status,
+                httpStatusCode,
+                attempt,
+                ManifestFetchAttempts);
+        }
+
+        private static bool ShouldUseRepositoryRefFallback(
+            WebExceptionStatus status,
+            int httpStatusCode,
+            int attempt,
+            int maximumAttempts)
+        {
+            if (attempt <= 0 ||
+                maximumAttempts <= 0 ||
+                attempt > maximumAttempts)
+            {
+                return false;
+            }
+
+            if (status == WebExceptionStatus.NameResolutionFailure ||
+                status == WebExceptionStatus.ProxyNameResolutionFailure)
+            {
+                return true;
+            }
+
+            // GitHub's unauthenticated API rate limit can be reported as
+            // either 403 or 429. The fallback remains authenticated by the
+            // pinned RSA key and is therefore safe for both responses.
+            if (status == WebExceptionStatus.ProtocolError &&
+                (httpStatusCode == 403 ||
+                 httpStatusCode == 429))
+            {
+                return true;
+            }
+
+            if (attempt < maximumAttempts)
+            {
+                return false;
+            }
+
+            switch (status)
+            {
+                case WebExceptionStatus.ConnectFailure:
+                case WebExceptionStatus.ConnectionClosed:
+                case WebExceptionStatus.KeepAliveFailure:
+                case WebExceptionStatus.PipelineFailure:
+                case WebExceptionStatus.ReceiveFailure:
+                case WebExceptionStatus.SendFailure:
+                case WebExceptionStatus.Timeout:
+                    return true;
+
+                case WebExceptionStatus.ProtocolError:
+                    return httpStatusCode == 408 ||
+                           (httpStatusCode >= 500 &&
+                            httpStatusCode <= 599);
+
+                default:
+                    // TrustFailure, SecureChannelFailure, authentication
+                    // failures, and all unknown transport states fail closed.
+                    return false;
+            }
         }
 
         private static bool IsTransientManifestFailure(WebException exception)
@@ -1162,6 +1440,18 @@ namespace MajesticBoost
                 }
                 await DownloadAndLaunchUpdateAsync();
             }
+            catch (UpdateStorageException ex)
+            {
+                ShowUpdateStorageRetry(ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                ShowUpdateStorageRetry(ex);
+            }
+            catch (SecurityException ex)
+            {
+                ShowUpdateStorageRetry(ex);
+            }
             finally
             {
                 updateOperationRunning = false;
@@ -1276,10 +1566,13 @@ namespace MajesticBoost
         {
             try
             {
-                string directory = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "MajesticBoost");
+                string directory = GetUpdateStateDirectory();
                 Directory.CreateDirectory(directory);
+                if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw new UpdateStorageException(
+                        "The update state directory must not be a reparse point.");
+                }
                 return new FileStream(
                     Path.Combine(directory, "update-operation.lock"),
                     FileMode.OpenOrCreate,
@@ -1288,10 +1581,110 @@ namespace MajesticBoost
                     1,
                     FileOptions.DeleteOnClose);
             }
-            catch (IOException)
+            catch (UpdateStorageException)
             {
-                return null;
+                throw;
             }
+            catch (IOException ex)
+            {
+                if (IsUpdateLockContention(ex))
+                {
+                    return null;
+                }
+                throw new UpdateStorageException(
+                    "The update operation lock could not be created.",
+                    ex);
+            }
+        }
+
+        private static bool IsUpdateLockContention(IOException exception)
+        {
+            if (exception == null)
+            {
+                return false;
+            }
+            int nativeError = exception.HResult & 0xFFFF;
+            return nativeError == 32 || nativeError == 33;
+        }
+
+        private static string GetUpdateStateDirectory()
+        {
+            string localApplicationData;
+            try
+            {
+                localApplicationData = Environment.GetFolderPath(
+                    Environment.SpecialFolder.LocalApplicationData);
+            }
+            catch (SecurityException ex)
+            {
+                throw new UpdateStorageException(
+                    "Windows denied access to LocalApplicationData.",
+                    ex);
+            }
+
+            return ValidateUpdateStateDirectory(localApplicationData);
+        }
+
+        private static string ValidateUpdateStateDirectory(
+            string localApplicationData)
+        {
+            if (string.IsNullOrWhiteSpace(localApplicationData) ||
+                !Path.IsPathRooted(localApplicationData))
+            {
+                throw new UpdateStorageException(
+                    "LocalApplicationData is missing or is not an absolute path.");
+            }
+
+            try
+            {
+                string root = Path.GetFullPath(localApplicationData);
+                string directory = Path.GetFullPath(
+                    Path.Combine(root, "MajesticBoost"));
+                string requiredPrefix =
+                    root.TrimEnd(
+                        Path.DirectorySeparatorChar,
+                        Path.AltDirectorySeparatorChar) +
+                    Path.DirectorySeparatorChar;
+                if (!directory.StartsWith(
+                        requiredPrefix,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    directory.Length <= requiredPrefix.Length)
+                {
+                    throw new UpdateStorageException(
+                        "The update state directory is outside LocalApplicationData.");
+                }
+                return directory;
+            }
+            catch (ArgumentException ex)
+            {
+                throw new UpdateStorageException(
+                    "LocalApplicationData contains an invalid path.",
+                    ex);
+            }
+            catch (NotSupportedException ex)
+            {
+                throw new UpdateStorageException(
+                    "LocalApplicationData uses an unsupported path format.",
+                    ex);
+            }
+            catch (PathTooLongException ex)
+            {
+                throw new UpdateStorageException(
+                    "LocalApplicationData is too long.",
+                    ex);
+            }
+        }
+
+        private void ShowUpdateStorageRetry(Exception exception)
+        {
+            updateCheckDiagnostic =
+                "Update storage is unavailable: " +
+                DescribeException(exception);
+            updateCheckRetryRecommended = true;
+            Log("Update storage access failed: " + DescribeException(exception));
+            ShowRetry(
+                "Windows не разрешила подготовить папку обновления. " +
+                "Проверьте доступ к профилю пользователя и повторите попытку.");
         }
 
         private async Task RunDemoUpdateProgressAsync(UpdateManifest update)

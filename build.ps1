@@ -12,7 +12,7 @@ $wpfRoot = Join-Path $frameworkRoot 'WPF'
 $compiler = Join-Path $frameworkRoot 'csc.exe'
 $workDirectory = Join-Path $projectRoot 'work'
 $distDirectory = Join-Path $projectRoot 'dist'
-$releaseVersion = '1.6.4'
+$releaseVersion = '1.7.0'
 $appOutput = Join-Path $workDirectory 'MajesticBoost.exe'
 $setupOutput = Join-Path $workDirectory "MajesticBoost-Setup-$releaseVersion.exe"
 $versionedSetupOutput = Join-Path $distDirectory "MajesticBoost-Setup-$releaseVersion.exe"
@@ -106,8 +106,8 @@ $hashes = Get-FileHash -Algorithm SHA256 -LiteralPath $releaseFiles
 $hashLines = foreach ($hash in $hashes) {
     $hash.Hash + ' *' + (Split-Path -Leaf $hash.Path)
 }
-[IO.File]::WriteAllLines(
+[IO.File]::WriteAllText(
     (Join-Path $distDirectory 'SHA256SUMS.txt'),
-    $hashLines,
+    ([string]::Join("`n", $hashLines) + "`n"),
     (New-Object Text.UTF8Encoding($false)))
 $hashes | Format-Table -AutoSize

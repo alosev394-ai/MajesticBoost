@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -37,6 +39,7 @@ namespace MajesticBoost
             public int ExitCode;
             public Exception Error;
             public bool ElevationCanceled;
+            public bool TimedOut;
         }
 
         private sealed class GlobalTransactionInfo
@@ -51,6 +54,11 @@ namespace MajesticBoost
         private static readonly Color MutedColor = Color.FromRgb(142, 142, 142);
         private static readonly Color AccentColor = Color.FromRgb(232, 28, 90);
         private static readonly Color ErrorColor = Color.FromRgb(231, 24, 42);
+        private const int ElevatedScriptTimeoutMilliseconds = 10 * 60 * 1000;
+        private const string ApplyScriptSha256 =
+            "262D15FA951072154767D44D14B140C6D3C180718BBC7FDB2E37C4CC5E2E4AC7";
+        private const string RestoreScriptSha256 =
+            "9A9DE003E1EE8E786893E0D7EE6507272A6A62D9D0BA4E9DFCA7EB8262829542";
 
         private readonly Window owner;
         private readonly string[] arguments;
@@ -486,9 +494,12 @@ namespace MajesticBoost
             }
 
             string resultPath = MakeTemporaryResultPath("apply");
+            string expectedUserSid = GetCurrentUserSid();
             ScriptResult execution = await RunElevatedPowerShellAsync(
                 scriptPath,
-                "-AdoptExistingState -ResultPath " + QuoteArgument(resultPath));
+                "-AdoptExistingState -ResultPath " + QuoteArgument(resultPath) +
+                " -ExpectedUserSid " + QuoteArgument(expectedUserSid),
+                ApplyScriptSha256);
 
             if (execution.ElevationCanceled)
             {
@@ -519,7 +530,10 @@ namespace MajesticBoost
                     return;
                 }
                 ShowFailure(
-                    "Не удалось применить оптимизацию. Изменения не считаются завершёнными.",
+                    execution.TimedOut
+                        ? "Применение заняло слишком много времени и было остановлено. " +
+                          "Если часть настроек успела измениться, резервная копия сохранена для восстановления."
+                        : "Не удалось применить оптимизацию. Изменения не считаются завершёнными.",
                     false);
                 return;
             }
@@ -909,8 +923,12 @@ namespace MajesticBoost
             string resultPath = MakeTemporaryResultPath("restore");
             string scriptArguments =
                 "-StatePath " + QuoteArgument(pendingStatePath) +
-                " -ResultPath " + QuoteArgument(resultPath);
-            ScriptResult execution = await RunElevatedPowerShellAsync(scriptPath, scriptArguments);
+                " -ResultPath " + QuoteArgument(resultPath) +
+                " -ExpectedUserSid " + QuoteArgument(GetCurrentUserSid());
+            ScriptResult execution = await RunElevatedPowerShellAsync(
+                scriptPath,
+                scriptArguments,
+                RestoreScriptSha256);
 
             if (execution.ElevationCanceled)
             {
@@ -925,7 +943,11 @@ namespace MajesticBoost
             {
                 TryDeleteFile(resultPath);
                 ShowFailure(
-                    "Не удалось полностью восстановить исходные настройки. Резервная копия сохранена для повторной попытки.",
+                    execution.TimedOut
+                        ? "Восстановление заняло слишком много времени и было остановлено. " +
+                          "Резервная копия сохранена для повторной попытки."
+                        : "Не удалось полностью восстановить исходные настройки. " +
+                          "Резервная копия сохранена для повторной попытки.",
                     true);
                 return;
             }
@@ -1290,36 +1312,48 @@ namespace MajesticBoost
             }));
         }
 
-        private async Task<ScriptResult> RunElevatedPowerShellAsync(string scriptPath, string scriptArguments)
+        private async Task<ScriptResult> RunElevatedPowerShellAsync(
+            string scriptPath,
+            string scriptArguments,
+            string expectedSha256)
         {
             return await Task.Run(delegate
             {
                 var result = new ScriptResult { ExitCode = -1 };
                 try
                 {
-                    string powershellPath = Path.Combine(
-                        Environment.SystemDirectory,
-                        "WindowsPowerShell\\v1.0\\powershell.exe");
-                    var startInfo = new ProcessStartInfo
+                    using (FileStream verifiedScript = OpenVerifiedScript(
+                        scriptPath,
+                        expectedSha256))
                     {
-                        FileName = powershellPath,
-                        Arguments =
-                            "-NoProfile -ExecutionPolicy Bypass -File " +
-                            QuoteArgument(scriptPath) + " " + scriptArguments,
-                        WorkingDirectory = Path.GetDirectoryName(scriptPath),
-                        UseShellExecute = true,
-                        Verb = "runas",
-                        WindowStyle = ProcessWindowStyle.Hidden
-                    };
-
-                    using (Process process = Process.Start(startInfo))
-                    {
-                        if (process == null)
+                        string powershellPath = Path.Combine(
+                            Environment.SystemDirectory,
+                            "WindowsPowerShell\\v1.0\\powershell.exe");
+                        var startInfo = new ProcessStartInfo
                         {
-                            throw new InvalidOperationException("Не удалось запустить PowerShell.");
+                            FileName = powershellPath,
+                            Arguments =
+                                "-NoProfile -ExecutionPolicy Bypass -File " +
+                                QuoteArgument(scriptPath) + " " + scriptArguments,
+                            WorkingDirectory = Path.GetDirectoryName(scriptPath),
+                            UseShellExecute = true,
+                            Verb = "runas",
+                            WindowStyle = ProcessWindowStyle.Hidden
+                        };
+
+                        using (Process process = Process.Start(startInfo))
+                        {
+                            if (process == null)
+                            {
+                                throw new InvalidOperationException("Не удалось запустить PowerShell.");
+                            }
+                            result.TimedOut = WaitForProcessExitSafely(
+                                process,
+                                ElevatedScriptTimeoutMilliseconds,
+                                1000,
+                                TryTerminateProcess);
+                            result.ExitCode = process.ExitCode;
                         }
-                        process.WaitForExit();
-                        result.ExitCode = process.ExitCode;
                     }
                 }
                 catch (Win32Exception ex)
@@ -1339,6 +1373,126 @@ namespace MajesticBoost
                 }
                 return result;
             });
+        }
+
+        private static bool WaitForProcessExitSafely(
+            Process process,
+            int timeoutMilliseconds,
+            int pollMilliseconds,
+            Action<Process> terminateProcess)
+        {
+            if (process == null)
+            {
+                throw new ArgumentNullException("process");
+            }
+            if (timeoutMilliseconds < 0)
+            {
+                throw new ArgumentOutOfRangeException("timeoutMilliseconds");
+            }
+            if (pollMilliseconds <= 0)
+            {
+                throw new ArgumentOutOfRangeException("pollMilliseconds");
+            }
+            if (terminateProcess == null)
+            {
+                throw new ArgumentNullException("terminateProcess");
+            }
+
+            if (process.WaitForExit(timeoutMilliseconds))
+            {
+                return false;
+            }
+
+            // The caller keeps the verified script handle open while this method
+            // waits. If termination is denied (for example because UAC used other
+            // credentials), do not release that protection and do not consume a
+            // transaction/result that the elevated process may still be writing.
+            terminateProcess(process);
+            while (!process.WaitForExit(pollMilliseconds))
+            {
+                // Bounded polling runs on Task.Run, so the WPF dispatcher remains
+                // responsive while close/retry stays blocked by Applying/Restoring.
+            }
+            return true;
+        }
+
+        private static void TryTerminateProcess(Process process)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                }
+            }
+            catch
+            {
+                // A differently credentialed elevated process may reject Kill.
+                // WaitForProcessExitSafely will retain protection until real exit.
+            }
+        }
+
+        private static FileStream OpenVerifiedScript(
+            string scriptPath,
+            string expectedSha256)
+        {
+            string fullPath = Path.GetFullPath(scriptPath ?? string.Empty);
+            string baseDirectory = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (!string.Equals(
+                    Path.GetDirectoryName(fullPath),
+                    baseDirectory,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !IsPathFreeOfReparsePoints(fullPath))
+            {
+                throw new InvalidDataException(
+                    "Сценарий оптимизации должен находиться рядом с программой и не может быть ссылкой.");
+            }
+
+            var script = new FileStream(
+                fullPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read);
+            try
+            {
+                if (script.Length <= 0 || script.Length > 4 * 1024 * 1024)
+                {
+                    throw new InvalidDataException("Размер сценария оптимизации недопустим.");
+                }
+
+                string actualHash;
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    actualHash = BitConverter.ToString(sha256.ComputeHash(script))
+                        .Replace("-", string.Empty);
+                }
+                if (!string.Equals(actualHash, expectedSha256, StringComparison.Ordinal))
+                {
+                    throw new InvalidDataException(
+                        "Сценарий оптимизации изменён или повреждён. Переустановите Majestic Boost.");
+                }
+                script.Position = 0;
+                return script;
+            }
+            catch
+            {
+                script.Dispose();
+                throw;
+            }
+        }
+
+        private static string GetCurrentUserSid()
+        {
+            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+            {
+                if (identity == null || identity.User == null)
+                {
+                    throw new InvalidOperationException(
+                        "Не удалось определить текущую учётную запись Windows.");
+                }
+                return identity.User.Value;
+            }
         }
 
         private static string QuoteArgument(string value)

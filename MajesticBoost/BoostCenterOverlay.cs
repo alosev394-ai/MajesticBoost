@@ -1211,28 +1211,18 @@ namespace MajesticBoost
             durationBlock.Margin = new Thickness(0, 0, 4, 0);
             summary.Children.Add(durationBlock);
 
-            long memoryEnd = report.EndedUtc.HasValue
-                ? report.AvailableMemoryEndBytes
-                : BoostSystemMetrics.GetAvailableMemoryBytes();
-            bool memoryAvailable =
-                report.AvailableMemoryStartBytes > 0 &&
-                memoryEnd > 0;
-            long memoryDelta = memoryAvailable
-                ? memoryEnd - report.AvailableMemoryStartBytes
-                : 0;
-            string memoryText = !memoryAvailable
-                ? "ДАННЫЕ НЕДОСТУПНЫ"
-                : memoryDelta == 0
-                    ? "БЕЗ ИЗМЕНЕНИЙ"
-                    : string.Format(
-                        CultureInfo.CurrentCulture,
-                        "{0}{1:0} МБ",
-                        memoryDelta > 0 ? "+" : string.Empty,
-                        memoryDelta / 1048576.0);
+            string memoryText = report.MemoryReliefBytes > 0
+                ? string.Format(
+                    CultureInfo.CurrentCulture,
+                    "{0:0.0} МБ",
+                    report.MemoryReliefBytes / 1048576.0)
+                : report.MemoryReliefAttempts > 0
+                    ? "0 МБ"
+                    : "НЕ ТРЕБОВАЛОСЬ";
             var memoryBlock = BuildMetric(
-                "ДОСТУПНАЯ RAM",
+                "ОТДАНО WINDOWS",
                 memoryText,
-                memoryAvailable && memoryDelta > 0);
+                report.MemoryReliefBytes > 0);
             Grid.SetColumn(memoryBlock, 1);
             memoryBlock.Margin = new Thickness(4, 0, 0, 0);
             summary.Children.Add(memoryBlock);

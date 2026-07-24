@@ -1,0 +1,8 @@
+# Signed update manifests must be checked out byte-for-byte.
+update.json -text
+update.json.sig -text
+update-v2.json -text
+update-v2.json.sig -text
+
+# Keep published checksum files portable and deterministic.
+dist/SHA256SUMS.txt text eol=lf

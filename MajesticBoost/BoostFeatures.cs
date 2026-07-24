@@ -39,6 +39,9 @@ namespace MajesticBoost
         public List<BoostCheckResult> Checks;
         public long TotalMemoryBytes;
         public long AvailableMemoryBytes;
+        public long CommitTotalBytes;
+        public long CommitLimitBytes;
+        public long CommitHeadroomBytes;
         public int RefreshRate;
 
         public bool HasBlockers
@@ -120,7 +123,7 @@ namespace MajesticBoost
     {
         public BoostSessionReport()
         {
-            Version = 1;
+            Version = 2;
             Actions = new List<BoostActionRecord>();
         }
 
@@ -133,6 +136,18 @@ namespace MajesticBoost
         public long AvailableMemoryStartBytes;
         public long AvailableMemoryEndBytes;
         public int ManagedMemoryMaintenanceCycles;
+        public int MemorySamples;
+        public int MemoryReliefAttempts;
+        public int MemoryReliefSuccesses;
+        public long MemoryReliefBytes;
+        public long MinimumAvailableMemoryBytes;
+        public long MinimumCommitHeadroomBytes;
+        public long PeakGameWorkingSetBytes;
+        public long PeakGamePrivateBytes;
+        public string GameCrashCode;
+        public string GameCrashModule;
+        public string GameCrashOffset;
+        public DateTime? GameCrashUtc;
         public string GameName;
         public string StopReason;
         public List<BoostActionRecord> Actions;
@@ -140,14 +155,27 @@ namespace MajesticBoost
 
         public static BoostSessionReport Start(string trigger)
         {
-            return new BoostSessionReport
+            var report = new BoostSessionReport
             {
                 SessionId = Guid.NewGuid().ToString("N"),
                 Trigger = string.IsNullOrWhiteSpace(trigger) ? "Manual" : trigger,
                 Status = "Preparing",
-                StartedUtc = DateTime.UtcNow,
-                AvailableMemoryStartBytes = BoostSystemMetrics.GetAvailableMemoryBytes()
+                StartedUtc = DateTime.UtcNow
             };
+            MemoryPressureSnapshot snapshot;
+            if (BoostSystemMetrics.TryGetPerformanceSnapshot(out snapshot))
+            {
+                report.AvailableMemoryStartBytes = snapshot.AvailablePhysicalBytes;
+                report.MinimumAvailableMemoryBytes = snapshot.AvailablePhysicalBytes;
+                report.MinimumCommitHeadroomBytes = snapshot.CommitHeadroomBytes;
+                report.MemorySamples = 1;
+            }
+            else
+            {
+                report.AvailableMemoryStartBytes = BoostSystemMetrics.GetAvailableMemoryBytes();
+                report.MinimumAvailableMemoryBytes = report.AvailableMemoryStartBytes;
+            }
+            return report;
         }
 
         public void AddAction(
@@ -169,12 +197,55 @@ namespace MajesticBoost
             Status = string.IsNullOrWhiteSpace(status) ? "Completed" : status;
             StopReason = reason ?? string.Empty;
             EndedUtc = DateTime.UtcNow;
-            AvailableMemoryEndBytes = BoostSystemMetrics.GetAvailableMemoryBytes();
+            MemoryPressureSnapshot snapshot;
+            if (BoostSystemMetrics.TryGetPerformanceSnapshot(out snapshot))
+            {
+                AvailableMemoryEndBytes = snapshot.AvailablePhysicalBytes;
+                MinimumAvailableMemoryBytes = MinimumPositive(
+                    MinimumAvailableMemoryBytes,
+                    snapshot.AvailablePhysicalBytes);
+                MinimumCommitHeadroomBytes = MinimumPositive(
+                    MinimumCommitHeadroomBytes,
+                    snapshot.CommitHeadroomBytes);
+                MemorySamples++;
+            }
+            else
+            {
+                AvailableMemoryEndBytes = BoostSystemMetrics.GetAvailableMemoryBytes();
+            }
+        }
+
+        private static long MinimumPositive(long current, long candidate)
+        {
+            if (candidate <= 0)
+            {
+                return current;
+            }
+            return current <= 0 ? candidate : Math.Min(current, candidate);
         }
     }
 
     internal static class BoostSystemMetrics
     {
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PerformanceInformationNative
+        {
+            public uint Size;
+            public UIntPtr CommitTotal;
+            public UIntPtr CommitLimit;
+            public UIntPtr CommitPeak;
+            public UIntPtr PhysicalTotal;
+            public UIntPtr PhysicalAvailable;
+            public UIntPtr SystemCache;
+            public UIntPtr KernelTotal;
+            public UIntPtr KernelPaged;
+            public UIntPtr KernelNonpaged;
+            public UIntPtr PageSize;
+            public uint HandleCount;
+            public uint ProcessCount;
+            public uint ThreadCount;
+        }
+
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
         private sealed class MemoryStatusEx
         {
@@ -193,8 +264,20 @@ namespace MajesticBoost
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool GlobalMemoryStatusEx([In, Out] MemoryStatusEx buffer);
 
+        [DllImport("psapi.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetPerformanceInfo(
+            out PerformanceInformationNative information,
+            uint size);
+
         public static long GetAvailableMemoryBytes()
         {
+            MemoryPressureSnapshot snapshot;
+            if (TryGetPerformanceSnapshot(out snapshot))
+            {
+                return snapshot.AvailablePhysicalBytes;
+            }
+
             MemoryStatusEx status;
             if (!TryGetMemoryStatus(out status))
             {
@@ -209,6 +292,14 @@ namespace MajesticBoost
             out long totalBytes,
             out long availableBytes)
         {
+            MemoryPressureSnapshot snapshot;
+            if (TryGetPerformanceSnapshot(out snapshot))
+            {
+                totalBytes = snapshot.TotalPhysicalBytes;
+                availableBytes = snapshot.AvailablePhysicalBytes;
+                return true;
+            }
+
             totalBytes = 0;
             availableBytes = 0;
             MemoryStatusEx status;
@@ -226,6 +317,101 @@ namespace MajesticBoost
             return true;
         }
 
+        public static bool TryGetPerformanceSnapshot(
+            out MemoryPressureSnapshot snapshot)
+        {
+            snapshot = new MemoryPressureSnapshot
+            {
+                CapturedUtc = DateTime.UtcNow
+            };
+
+            PerformanceInformationNative information;
+            uint size = (uint)Marshal.SizeOf(typeof(PerformanceInformationNative));
+            try
+            {
+                if (!GetPerformanceInfo(out information, size))
+                {
+                    snapshot.ErrorCode = Marshal.GetLastWin32Error();
+                    return false;
+                }
+            }
+            catch
+            {
+                snapshot.ErrorCode = Marshal.GetLastWin32Error();
+                return false;
+            }
+
+            long pageSize = ConvertPagesToBytes(new UIntPtr(1), information.PageSize);
+            snapshot.PageSizeBytes = pageSize;
+            snapshot.TotalPhysicalBytes =
+                ConvertPagesToBytes(information.PhysicalTotal, information.PageSize);
+
+            // Windows defines PhysicalAvailable as standby + free + zero pages.
+            // Those pages can be reused immediately and must not be treated as
+            // blocked memory that needs a standby-list purge.
+            snapshot.AvailablePhysicalBytes =
+                ConvertPagesToBytes(information.PhysicalAvailable, information.PageSize);
+            snapshot.SystemCacheBytes =
+                ConvertPagesToBytes(information.SystemCache, information.PageSize);
+            snapshot.CommitTotalBytes =
+                ConvertPagesToBytes(information.CommitTotal, information.PageSize);
+            snapshot.CommitLimitBytes =
+                ConvertPagesToBytes(information.CommitLimit, information.PageSize);
+            snapshot.CommitHeadroomBytes = Math.Max(
+                0,
+                snapshot.CommitLimitBytes - snapshot.CommitTotalBytes);
+            snapshot.MetricsAvailable =
+                pageSize > 0 &&
+                snapshot.TotalPhysicalBytes > 0 &&
+                snapshot.CommitLimitBytes > 0;
+
+            long workingSetBytes;
+            long privateBytes;
+            snapshot.ProcessMetricsAvailable = TryGetCurrentProcessMemory(
+                out workingSetBytes,
+                out privateBytes);
+            snapshot.CurrentProcessWorkingSetBytes = workingSetBytes;
+            snapshot.CurrentProcessPrivateBytes = privateBytes;
+            return snapshot.MetricsAvailable;
+        }
+
+        private static bool TryGetCurrentProcessMemory(
+            out long workingSetBytes,
+            out long privateBytes)
+        {
+            workingSetBytes = 0;
+            privateBytes = 0;
+            try
+            {
+                using (Process process = Process.GetCurrentProcess())
+                {
+                    process.Refresh();
+                    workingSetBytes = Math.Max(0, process.WorkingSet64);
+                    privateBytes = Math.Max(0, process.PrivateMemorySize64);
+                    return true;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static long ConvertPagesToBytes(UIntPtr pages, UIntPtr pageSize)
+        {
+            ulong pageCount = pages.ToUInt64();
+            ulong bytesPerPage = pageSize.ToUInt64();
+            if (pageCount == 0 || bytesPerPage == 0)
+            {
+                return 0;
+            }
+            if (pageCount > (ulong)long.MaxValue / bytesPerPage)
+            {
+                return long.MaxValue;
+            }
+            return (long)(pageCount * bytesPerPage);
+        }
+
         private static bool TryGetMemoryStatus(out MemoryStatusEx status)
         {
             status = new MemoryStatusEx();
@@ -240,21 +426,266 @@ namespace MajesticBoost
         }
     }
 
+    internal sealed class MemoryPressureSnapshot
+    {
+        public DateTime CapturedUtc;
+        public bool MetricsAvailable;
+        public bool ProcessMetricsAvailable;
+        public int ErrorCode;
+        public long PageSizeBytes;
+        public long TotalPhysicalBytes;
+        public long AvailablePhysicalBytes;
+        public long SystemCacheBytes;
+        public long CommitTotalBytes;
+        public long CommitLimitBytes;
+        public long CommitHeadroomBytes;
+        public long CurrentProcessWorkingSetBytes;
+        public long CurrentProcessPrivateBytes;
+    }
+
+    internal enum MemoryPressureReliefDecision
+    {
+        MetricsUnavailable,
+        NoPressure,
+        AwaitingSecondSample,
+        Cooldown,
+        AttemptLimitReached,
+        ReliefRequired
+    }
+
+    internal enum MemoryPressureReliefStatus
+    {
+        MetricsUnavailable,
+        NoPressure,
+        AwaitingSecondSample,
+        Cooldown,
+        AttemptLimitReached,
+        Failed,
+        NoEffect,
+        Succeeded
+    }
+
+    internal sealed class MemoryPressureReliefPolicyState
+    {
+        public int ConsecutiveCriticalSamples;
+        public int Attempts;
+        public long NextAllowedTimestamp;
+
+        public MemoryPressureReliefPolicyState Clone()
+        {
+            return new MemoryPressureReliefPolicyState
+            {
+                ConsecutiveCriticalSamples = ConsecutiveCriticalSamples,
+                Attempts = Attempts,
+                NextAllowedTimestamp = NextAllowedTimestamp
+            };
+        }
+    }
+
+    internal sealed class MemoryPressureReliefEvaluation
+    {
+        public MemoryPressureReliefDecision Decision;
+        public string Reason;
+        public MemoryPressureReliefPolicyState NextState;
+    }
+
+    internal static class MemoryPressureReliefPolicy
+    {
+        public const int RequiredCriticalSamples = 2;
+        public const int CooldownSeconds = 600;
+        public const int NoEffectBackoffSeconds = 1800;
+        public const int MaximumAttempts = 3;
+        public const long MinimumPhysicalThresholdBytes = 512L * 1024L * 1024L;
+        public const long MaximumPhysicalThresholdBytes = 1536L * 1024L * 1024L;
+        public const long MinimumCommitThresholdBytes = 512L * 1024L * 1024L;
+        public const long MaximumCommitThresholdBytes = 2L * 1024L * 1024L * 1024L;
+
+        public static long GetPhysicalCriticalThreshold(long totalPhysicalBytes)
+        {
+            return Clamp(
+                totalPhysicalBytes > 0 ? totalPhysicalBytes / 20L : 0,
+                MinimumPhysicalThresholdBytes,
+                MaximumPhysicalThresholdBytes);
+        }
+
+        public static long GetCommitCriticalThreshold(long commitLimitBytes)
+        {
+            return Clamp(
+                commitLimitBytes > 0 ? commitLimitBytes / 20L : 0,
+                MinimumCommitThresholdBytes,
+                MaximumCommitThresholdBytes);
+        }
+
+        public static bool IsCritical(MemoryPressureSnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.MetricsAvailable)
+            {
+                return false;
+            }
+
+            bool physicalPressure =
+                snapshot.TotalPhysicalBytes > 0 &&
+                snapshot.AvailablePhysicalBytes >= 0 &&
+                snapshot.AvailablePhysicalBytes <=
+                    GetPhysicalCriticalThreshold(snapshot.TotalPhysicalBytes);
+            bool commitPressure =
+                snapshot.CommitLimitBytes > 0 &&
+                snapshot.CommitHeadroomBytes >= 0 &&
+                snapshot.CommitHeadroomBytes <=
+                    GetCommitCriticalThreshold(snapshot.CommitLimitBytes);
+            return physicalPressure || commitPressure;
+        }
+
+        public static MemoryPressureReliefEvaluation Evaluate(
+            MemoryPressureSnapshot snapshot,
+            MemoryPressureReliefPolicyState state,
+            long nowTimestamp)
+        {
+            var next = state == null
+                ? new MemoryPressureReliefPolicyState()
+                : state.Clone();
+
+            if (snapshot == null || !snapshot.MetricsAvailable)
+            {
+                next.ConsecutiveCriticalSamples = 0;
+                return NewEvaluation(
+                    MemoryPressureReliefDecision.MetricsUnavailable,
+                    "Windows memory metrics are unavailable.",
+                    next);
+            }
+
+            if (!IsCritical(snapshot))
+            {
+                next.ConsecutiveCriticalSamples = 0;
+                return NewEvaluation(
+                    MemoryPressureReliefDecision.NoPressure,
+                    "Available physical memory and commit headroom are healthy.",
+                    next);
+            }
+
+            if (next.ConsecutiveCriticalSamples < int.MaxValue)
+            {
+                next.ConsecutiveCriticalSamples++;
+            }
+
+            if (next.Attempts >= MaximumAttempts)
+            {
+                return NewEvaluation(
+                    MemoryPressureReliefDecision.AttemptLimitReached,
+                    "The per-session memory-relief attempt limit was reached.",
+                    next);
+            }
+
+            if (next.NextAllowedTimestamp > 0 &&
+                nowTimestamp < next.NextAllowedTimestamp)
+            {
+                return NewEvaluation(
+                    MemoryPressureReliefDecision.Cooldown,
+                    "Memory relief is in cooldown.",
+                    next);
+            }
+
+            if (next.ConsecutiveCriticalSamples < RequiredCriticalSamples)
+            {
+                return NewEvaluation(
+                    MemoryPressureReliefDecision.AwaitingSecondSample,
+                    "Critical pressure must be confirmed by a second sample.",
+                    next);
+            }
+
+            return NewEvaluation(
+                MemoryPressureReliefDecision.ReliefRequired,
+                "Critical physical or commit pressure was confirmed.",
+                next);
+        }
+
+        public static MemoryPressureReliefPolicyState RecordAttempt(
+            MemoryPressureReliefPolicyState state,
+            long nowTimestamp,
+            long reclaimedWorkingSetBytes)
+        {
+            var next = state == null
+                ? new MemoryPressureReliefPolicyState()
+                : state.Clone();
+            if (next.Attempts < int.MaxValue)
+            {
+                next.Attempts++;
+            }
+            next.ConsecutiveCriticalSamples = 0;
+            next.NextAllowedTimestamp = AddSecondsSaturated(
+                nowTimestamp,
+                reclaimedWorkingSetBytes > 0
+                    ? CooldownSeconds
+                    : NoEffectBackoffSeconds);
+            return next;
+        }
+
+        private static MemoryPressureReliefEvaluation NewEvaluation(
+            MemoryPressureReliefDecision decision,
+            string reason,
+            MemoryPressureReliefPolicyState state)
+        {
+            return new MemoryPressureReliefEvaluation
+            {
+                Decision = decision,
+                Reason = reason,
+                NextState = state
+            };
+        }
+
+        private static long AddSecondsSaturated(long timestamp, int seconds)
+        {
+            long ticks = Stopwatch.Frequency * (long)seconds;
+            return timestamp > long.MaxValue - ticks
+                ? long.MaxValue
+                : timestamp + ticks;
+        }
+
+        private static long Clamp(long value, long minimum, long maximum)
+        {
+            return Math.Min(maximum, Math.Max(minimum, value));
+        }
+    }
+
     internal sealed class ActiveMemoryMaintenanceResult
     {
         public bool MemorySnapshotAvailable;
         public bool Collected;
+        public bool Attempted;
+        public bool Success;
+        public bool NativeCallSucceeded;
+        public int NativeErrorCode;
+        public string Reason;
+        public MemoryPressureReliefStatus Status;
+        public MemoryPressureSnapshot Before;
+        public MemoryPressureSnapshot After;
         public long TotalMemoryBytes;
         public long AvailableMemoryBytes;
         public long ManagedHeapBeforeBytes;
         public long ManagedHeapAfterBytes;
+        public long ReclaimedManagedHeapBytes;
+        public long ReclaimedWorkingSetBytes;
+        public long ReclaimedPrivateBytes;
+        public long AvailablePhysicalDeltaBytes;
+        public long CommitHeadroomDeltaBytes;
+        public long DurationMilliseconds;
     }
 
     internal static class ActiveMemoryMaintenanceService
     {
-        public const int IntervalSeconds = 120;
+        public const int IntervalSeconds = 60;
         public const long MinimumAvailableMemoryBytes = 1024L * 1024L * 1024L;
         public const long ManagedHeapThresholdBytes = 32L * 1024L * 1024L;
+        private static readonly object ReliefSync = new object();
+        private static MemoryPressureReliefPolicyState defaultPolicyState =
+            new MemoryPressureReliefPolicyState();
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetCurrentProcess();
+
+        [DllImport("psapi.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool EmptyWorkingSet(IntPtr process);
 
         public static long GetNextDueTimestamp(long nowTimestamp)
         {
@@ -294,32 +725,252 @@ namespace MajesticBoost
 
         public static ActiveMemoryMaintenanceResult Run()
         {
-            var result = new ActiveMemoryMaintenanceResult();
-            result.ManagedHeapBeforeBytes = GC.GetTotalMemory(false);
-
-            long totalMemoryBytes;
-            long availableMemoryBytes;
-            result.MemorySnapshotAvailable =
-                BoostSystemMetrics.TryGetMemory(out totalMemoryBytes, out availableMemoryBytes);
-            result.TotalMemoryBytes = totalMemoryBytes;
-            result.AvailableMemoryBytes = availableMemoryBytes;
-
-            if (!ShouldCollect(
-                totalMemoryBytes,
-                availableMemoryBytes,
-                result.ManagedHeapBeforeBytes))
+            lock (ReliefSync)
             {
-                result.ManagedHeapAfterBytes = result.ManagedHeapBeforeBytes;
+                MemoryPressureSnapshot snapshot;
+                bool snapshotAvailable =
+                    BoostSystemMetrics.TryGetPerformanceSnapshot(out snapshot);
+                long nowTimestamp = Stopwatch.GetTimestamp();
+                MemoryPressureReliefEvaluation evaluation =
+                    MemoryPressureReliefPolicy.Evaluate(
+                        snapshot,
+                        defaultPolicyState,
+                        nowTimestamp);
+                defaultPolicyState = evaluation.NextState;
+
+                if (evaluation.Decision != MemoryPressureReliefDecision.ReliefRequired)
+                {
+                    return NewSkippedResult(
+                        snapshot,
+                        snapshotAvailable,
+                        evaluation.Decision,
+                        evaluation.Reason);
+                }
+
+                ActiveMemoryMaintenanceResult result =
+                    RunImmediateForCurrentProcess(evaluation.Reason);
+                defaultPolicyState = MemoryPressureReliefPolicy.RecordAttempt(
+                    defaultPolicyState,
+                    nowTimestamp,
+                    result.ReclaimedWorkingSetBytes);
                 return result;
             }
+        }
 
+        public static ActiveMemoryMaintenanceResult RunImmediateForCurrentProcess(
+            string reason)
+        {
+            var result = new ActiveMemoryMaintenanceResult
+            {
+                Attempted = true,
+                Reason = reason ?? string.Empty
+            };
+            long startedTimestamp = Stopwatch.GetTimestamp();
+            result.MemorySnapshotAvailable =
+                BoostSystemMetrics.TryGetPerformanceSnapshot(out result.Before);
+            PopulateLegacySnapshotFields(result);
+            result.ManagedHeapBeforeBytes = GC.GetTotalMemory(false);
             GC.Collect(
                 GC.MaxGeneration,
-                GCCollectionMode.Optimized,
+                GCCollectionMode.Forced,
+                true,
                 false);
-            result.Collected = true;
             result.ManagedHeapAfterBytes = GC.GetTotalMemory(false);
+            result.ReclaimedManagedHeapBytes = Math.Max(
+                0,
+                result.ManagedHeapBeforeBytes - result.ManagedHeapAfterBytes);
+
+            int errorCode;
+            bool nativeSucceeded = TryTrimCurrentProcessWorkingSet(out errorCode);
+            result.NativeCallSucceeded = nativeSucceeded;
+            result.NativeErrorCode = errorCode;
+            bool afterAvailable =
+                BoostSystemMetrics.TryGetPerformanceSnapshot(out result.After);
+            result.ReclaimedWorkingSetBytes = Reclaimed(
+                result.Before != null && result.Before.ProcessMetricsAvailable
+                    ? result.Before.CurrentProcessWorkingSetBytes
+                    : 0,
+                result.After != null && result.After.ProcessMetricsAvailable
+                    ? result.After.CurrentProcessWorkingSetBytes
+                    : 0);
+            result.ReclaimedPrivateBytes = Reclaimed(
+                result.Before != null && result.Before.ProcessMetricsAvailable
+                    ? result.Before.CurrentProcessPrivateBytes
+                    : 0,
+                result.After != null && result.After.ProcessMetricsAvailable
+                    ? result.After.CurrentProcessPrivateBytes
+                    : 0);
+            if (result.Before != null && result.After != null &&
+                result.Before.MetricsAvailable && result.After.MetricsAvailable)
+            {
+                result.AvailablePhysicalDeltaBytes =
+                    result.After.AvailablePhysicalBytes -
+                    result.Before.AvailablePhysicalBytes;
+                result.CommitHeadroomDeltaBytes =
+                    result.After.CommitHeadroomBytes -
+                    result.Before.CommitHeadroomBytes;
+            }
+
+            result.Status = ClassifyReliefOutcome(
+                nativeSucceeded,
+                afterAvailable &&
+                    result.Before != null &&
+                    result.Before.ProcessMetricsAvailable &&
+                    result.After != null &&
+                    result.After.ProcessMetricsAvailable,
+                result.ReclaimedWorkingSetBytes);
+            result.Success = result.Status == MemoryPressureReliefStatus.Succeeded;
+            // Kept for Program.cs compatibility: a cycle is counted only when
+            // a measurable amount of this process's working set was reclaimed.
+            result.Collected = result.Success;
+            string triggerReason = result.Reason;
+            if (result.Status == MemoryPressureReliefStatus.Failed)
+            {
+                result.Reason =
+                    "EmptyWorkingSet failed for the current process (Win32 " +
+                    result.NativeErrorCode.ToString(CultureInfo.InvariantCulture) +
+                    "). Trigger: " + triggerReason;
+            }
+            else if (result.Status == MemoryPressureReliefStatus.MetricsUnavailable)
+            {
+                result.Reason =
+                    "The current-process working-set result could not be measured. Trigger: " +
+                    triggerReason;
+            }
+            else if (result.Status == MemoryPressureReliefStatus.NoEffect)
+            {
+                result.Reason =
+                    "The current process yielded no measurable working-set bytes. Trigger: " +
+                    triggerReason;
+            }
+            else
+            {
+                result.Reason =
+                    "The current process yielded " +
+                    result.ReclaimedWorkingSetBytes.ToString(CultureInfo.InvariantCulture) +
+                    " working-set bytes. Trigger: " + triggerReason;
+            }
+            result.DurationMilliseconds = ElapsedMilliseconds(
+                startedTimestamp,
+                Stopwatch.GetTimestamp());
             return result;
+        }
+
+        public static MemoryPressureReliefStatus ClassifyReliefOutcome(
+            bool nativeSucceeded,
+            bool afterMetricsAvailable,
+            long reclaimedWorkingSetBytes)
+        {
+            if (!nativeSucceeded)
+            {
+                return MemoryPressureReliefStatus.Failed;
+            }
+            if (!afterMetricsAvailable)
+            {
+                return MemoryPressureReliefStatus.MetricsUnavailable;
+            }
+            return reclaimedWorkingSetBytes > 0
+                ? MemoryPressureReliefStatus.Succeeded
+                : MemoryPressureReliefStatus.NoEffect;
+        }
+
+        public static void ResetPolicyState()
+        {
+            lock (ReliefSync)
+            {
+                defaultPolicyState = new MemoryPressureReliefPolicyState();
+            }
+        }
+
+        private static bool TryTrimCurrentProcessWorkingSet(out int errorCode)
+        {
+            errorCode = 0;
+            try
+            {
+                if (EmptyWorkingSet(GetCurrentProcess()))
+                {
+                    return true;
+                }
+                errorCode = Marshal.GetLastWin32Error();
+                return false;
+            }
+            catch
+            {
+                errorCode = Marshal.GetLastWin32Error();
+                return false;
+            }
+        }
+
+        private static ActiveMemoryMaintenanceResult NewSkippedResult(
+            MemoryPressureSnapshot snapshot,
+            bool snapshotAvailable,
+            MemoryPressureReliefDecision decision,
+            string reason)
+        {
+            var result = new ActiveMemoryMaintenanceResult
+            {
+                Before = snapshot,
+                After = snapshot,
+                MemorySnapshotAvailable = snapshotAvailable,
+                Reason = reason ?? string.Empty,
+                Status = MapStatus(decision)
+            };
+            PopulateLegacySnapshotFields(result);
+            result.ManagedHeapBeforeBytes = GC.GetTotalMemory(false);
+            result.ManagedHeapAfterBytes = result.ManagedHeapBeforeBytes;
+            return result;
+        }
+
+        private static void PopulateLegacySnapshotFields(
+            ActiveMemoryMaintenanceResult result)
+        {
+            if (result.Before == null)
+            {
+                return;
+            }
+            result.TotalMemoryBytes = result.Before.TotalPhysicalBytes;
+            result.AvailableMemoryBytes = result.Before.AvailablePhysicalBytes;
+        }
+
+        private static MemoryPressureReliefStatus MapStatus(
+            MemoryPressureReliefDecision decision)
+        {
+            switch (decision)
+            {
+                case MemoryPressureReliefDecision.NoPressure:
+                    return MemoryPressureReliefStatus.NoPressure;
+                case MemoryPressureReliefDecision.AwaitingSecondSample:
+                    return MemoryPressureReliefStatus.AwaitingSecondSample;
+                case MemoryPressureReliefDecision.Cooldown:
+                    return MemoryPressureReliefStatus.Cooldown;
+                case MemoryPressureReliefDecision.AttemptLimitReached:
+                    return MemoryPressureReliefStatus.AttemptLimitReached;
+                default:
+                    return MemoryPressureReliefStatus.MetricsUnavailable;
+            }
+        }
+
+        private static long Reclaimed(long beforeBytes, long afterBytes)
+        {
+            return beforeBytes > afterBytes
+                ? beforeBytes - afterBytes
+                : 0;
+        }
+
+        private static long ElapsedMilliseconds(
+            long startedTimestamp,
+            long finishedTimestamp)
+        {
+            if (finishedTimestamp <= startedTimestamp || Stopwatch.Frequency <= 0)
+            {
+                return 0;
+            }
+            double milliseconds =
+                (finishedTimestamp - startedTimestamp) * 1000.0 /
+                Stopwatch.Frequency;
+            return milliseconds >= long.MaxValue
+                ? long.MaxValue
+                : (long)Math.Max(0, milliseconds);
         }
     }
 
@@ -563,26 +1214,43 @@ namespace MajesticBoost
         {
             try
             {
-                long total;
-                long available;
-                if (!BoostSystemMetrics.TryGetMemory(out total, out available) || total <= 0)
+                MemoryPressureSnapshot snapshot;
+                if (!BoostSystemMetrics.TryGetPerformanceSnapshot(out snapshot) ||
+                    snapshot.TotalPhysicalBytes <= 0)
                 {
                     throw new InvalidOperationException("Windows не вернула сведения о памяти.");
                 }
 
-                report.TotalMemoryBytes = total;
-                report.AvailableMemoryBytes = available;
-                double availablePercent = available * 100.0 / total;
-                bool low = available < 2L * 1024 * 1024 * 1024 || availablePercent < 10;
+                report.TotalMemoryBytes = snapshot.TotalPhysicalBytes;
+                report.AvailableMemoryBytes = snapshot.AvailablePhysicalBytes;
+                report.CommitTotalBytes = snapshot.CommitTotalBytes;
+                report.CommitLimitBytes = snapshot.CommitLimitBytes;
+                report.CommitHeadroomBytes = snapshot.CommitHeadroomBytes;
+                double availablePercent =
+                    snapshot.AvailablePhysicalBytes * 100.0 /
+                    snapshot.TotalPhysicalBytes;
+                double commitHeadroomPercent =
+                    snapshot.CommitLimitBytes > 0
+                        ? snapshot.CommitHeadroomBytes * 100.0 /
+                          snapshot.CommitLimitBytes
+                        : 0;
+                bool low =
+                    snapshot.AvailablePhysicalBytes < 2L * 1024 * 1024 * 1024 ||
+                    availablePercent < 10 ||
+                    snapshot.CommitHeadroomBytes < 2L * 1024 * 1024 * 1024 ||
+                    commitHeadroomPercent < 10;
                 report.Checks.Add(new BoostCheckResult
                 {
                     Id = "memory",
                     Title = "ОПЕРАТИВНАЯ ПАМЯТЬ",
                     Detail = string.Format(
                         CultureInfo.CurrentCulture,
-                        "Доступно {0:0.0} из {1:0.0} ГБ.",
-                        available / 1073741824.0,
-                        total / 1073741824.0),
+                        "Доступно {0:0.0} из {1:0.0} ГБ (кэш Windows уже учтён). Commit {2:0.0} из {3:0.0} ГБ, запас {4:0.0} ГБ.",
+                        snapshot.AvailablePhysicalBytes / 1073741824.0,
+                        snapshot.TotalPhysicalBytes / 1073741824.0,
+                        snapshot.CommitTotalBytes / 1073741824.0,
+                        snapshot.CommitLimitBytes / 1073741824.0,
+                        snapshot.CommitHeadroomBytes / 1073741824.0),
                     Severity = low
                         ? BoostCheckSeverity.Warning
                         : BoostCheckSeverity.Pass
@@ -856,9 +1524,15 @@ namespace MajesticBoost
 
         public static void Save(BoostSessionReport report)
         {
-            if (report == null || string.IsNullOrWhiteSpace(report.SessionId))
+            if (report == null)
             {
                 return;
+            }
+            if (!IsValidSessionId(report.SessionId))
+            {
+                throw new ArgumentException(
+                    "SessionId must be a GUID in N format.",
+                    "report");
             }
 
             Directory.CreateDirectory(SessionsDirectory);
@@ -911,6 +1585,28 @@ namespace MajesticBoost
                 report.AvailableMemoryEndBytes.ToString(CultureInfo.InvariantCulture));
             lines.Add("ManagedMemoryMaintenanceCycles=" +
                 report.ManagedMemoryMaintenanceCycles.ToString(CultureInfo.InvariantCulture));
+            lines.Add("MemorySamples=" +
+                report.MemorySamples.ToString(CultureInfo.InvariantCulture));
+            lines.Add("MemoryReliefAttempts=" +
+                report.MemoryReliefAttempts.ToString(CultureInfo.InvariantCulture));
+            lines.Add("MemoryReliefSuccesses=" +
+                report.MemoryReliefSuccesses.ToString(CultureInfo.InvariantCulture));
+            lines.Add("MemoryReliefBytes=" +
+                report.MemoryReliefBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("MinimumAvailableMemoryBytes=" +
+                report.MinimumAvailableMemoryBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("MinimumCommitHeadroomBytes=" +
+                report.MinimumCommitHeadroomBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("PeakGameWorkingSetBytes=" +
+                report.PeakGameWorkingSetBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("PeakGamePrivateBytes=" +
+                report.PeakGamePrivateBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("GameCrashCode=" + Encode(report.GameCrashCode));
+            lines.Add("GameCrashModule=" + Encode(report.GameCrashModule));
+            lines.Add("GameCrashOffset=" + Encode(report.GameCrashOffset));
+            lines.Add("GameCrashUtc=" + (report.GameCrashUtc.HasValue
+                ? report.GameCrashUtc.Value.ToString("o", CultureInfo.InvariantCulture)
+                : string.Empty));
             lines.Add("GameName=" + Encode(report.GameName));
             lines.Add("StopReason=" + Encode(report.StopReason));
 
@@ -978,7 +1674,8 @@ namespace MajesticBoost
             }
 
             int version;
-            if (!TryParseInt(values, "Version", out version) || version != 1)
+            if (!TryParseInt(values, "Version", out version) ||
+                (version != 1 && version != 2))
             {
                 return null;
             }
@@ -989,13 +1686,22 @@ namespace MajesticBoost
                 return null;
             }
 
+            string sessionId = Decode(GetValue(values, "SessionId"));
+            if (!IsValidSessionId(sessionId))
+            {
+                return null;
+            }
+
             var report = new BoostSessionReport
             {
                 Version = version,
-                SessionId = Decode(GetValue(values, "SessionId")),
+                SessionId = sessionId,
                 Trigger = Decode(GetValue(values, "Trigger")),
                 Status = Decode(GetValue(values, "Status")),
                 StartedUtc = startedUtc,
+                GameCrashCode = Decode(GetValue(values, "GameCrashCode")),
+                GameCrashModule = Decode(GetValue(values, "GameCrashModule")),
+                GameCrashOffset = Decode(GetValue(values, "GameCrashOffset")),
                 GameName = Decode(GetValue(values, "GameName")),
                 StopReason = Decode(GetValue(values, "StopReason"))
             };
@@ -1013,10 +1719,47 @@ namespace MajesticBoost
             {
                 report.ManagedMemoryMaintenanceCycles = Math.Max(0, memoryMaintenanceCycles);
             }
+            int integerValue;
+            if (TryParseInt(values, "MemorySamples", out integerValue))
+            {
+                report.MemorySamples = Math.Max(0, integerValue);
+            }
+            if (TryParseInt(values, "MemoryReliefAttempts", out integerValue))
+            {
+                report.MemoryReliefAttempts = Math.Max(0, integerValue);
+            }
+            if (TryParseInt(values, "MemoryReliefSuccesses", out integerValue))
+            {
+                report.MemoryReliefSuccesses = Math.Max(0, integerValue);
+            }
+            if (TryParseLong(values, "MemoryReliefBytes", out longValue))
+            {
+                report.MemoryReliefBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "MinimumAvailableMemoryBytes", out longValue))
+            {
+                report.MinimumAvailableMemoryBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "MinimumCommitHeadroomBytes", out longValue))
+            {
+                report.MinimumCommitHeadroomBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "PeakGameWorkingSetBytes", out longValue))
+            {
+                report.PeakGameWorkingSetBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "PeakGamePrivateBytes", out longValue))
+            {
+                report.PeakGamePrivateBytes = Math.Max(0, longValue);
+            }
             DateTime dateValue;
             if (TryParseDate(values, "EndedUtc", out dateValue))
             {
                 report.EndedUtc = dateValue;
+            }
+            if (TryParseDate(values, "GameCrashUtc", out dateValue))
+            {
+                report.GameCrashUtc = dateValue;
             }
 
             bool performanceAvailable;
@@ -1082,7 +1825,22 @@ namespace MajesticBoost
             return report;
         }
 
-        private static void WriteAllTextAtomic(string destination, string content)
+        private static bool IsValidSessionId(string sessionId)
+        {
+            if (string.IsNullOrEmpty(sessionId) || sessionId.Length != 32)
+            {
+                return false;
+            }
+
+            Guid parsed;
+            return Guid.TryParseExact(sessionId, "N", out parsed) &&
+                string.Equals(
+                    parsed.ToString("N"),
+                    sessionId,
+                    StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static void WriteAllTextAtomic(string destination, string content)
         {
             string directory = Path.GetDirectoryName(destination);
             Directory.CreateDirectory(directory);

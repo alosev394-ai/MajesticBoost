@@ -4,5 +4,10 @@ update.json.sig -text
 update-v2.json -text
 update-v2.json.sig -text
 
+# Hash-pinned and installer-embedded assets must also keep exact bytes.
+outputs/*.ps1 -text
+third_party/PresentMon/LICENSE.txt -text
+third_party/PresentMon/THIRD_PARTY.txt -text
+
 # Keep published checksum files portable and deterministic.
 dist/SHA256SUMS.txt text eol=lf

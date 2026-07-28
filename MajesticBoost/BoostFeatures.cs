@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.Win32;
 
 namespace MajesticBoost
@@ -123,7 +124,7 @@ namespace MajesticBoost
     {
         public BoostSessionReport()
         {
-            Version = 2;
+            Version = 3;
             Actions = new List<BoostActionRecord>();
         }
 
@@ -144,6 +145,19 @@ namespace MajesticBoost
         public long MinimumCommitHeadroomBytes;
         public long PeakGameWorkingSetBytes;
         public long PeakGamePrivateBytes;
+        public int DiagnosticSamples;
+        public long PhysicalMemoryTotalBytes;
+        public long CommitLimitBytes;
+        public long PageFileAllocatedBytes;
+        public long PeakPageFileUsedBytes;
+        public long GpuDedicatedTotalBytes;
+        public long GpuDedicatedBudgetBytes;
+        public long PeakGpuDedicatedUsageBytes;
+        public long MinimumGpuDedicatedHeadroomBytes;
+        public int GpuMemorySamples;
+        public string GpuAdapterNames;
+        public string GpuAdapterLuid;
+        public string WorstResourcePressure;
         public string GameCrashCode;
         public string GameCrashModule;
         public string GameCrashOffset;
@@ -152,6 +166,46 @@ namespace MajesticBoost
         public string StopReason;
         public List<BoostActionRecord> Actions;
         public BoostPerformanceResult Performance;
+
+        public BoostSessionReport Clone()
+        {
+            var clone = (BoostSessionReport)MemberwiseClone();
+            clone.Actions = new List<BoostActionRecord>();
+            foreach (BoostActionRecord action in Actions ??
+                new List<BoostActionRecord>())
+            {
+                if (action == null)
+                {
+                    continue;
+                }
+                clone.Actions.Add(new BoostActionRecord
+                {
+                    TimestampUtc = action.TimestampUtc,
+                    Title = action.Title,
+                    Detail = action.Detail,
+                    Outcome = action.Outcome
+                });
+            }
+            if (Performance != null)
+            {
+                clone.Performance = new BoostPerformanceResult
+                {
+                    Available = Performance.Available,
+                    Error = Performance.Error,
+                    CapturedUtc = Performance.CapturedUtc,
+                    AverageFps = Performance.AverageFps,
+                    OnePercentLowFps = Performance.OnePercentLowFps,
+                    P95FrameTimeMs = Performance.P95FrameTimeMs,
+                    P99FrameTimeMs = Performance.P99FrameTimeMs,
+                    Frames = Performance.Frames,
+                    FramesOver50Ms = Performance.FramesOver50Ms,
+                    FramesOver100Ms = Performance.FramesOver100Ms,
+                    ProcessName = Performance.ProcessName,
+                    CsvPath = Performance.CsvPath
+                };
+            }
+            return clone;
+        }
 
         public static BoostSessionReport Start(string trigger)
         {
@@ -215,6 +269,146 @@ namespace MajesticBoost
             }
         }
 
+        public void ApplyDiagnosticSnapshot(DiagnosticSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return;
+            }
+
+            DiagnosticSamples++;
+            if (snapshot.MemoryAvailable)
+            {
+                PhysicalMemoryTotalBytes = Math.Max(
+                    PhysicalMemoryTotalBytes,
+                    snapshot.PhysicalTotalBytes);
+                CommitLimitBytes = Math.Max(
+                    CommitLimitBytes,
+                    snapshot.CommitLimitBytes);
+                MinimumAvailableMemoryBytes = MinimumPositive(
+                    MinimumAvailableMemoryBytes,
+                    snapshot.PhysicalAvailableBytes);
+                MinimumCommitHeadroomBytes = MinimumPositive(
+                    MinimumCommitHeadroomBytes,
+                    snapshot.CommitHeadroomBytes);
+            }
+
+            if (snapshot.PageFileAvailable)
+            {
+                PageFileAllocatedBytes = Math.Max(
+                    PageFileAllocatedBytes,
+                    snapshot.PageFileAllocatedBytes);
+                PeakPageFileUsedBytes = Math.Max(
+                    PeakPageFileUsedBytes,
+                    snapshot.PageFileUsedBytes);
+            }
+
+            ApplyGpuSnapshot(snapshot);
+            if (GetPressureRank(snapshot.Pressure) >
+                GetPressureRank(ParsePressure(WorstResourcePressure)))
+            {
+                WorstResourcePressure = snapshot.Pressure.ToString();
+            }
+        }
+
+        private void ApplyGpuSnapshot(DiagnosticSnapshot snapshot)
+        {
+            if (!snapshot.GpuUsageAvailable ||
+                !snapshot.GpuTotalAvailable ||
+                snapshot.GpuDedicatedTotalBytes <= 0)
+            {
+                return;
+            }
+
+            bool hasSelectedAdapter = GpuMemorySamples > 0 &&
+                GpuDedicatedTotalBytes > 0;
+            bool sameAdapter = hasSelectedAdapter &&
+                IsSameGpuAdapter(snapshot);
+            if (hasSelectedAdapter &&
+                !sameAdapter &&
+                GetGpuPressureRatio(
+                    snapshot.GpuDedicatedUsageBytes,
+                    snapshot.GpuDedicatedTotalBytes) <=
+                GetGpuPressureRatio(
+                    PeakGpuDedicatedUsageBytes,
+                    GpuDedicatedTotalBytes))
+            {
+                return;
+            }
+
+            long limit = snapshot.GpuBudgetAvailable &&
+                snapshot.GpuDedicatedBudgetBytes > 0
+                    ? snapshot.GpuDedicatedBudgetBytes
+                    : snapshot.GpuDedicatedTotalBytes;
+            long headroom = Math.Max(
+                0,
+                limit - snapshot.GpuDedicatedUsageBytes);
+
+            if (!sameAdapter)
+            {
+                GpuDedicatedTotalBytes = snapshot.GpuDedicatedTotalBytes;
+                GpuDedicatedBudgetBytes = snapshot.GpuBudgetAvailable
+                    ? Math.Max(0, snapshot.GpuDedicatedBudgetBytes)
+                    : 0;
+                PeakGpuDedicatedUsageBytes = Math.Max(
+                    0,
+                    snapshot.GpuDedicatedUsageBytes);
+                MinimumGpuDedicatedHeadroomBytes = headroom;
+                GpuMemorySamples = 1;
+                GpuAdapterNames = snapshot.GpuAdapterNames;
+                GpuAdapterLuid = snapshot.GpuAdapterLuid;
+                return;
+            }
+
+            GpuDedicatedTotalBytes = snapshot.GpuDedicatedTotalBytes;
+            if (snapshot.GpuBudgetAvailable)
+            {
+                GpuDedicatedBudgetBytes = Math.Max(
+                    0,
+                    snapshot.GpuDedicatedBudgetBytes);
+            }
+            PeakGpuDedicatedUsageBytes = Math.Max(
+                PeakGpuDedicatedUsageBytes,
+                snapshot.GpuDedicatedUsageBytes);
+            MinimumGpuDedicatedHeadroomBytes = Math.Min(
+                MinimumGpuDedicatedHeadroomBytes,
+                headroom);
+            GpuMemorySamples++;
+            if (!string.IsNullOrWhiteSpace(snapshot.GpuAdapterNames))
+            {
+                GpuAdapterNames = snapshot.GpuAdapterNames;
+            }
+            if (!string.IsNullOrWhiteSpace(snapshot.GpuAdapterLuid))
+            {
+                GpuAdapterLuid = snapshot.GpuAdapterLuid;
+            }
+        }
+
+        private bool IsSameGpuAdapter(DiagnosticSnapshot snapshot)
+        {
+            if (!string.IsNullOrWhiteSpace(GpuAdapterLuid) &&
+                !string.IsNullOrWhiteSpace(snapshot.GpuAdapterLuid))
+            {
+                return string.Equals(
+                    GpuAdapterLuid.Trim(),
+                    snapshot.GpuAdapterLuid.Trim(),
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            return !string.IsNullOrWhiteSpace(GpuAdapterNames) &&
+                !string.IsNullOrWhiteSpace(snapshot.GpuAdapterNames) &&
+                string.Equals(
+                    GpuAdapterNames.Trim(),
+                    snapshot.GpuAdapterNames.Trim(),
+                    StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static double GetGpuPressureRatio(long usage, long total)
+        {
+            return total <= 0
+                ? 0
+                : (double)Math.Max(0, usage) / total;
+        }
+
         private static long MinimumPositive(long current, long candidate)
         {
             if (candidate <= 0)
@@ -222,6 +416,29 @@ namespace MajesticBoost
                 return current;
             }
             return current <= 0 ? candidate : Math.Min(current, candidate);
+        }
+
+        private static DiagnosticPressureLevel ParsePressure(string value)
+        {
+            DiagnosticPressureLevel pressure;
+            return Enum.TryParse(value, true, out pressure)
+                ? pressure
+                : DiagnosticPressureLevel.Unavailable;
+        }
+
+        private static int GetPressureRank(DiagnosticPressureLevel pressure)
+        {
+            switch (pressure)
+            {
+                case DiagnosticPressureLevel.Critical:
+                    return 3;
+                case DiagnosticPressureLevel.Elevated:
+                    return 2;
+                case DiagnosticPressureLevel.Normal:
+                    return 1;
+                default:
+                    return 0;
+            }
         }
     }
 
@@ -977,6 +1194,9 @@ namespace MajesticBoost
     internal static class BoostPreflightService
     {
         private const int EnumCurrentSettings = -1;
+        private const int PowerCfgTimeoutMilliseconds = 2000;
+        private const int ProcessOutputDrainTimeoutMilliseconds = 1000;
+        private const int ProcessTerminationTimeoutMilliseconds = 1000;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct SystemPowerStatus
@@ -1420,21 +1640,9 @@ namespace MajesticBoost
                     // The default redirected encoding remains a safe fallback.
                 }
 
-                string output;
-                using (Process process = Process.Start(startInfo))
-                {
-                    if (process == null)
-                    {
-                        throw new InvalidOperationException("powercfg не запущен.");
-                    }
-                    output = process.StandardOutput.ReadToEnd();
-                    if (!process.WaitForExit(2000))
-                    {
-                        try { process.Kill(); }
-                        catch { }
-                        throw new TimeoutException("powercfg не ответил вовремя.");
-                    }
-                }
+                string output = ReadProcessStandardOutputWithTimeout(
+                    startInfo,
+                    PowerCfgTimeoutMilliseconds);
 
                 string compact = (output ?? string.Empty).Trim();
                 bool maxFps = compact.IndexOf("MAX FPS", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -1456,6 +1664,128 @@ namespace MajesticBoost
             catch (Exception ex)
             {
                 AddUnknown(report, "power-plan", "ПЛАН ПИТАНИЯ", ex);
+            }
+        }
+
+        private static string ReadProcessStandardOutputWithTimeout(
+            ProcessStartInfo startInfo,
+            int timeoutMilliseconds)
+        {
+            if (startInfo == null)
+            {
+                throw new ArgumentNullException("startInfo");
+            }
+            if (timeoutMilliseconds <= 0)
+            {
+                throw new ArgumentOutOfRangeException("timeoutMilliseconds");
+            }
+            if (startInfo.UseShellExecute ||
+                !startInfo.RedirectStandardOutput ||
+                !startInfo.RedirectStandardError)
+            {
+                throw new ArgumentException(
+                    "Для безопасного чтения оба потока должны быть перенаправлены.",
+                    "startInfo");
+            }
+
+            using (Process process = Process.Start(startInfo))
+            {
+                if (process == null)
+                {
+                    throw new InvalidOperationException(
+                        "Диагностический процесс не запущен.");
+                }
+
+                // Drain both pipes concurrently. Reading either stream synchronously
+                // before WaitForExit makes the timeout ineffective and can deadlock
+                // when the child fills the other redirected pipe.
+                Task<string> outputTask =
+                    process.StandardOutput.ReadToEndAsync();
+                Task<string> errorTask =
+                    process.StandardError.ReadToEndAsync();
+                ObserveProcessReaderFault(outputTask);
+                ObserveProcessReaderFault(errorTask);
+
+                if (!process.WaitForExit(timeoutMilliseconds))
+                {
+                    TerminateTimedOutProcess(process);
+                    TryWaitForProcessReaders(outputTask, errorTask);
+                    throw new TimeoutException(
+                        "Диагностический процесс не ответил вовремя.");
+                }
+
+                if (!WaitForProcessReaders(
+                    outputTask,
+                    errorTask,
+                    ProcessOutputDrainTimeoutMilliseconds))
+                {
+                    throw new TimeoutException(
+                        "Вывод диагностического процесса не завершился вовремя.");
+                }
+
+                return outputTask.GetAwaiter().GetResult();
+            }
+        }
+
+        private static bool WaitForProcessReaders(
+            Task<string> outputTask,
+            Task<string> errorTask,
+            int timeoutMilliseconds)
+        {
+            return Task.WaitAll(
+                new Task[] { outputTask, errorTask },
+                timeoutMilliseconds);
+        }
+
+        private static void TryWaitForProcessReaders(
+            Task<string> outputTask,
+            Task<string> errorTask)
+        {
+            try
+            {
+                WaitForProcessReaders(
+                    outputTask,
+                    errorTask,
+                    ProcessOutputDrainTimeoutMilliseconds);
+            }
+            catch
+            {
+                // The original timeout remains the useful diagnostic.
+            }
+        }
+
+        private static void ObserveProcessReaderFault(Task<string> readerTask)
+        {
+            readerTask.ContinueWith(
+                completed =>
+                {
+                    AggregateException ignored = completed.Exception;
+                },
+                TaskContinuationOptions.OnlyOnFaulted |
+                TaskContinuationOptions.ExecuteSynchronously);
+        }
+
+        private static void TerminateTimedOutProcess(Process process)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                }
+            }
+            catch
+            {
+                // The caller still receives a bounded timeout failure.
+            }
+
+            try
+            {
+                process.WaitForExit(ProcessTerminationTimeoutMilliseconds);
+            }
+            catch
+            {
+                // Process disposal is the final cleanup fallback.
             }
         }
 
@@ -1601,6 +1931,29 @@ namespace MajesticBoost
                 report.PeakGameWorkingSetBytes.ToString(CultureInfo.InvariantCulture));
             lines.Add("PeakGamePrivateBytes=" +
                 report.PeakGamePrivateBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("DiagnosticSamples=" +
+                report.DiagnosticSamples.ToString(CultureInfo.InvariantCulture));
+            lines.Add("PhysicalMemoryTotalBytes=" +
+                report.PhysicalMemoryTotalBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("CommitLimitBytes=" +
+                report.CommitLimitBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("PageFileAllocatedBytes=" +
+                report.PageFileAllocatedBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("PeakPageFileUsedBytes=" +
+                report.PeakPageFileUsedBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("GpuDedicatedTotalBytes=" +
+                report.GpuDedicatedTotalBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("GpuDedicatedBudgetBytes=" +
+                report.GpuDedicatedBudgetBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("PeakGpuDedicatedUsageBytes=" +
+                report.PeakGpuDedicatedUsageBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("MinimumGpuDedicatedHeadroomBytes=" +
+                report.MinimumGpuDedicatedHeadroomBytes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("GpuMemorySamples=" +
+                report.GpuMemorySamples.ToString(CultureInfo.InvariantCulture));
+            lines.Add("GpuAdapterNames=" + Encode(report.GpuAdapterNames));
+            lines.Add("GpuAdapterLuid=" + Encode(report.GpuAdapterLuid));
+            lines.Add("WorstResourcePressure=" + Encode(report.WorstResourcePressure));
             lines.Add("GameCrashCode=" + Encode(report.GameCrashCode));
             lines.Add("GameCrashModule=" + Encode(report.GameCrashModule));
             lines.Add("GameCrashOffset=" + Encode(report.GameCrashOffset));
@@ -1675,7 +2028,7 @@ namespace MajesticBoost
 
             int version;
             if (!TryParseInt(values, "Version", out version) ||
-                (version != 1 && version != 2))
+                (version != 1 && version != 2 && version != 3))
             {
                 return null;
             }
@@ -1702,6 +2055,9 @@ namespace MajesticBoost
                 GameCrashCode = Decode(GetValue(values, "GameCrashCode")),
                 GameCrashModule = Decode(GetValue(values, "GameCrashModule")),
                 GameCrashOffset = Decode(GetValue(values, "GameCrashOffset")),
+                GpuAdapterNames = Decode(GetValue(values, "GpuAdapterNames")),
+                GpuAdapterLuid = Decode(GetValue(values, "GpuAdapterLuid")),
+                WorstResourcePressure = Decode(GetValue(values, "WorstResourcePressure")),
                 GameName = Decode(GetValue(values, "GameName")),
                 StopReason = Decode(GetValue(values, "StopReason"))
             };
@@ -1751,6 +2107,46 @@ namespace MajesticBoost
             if (TryParseLong(values, "PeakGamePrivateBytes", out longValue))
             {
                 report.PeakGamePrivateBytes = Math.Max(0, longValue);
+            }
+            if (TryParseInt(values, "DiagnosticSamples", out integerValue))
+            {
+                report.DiagnosticSamples = Math.Max(0, integerValue);
+            }
+            if (TryParseLong(values, "PhysicalMemoryTotalBytes", out longValue))
+            {
+                report.PhysicalMemoryTotalBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "CommitLimitBytes", out longValue))
+            {
+                report.CommitLimitBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "PageFileAllocatedBytes", out longValue))
+            {
+                report.PageFileAllocatedBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "PeakPageFileUsedBytes", out longValue))
+            {
+                report.PeakPageFileUsedBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "GpuDedicatedTotalBytes", out longValue))
+            {
+                report.GpuDedicatedTotalBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "GpuDedicatedBudgetBytes", out longValue))
+            {
+                report.GpuDedicatedBudgetBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "PeakGpuDedicatedUsageBytes", out longValue))
+            {
+                report.PeakGpuDedicatedUsageBytes = Math.Max(0, longValue);
+            }
+            if (TryParseLong(values, "MinimumGpuDedicatedHeadroomBytes", out longValue))
+            {
+                report.MinimumGpuDedicatedHeadroomBytes = Math.Max(0, longValue);
+            }
+            if (TryParseInt(values, "GpuMemorySamples", out integerValue))
+            {
+                report.GpuMemorySamples = Math.Max(0, integerValue);
             }
             DateTime dateValue;
             if (TryParseDate(values, "EndedUtc", out dateValue))

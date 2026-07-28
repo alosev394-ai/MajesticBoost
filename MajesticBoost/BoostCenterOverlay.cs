@@ -26,10 +26,19 @@ namespace MajesticBoost
 
     internal sealed class BoostCenterOverlay : Grid
     {
+        internal const int PageTransitionExitMilliseconds = 100;
+        internal const int PageTransitionEnterMilliseconds = 140;
+        internal const int PageTransitionTotalMilliseconds =
+            PageTransitionExitMilliseconds + PageTransitionEnterMilliseconds;
+        private const double OuterContentInset = 24;
+        private const double ScrollSafeInset = 12;
+        private const double ToggleSafeGutter = 12;
+
         private enum CenterPage
         {
             Readiness,
             Report,
+            History,
             Settings
         }
 
@@ -95,6 +104,7 @@ namespace MajesticBoost
         private readonly ScrollAnimationProxy scrollAnimationProxy;
         private readonly StackPanel footerButtons;
         private TextBlock subtitle;
+        private StackPanel reportStack;
         private readonly Dictionary<CenterPage, Button> tabButtons =
             new Dictionary<CenterPage, Button>();
         private readonly Dictionary<CenterPage, Border> tabIndicators =
@@ -113,6 +123,9 @@ namespace MajesticBoost
         private CenterPage renderedPage;
         private BoostPreflightReport preflight;
         private BoostSessionReport sessionReport;
+        private DiagnosticSnapshot diagnosticSnapshot;
+        private List<BoostSessionReport> sessionHistory =
+            new List<BoostSessionReport>();
         private BoostCenterSettings settings = new BoostCenterSettings();
         private bool settingsLoading;
         private bool requireBoostDecision;
@@ -121,6 +134,9 @@ namespace MajesticBoost
         private int benchmarkPercent;
         private string benchmarkTitle;
         private string benchmarkDetail;
+        private string exportMessageTitle;
+        private string exportMessageDetail;
+        private bool exportMessageError;
         private Button preferredFocusButton;
         private TextBlock benchmarkNoticeTitleBlock;
         private TextBlock benchmarkNoticeDetailBlock;
@@ -147,18 +163,25 @@ namespace MajesticBoost
             KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.Cycle);
             KeyboardNavigation.SetControlTabNavigation(this, KeyboardNavigationMode.Cycle);
             AutomationProperties.SetName(this, "Центр Boost");
+            AutomationProperties.SetAutomationId(
+                this,
+                "MajesticBoost.Center");
 
             entranceTranslation = new TranslateTransform();
             RenderTransform = entranceTranslation;
 
             contentRoot = new Grid
             {
-                Margin = new Thickness(24, 4, 24, 18)
+                Margin = new Thickness(
+                    OuterContentInset,
+                    4,
+                    OuterContentInset,
+                    OuterContentInset)
             };
             contentRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(58) });
             contentRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
             contentRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            contentRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(48) });
+            contentRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(72) });
             Children.Add(contentRoot);
 
             var header = BuildHeader();
@@ -171,7 +194,8 @@ namespace MajesticBoost
 
             pageContent = new StackPanel
             {
-                Margin = new Thickness(0, 8, 4, 8),
+                Margin = new Thickness(0, 8, ScrollSafeInset, 8),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
                 UseLayoutRounding = true,
                 SnapsToDevicePixels = true,
                 ClipToBounds = false
@@ -182,8 +206,16 @@ namespace MajesticBoost
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 CanContentScroll = false,
                 Content = pageContent,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, ScrollSafeInset, 0),
                 RenderTransform = pageTranslation
             };
+            AutomationProperties.SetName(
+                pageScroller,
+                "Содержимое раздела Центра Boost");
+            AutomationProperties.SetAutomationId(
+                pageScroller,
+                "MajesticBoost.Center.PageScroller");
             pageScroller.Resources[typeof(ScrollBar)] = MakeMajesticVerticalScrollBarStyle();
             scrollAnimationProxy = new ScrollAnimationProxy(
                 delegate(double offset) { pageScroller.ScrollToVerticalOffset(offset); });
@@ -200,9 +232,12 @@ namespace MajesticBoost
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Bottom,
+                VerticalAlignment = VerticalAlignment.Top,
                 RenderTransform = footerTranslation
             };
+            AutomationProperties.SetName(
+                footerButtons,
+                "Действия Центра Boost");
             Grid.SetRow(footerButtons, 3);
             contentRoot.Children.Add(footerButtons);
 
@@ -213,6 +248,7 @@ namespace MajesticBoost
         public event EventHandler RefreshRequested;
         public event EventHandler ProceedBoostRequested;
         public event EventHandler RestoreRequested;
+        public event EventHandler ExportDiagnosticsRequested;
         public event EventHandler SettingsChanged;
         public event EventHandler<BoostBenchmarkRequestEventArgs> BenchmarkRequested;
 
@@ -258,6 +294,46 @@ namespace MajesticBoost
             }
         }
 
+        public void SetDiagnosticSnapshot(DiagnosticSnapshot snapshot)
+        {
+            diagnosticSnapshot = snapshot;
+            if (IsOpen && currentPage == CenterPage.Readiness)
+            {
+                RenderCurrentPage();
+            }
+        }
+
+        public void SetSessionHistory(IEnumerable<BoostSessionReport> reports)
+        {
+            sessionHistory = (reports ?? Enumerable.Empty<BoostSessionReport>())
+                .Where(item => item != null)
+                .OrderByDescending(item => item.StartedUtc)
+                .Take(DiagnosticSessionHistory.MaximumSessionCount)
+                .ToList();
+            if (IsOpen &&
+                (currentPage == CenterPage.History ||
+                 currentPage == CenterPage.Report))
+            {
+                RenderCurrentPage();
+            }
+        }
+
+        public void SetDiagnosticExportMessage(
+            string title,
+            string detail,
+            bool isError)
+        {
+            exportMessageTitle = title ?? string.Empty;
+            exportMessageDetail = detail ?? string.Empty;
+            exportMessageError = isError;
+            if (IsOpen &&
+                (currentPage == CenterPage.Report ||
+                 currentPage == CenterPage.History))
+            {
+                RenderCurrentPage();
+            }
+        }
+
         public void OpenReadiness(bool boostDecision)
         {
             requireBoostDecision = boostDecision;
@@ -268,6 +344,12 @@ namespace MajesticBoost
         {
             requireBoostDecision = false;
             Open(CenterPage.Report);
+        }
+
+        public void OpenHistory()
+        {
+            requireBoostDecision = false;
+            Open(CenterPage.History);
         }
 
         public void OpenSettings()
@@ -357,7 +439,9 @@ namespace MajesticBoost
             {
                 bool reverse =
                     (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
-                int next = ((int)currentPage + (reverse ? 2 : 1)) % 3;
+                int pageCount = Enum.GetValues(typeof(CenterPage)).Length;
+                int next = ((int)currentPage + (reverse ? pageCount - 1 : 1)) %
+                    pageCount;
                 SwitchPage((CenterPage)next);
                 e.Handled = true;
             }
@@ -399,10 +483,12 @@ namespace MajesticBoost
             tabs.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             tabs.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             tabs.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            tabs.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             AddTab(tabs, CenterPage.Readiness, "ГОТОВНОСТЬ", 0);
             AddTab(tabs, CenterPage.Report, "ОТЧЁТ", 1);
-            AddTab(tabs, CenterPage.Settings, "НАСТРОЙКИ", 2);
+            AddTab(tabs, CenterPage.History, "СЕССИИ", 2);
+            AddTab(tabs, CenterPage.Settings, "НАСТРОЙКИ", 3);
             return tabs;
         }
 
@@ -428,10 +514,13 @@ namespace MajesticBoost
                 BorderBrush = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Cursor = Cursors.Hand,
-                FocusVisualStyle = null,
                 Template = MakeFlatButtonTemplate(0)
             };
             AutomationProperties.SetName(button, title.ToLowerInvariant());
+            AutomationProperties.SetAutomationId(
+                button,
+                "MajesticBoost.Center.Tab." + page);
+            KeyboardNavigation.SetTabIndex(button, column);
             button.Click += delegate { SwitchPage(page); };
             Grid.SetRow(button, 0);
             host.Children.Add(button);
@@ -600,7 +689,7 @@ namespace MajesticBoost
                 subtitleTranslation,
                 0,
                 -direction * 12,
-                90,
+                PageTransitionExitMilliseconds,
                 EasingMode.EaseIn,
                 null);
             AnimatePageVisual(
@@ -608,7 +697,7 @@ namespace MajesticBoost
                 footerTranslation,
                 0,
                 -direction * 18,
-                90,
+                PageTransitionExitMilliseconds,
                 EasingMode.EaseIn,
                 null);
             AnimatePageVisual(
@@ -616,7 +705,7 @@ namespace MajesticBoost
                 pageTranslation,
                 0,
                 -direction * 18,
-                90,
+                PageTransitionExitMilliseconds,
                 EasingMode.EaseIn,
                 delegate
                 {
@@ -646,7 +735,7 @@ namespace MajesticBoost
                         subtitleTranslation,
                         1,
                         0,
-                        130,
+                        PageTransitionEnterMilliseconds,
                         EasingMode.EaseOut,
                         null);
                     AnimatePageVisual(
@@ -654,7 +743,7 @@ namespace MajesticBoost
                         footerTranslation,
                         1,
                         0,
-                        130,
+                        PageTransitionEnterMilliseconds,
                         EasingMode.EaseOut,
                         null);
                     AnimatePageVisual(
@@ -662,7 +751,7 @@ namespace MajesticBoost
                         pageTranslation,
                         1,
                         0,
-                        130,
+                        PageTransitionEnterMilliseconds,
                         EasingMode.EaseOut,
                         delegate
                         {
@@ -888,6 +977,7 @@ namespace MajesticBoost
             benchmarkNoticeDetailBlock = null;
             benchmarkProgressFill = null;
             benchmarkButton = null;
+            reportStack = null;
 
             if (currentPage == CenterPage.Readiness)
             {
@@ -896,6 +986,10 @@ namespace MajesticBoost
             else if (currentPage == CenterPage.Report)
             {
                 RenderReport();
+            }
+            else if (currentPage == CenterPage.History)
+            {
+                RenderHistory();
             }
             else
             {
@@ -911,6 +1005,11 @@ namespace MajesticBoost
                     CultureInfo.CurrentCulture,
                     "Последняя проверка: {0:HH:mm:ss}",
                     preflight.CapturedUtc.ToLocalTime());
+
+            if (diagnosticSnapshot != null)
+            {
+                pageContent.Children.Add(BuildResourceSnapshot(diagnosticSnapshot));
+            }
 
             if (preflight == null)
             {
@@ -1031,57 +1130,20 @@ namespace MajesticBoost
         private void RenderReport()
         {
             subtitle.Text = "Что сделал Boost и как прошла последняя игровая сессия.";
+            reportStack = BuildReportPage();
+            pageContent.Children.Add(reportStack);
 
-            if (!string.IsNullOrWhiteSpace(benchmarkTitle))
-            {
-                pageContent.Children.Add(BuildBenchmarkNotice());
-            }
-
-            if (sessionReport == null)
-            {
-                pageContent.Children.Add(MakeEmptyState(
-                    "ЕЩЁ НЕТ ОТЧЁТА",
-                    "Активируйте Boost — выполненные действия появятся здесь."));
-            }
-            else
-            {
-                pageContent.Children.Add(BuildSessionSummary(sessionReport));
-                if (sessionReport.Performance != null &&
-                    sessionReport.Performance.Available)
-                {
-                    pageContent.Children.Add(BuildPerformanceGrid(sessionReport.Performance));
-                }
-
-                var actionsTitle = MakeText(
-                    "ДЕЙСТВИЯ",
-                    10.5,
-                    TextColor,
-                    semiboldFont,
-                    FontWeights.Bold);
-                actionsTitle.Margin = new Thickness(0, 13, 0, 4);
-                pageContent.Children.Add(actionsTitle);
-
-                IEnumerable<BoostActionRecord> actions =
-                    (sessionReport.Actions ?? new List<BoostActionRecord>())
-                        .OrderByDescending(item => item.TimestampUtc)
-                        .Take(20);
-                if (!actions.Any())
-                {
-                    pageContent.Children.Add(MakeText(
-                        "Действия ещё не зафиксированы.",
-                        9.8,
-                        MutedColor,
-                        regularFont,
-                        FontWeights.Normal));
-                }
-                else
-                {
-                    foreach (BoostActionRecord action in actions)
-                    {
-                        pageContent.Children.Add(BuildActionRow(action));
-                    }
-                }
-            }
+            var export = MakeActionButton("ЭКСПОРТ", false, false);
+            export.Width = 112;
+            export.Margin = new Thickness(0, 0, 8, 0);
+            export.Click += delegate { Raise(ExportDiagnosticsRequested); };
+            AutomationProperties.SetName(
+                export,
+                "Сохранить безопасный диагностический отчёт");
+            AutomationProperties.SetAutomationId(
+                export,
+                "MajesticBoost.Center.ExportDiagnostics");
+            footerButtons.Children.Add(export);
 
             var benchmark = MakeActionButton(
                 benchmarkNeedsElevation
@@ -1106,9 +1168,98 @@ namespace MajesticBoost
                 benchmarkNeedsElevation
                     ? "Повторить тест FPS с правами администратора"
                     : "Запустить тест FPS на 60 секунд");
+            AutomationProperties.SetAutomationId(
+                benchmark,
+                "MajesticBoost.Center.ReportBenchmark");
             benchmarkButton = benchmark;
             footerButtons.Children.Add(benchmark);
             preferredFocusButton = benchmark;
+        }
+
+        private StackPanel BuildReportPage()
+        {
+            var report = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            AutomationProperties.SetName(
+                report,
+                "Содержимое отчёта Boost");
+            AutomationProperties.SetAutomationId(
+                report,
+                "MajesticBoost.Center.ReportContent");
+
+            if (!string.IsNullOrWhiteSpace(benchmarkTitle))
+            {
+                report.Children.Add(BuildBenchmarkNotice());
+            }
+            if (!string.IsNullOrWhiteSpace(exportMessageTitle))
+            {
+                report.Children.Add(BuildExportNotice());
+            }
+
+            if (sessionReport == null)
+            {
+                report.Children.Add(MakeEmptyState(
+                    "ЕЩЁ НЕТ ОТЧЁТА",
+                    "Активируйте Boost — выполненные действия появятся здесь."));
+            }
+            else
+            {
+                BoostCrashInsight crashInsight =
+                    BoostCrashAssistant.Analyze(sessionReport);
+                if (crashInsight.Category != BoostCrashCategory.None)
+                {
+                    report.Children.Add(BuildCrashInsight(crashInsight));
+                }
+                report.Children.Add(BuildSessionSummary(sessionReport));
+                report.Children.Add(BuildSessionResourceSummary(sessionReport));
+                if (sessionReport.Performance != null &&
+                    sessionReport.Performance.Available)
+                {
+                    report.Children.Add(BuildPerformanceGrid(sessionReport.Performance));
+                    BoostPerformanceComparison comparison =
+                        BoostSessionComparison.Compare(
+                            sessionReport,
+                            sessionHistory);
+                    if (comparison.Available)
+                    {
+                        report.Children.Add(
+                            BuildPerformanceComparison(comparison));
+                    }
+                }
+
+                var actionsTitle = MakeText(
+                    "ДЕЙСТВИЯ",
+                    10.5,
+                    TextColor,
+                    semiboldFont,
+                    FontWeights.Bold);
+                actionsTitle.Margin = new Thickness(0, 13, 0, 4);
+                report.Children.Add(actionsTitle);
+
+                IEnumerable<BoostActionRecord> actions =
+                    (sessionReport.Actions ?? new List<BoostActionRecord>())
+                        .OrderByDescending(item => item.TimestampUtc)
+                        .Take(20);
+                if (!actions.Any())
+                {
+                    report.Children.Add(MakeText(
+                        "Действия ещё не зафиксированы.",
+                        9.8,
+                        MutedColor,
+                        regularFont,
+                        FontWeights.Normal));
+                }
+                else
+                {
+                    foreach (BoostActionRecord action in actions)
+                    {
+                        report.Children.Add(BuildActionRow(action));
+                    }
+                }
+            }
+            return report;
         }
 
         private FrameworkElement BuildBenchmarkNotice()
@@ -1169,6 +1320,381 @@ namespace MajesticBoost
             notice.Child = content;
             AutomationProperties.SetLiveSetting(notice, AutomationLiveSetting.Polite);
             return notice;
+        }
+
+        private FrameworkElement BuildExportNotice()
+        {
+            var notice = new Border
+            {
+                Background = new SolidColorBrush(SurfaceColor),
+                BorderBrush = new SolidColorBrush(
+                    exportMessageError ? ErrorColor : SuccessColor),
+                BorderThickness = new Thickness(2, 0, 0, 0),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 9, 12, 9),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            var content = new StackPanel();
+            content.Children.Add(MakeText(
+                exportMessageTitle,
+                10.2,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold));
+            var detail = MakeText(
+                exportMessageDetail,
+                9.3,
+                SecondaryColor,
+                regularFont,
+                FontWeights.Normal);
+            detail.TextWrapping = TextWrapping.Wrap;
+            detail.Margin = new Thickness(0, 3, 0, 0);
+            content.Children.Add(detail);
+            notice.Child = content;
+            AutomationProperties.SetLiveSetting(
+                notice,
+                exportMessageError
+                    ? AutomationLiveSetting.Assertive
+                    : AutomationLiveSetting.Polite);
+            AutomationProperties.SetName(
+                notice,
+                exportMessageTitle + ". " + exportMessageDetail);
+            return notice;
+        }
+
+        private FrameworkElement BuildCrashInsight(BoostCrashInsight insight)
+        {
+            var host = new Border
+            {
+                Background = new SolidColorBrush(SurfaceColor),
+                BorderBrush = new SolidColorBrush(
+                    insight.Category == BoostCrashCategory.MemoryPressure
+                        ? WarningColor
+                        : ErrorColor),
+                BorderThickness = new Thickness(2, 0, 0, 0),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 10, 12, 10),
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            var content = new StackPanel();
+            content.Children.Add(MakeText(
+                insight.Title,
+                10.2,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold));
+
+            var evidence = MakeText(
+                insight.Evidence,
+                9.2,
+                insight.Category == BoostCrashCategory.MemoryPressure
+                    ? WarningColor
+                    : ErrorColor,
+                semiboldFont,
+                FontWeights.SemiBold);
+            evidence.TextWrapping = TextWrapping.Wrap;
+            evidence.Margin = new Thickness(0, 3, 0, 0);
+            content.Children.Add(evidence);
+
+            var summary = MakeText(
+                insight.Summary,
+                9.2,
+                SecondaryColor,
+                regularFont,
+                FontWeights.Normal);
+            summary.TextWrapping = TextWrapping.Wrap;
+            summary.Margin = new Thickness(0, 4, 0, 0);
+            content.Children.Add(summary);
+
+            foreach (string step in insight.Steps.Take(3))
+            {
+                var stepText = MakeText(
+                    "• " + step,
+                    9,
+                    MutedColor,
+                    regularFont,
+                    FontWeights.Normal);
+                stepText.TextWrapping = TextWrapping.Wrap;
+                stepText.Margin = new Thickness(0, 4, 0, 0);
+                content.Children.Add(stepText);
+            }
+            host.Child = content;
+            AutomationProperties.SetName(
+                host,
+                insight.Title + ". " + insight.Summary);
+            return host;
+        }
+
+        private FrameworkElement BuildResourceSnapshot(DiagnosticSnapshot snapshot)
+        {
+            var section = new StackPanel
+            {
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            var heading = new Grid();
+            heading.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = new GridLength(1, GridUnitType.Star)
+            });
+            heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            heading.Children.Add(MakeText(
+                "РЕСУРСЫ СЕЙЧАС",
+                10.5,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold));
+            var pressure = MakeText(
+                FormatPressure(snapshot.Pressure.ToString()),
+                9,
+                GetPressureColor(snapshot.Pressure),
+                semiboldFont,
+                FontWeights.Bold);
+            pressure.HorizontalAlignment = HorizontalAlignment.Right;
+            Grid.SetColumn(pressure, 1);
+            heading.Children.Add(pressure);
+            section.Children.Add(heading);
+
+            var metrics = BuildResourceMetricGrid(new[]
+            {
+                new[]
+                {
+                    "СВОБОДНО RAM",
+                    snapshot.MemoryAvailable
+                        ? FormatBytesCompact(snapshot.PhysicalAvailableBytes) +
+                            " / " + FormatBytesCompact(snapshot.PhysicalTotalBytes)
+                        : "НЕДОСТУПНО"
+                },
+                new[]
+                {
+                    "ЗАПАС COMMIT",
+                    snapshot.MemoryAvailable
+                        ? FormatBytesCompact(snapshot.CommitHeadroomBytes) +
+                            " / " + FormatBytesCompact(snapshot.CommitLimitBytes)
+                        : "НЕДОСТУПНО"
+                },
+                new[]
+                {
+                    "ВИДЕОПАМЯТЬ",
+                    snapshot.GpuUsageAvailable &&
+                        snapshot.GpuTotalAvailable &&
+                        snapshot.GpuDedicatedTotalBytes > 0
+                        ? FormatBytesCompact(snapshot.GpuDedicatedUsageBytes) +
+                            " / " +
+                            FormatBytesCompact(snapshot.GpuDedicatedTotalBytes)
+                        : "НЕДОСТУПНО"
+                },
+                new[]
+                {
+                    "ФАЙЛ ПОДКАЧКИ",
+                    snapshot.PageFileAvailable
+                        ? FormatBytesCompact(snapshot.PageFileUsedBytes) +
+                            " / " + FormatBytesCompact(snapshot.PageFileAllocatedBytes)
+                        : FormatUnavailablePageFile(snapshot)
+                }
+            });
+            metrics.Margin = new Thickness(0, 6, 0, 0);
+            section.Children.Add(metrics);
+
+            if (!string.IsNullOrWhiteSpace(snapshot.PressureReason))
+            {
+                var reason = MakeText(
+                    TranslatePressureReason(snapshot),
+                    9,
+                    MutedColor,
+                    regularFont,
+                    FontWeights.Normal);
+                reason.TextWrapping = TextWrapping.Wrap;
+                reason.Margin = new Thickness(0, 5, 0, 0);
+                section.Children.Add(reason);
+            }
+            AutomationProperties.SetName(
+                section,
+                "Текущее состояние памяти. " +
+                FormatPressure(snapshot.Pressure.ToString()));
+            return section;
+        }
+
+        private FrameworkElement BuildSessionResourceSummary(BoostSessionReport report)
+        {
+            bool hasData = report.MinimumAvailableMemoryBytes > 0 ||
+                report.MinimumCommitHeadroomBytes > 0 ||
+                report.GpuMemorySamples > 0 ||
+                report.PageFileAllocatedBytes > 0;
+            if (!hasData)
+            {
+                return new Border { Height = 0 };
+            }
+
+            var section = new StackPanel
+            {
+                Margin = new Thickness(0, 10, 0, 0)
+            };
+            section.Children.Add(MakeText(
+                "РЕСУРСЫ СЕССИИ",
+                10.5,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold));
+            var metrics = BuildResourceMetricGrid(new[]
+            {
+                new[]
+                {
+                    "МИНИМУМ RAM",
+                    report.MinimumAvailableMemoryBytes > 0
+                        ? FormatBytesCompact(report.MinimumAvailableMemoryBytes)
+                        : "НЕТ ДАННЫХ"
+                },
+                new[]
+                {
+                    "МИНИМУМ COMMIT",
+                    report.MinimumCommitHeadroomBytes > 0
+                        ? FormatBytesCompact(report.MinimumCommitHeadroomBytes)
+                        : "НЕТ ДАННЫХ"
+                },
+                new[]
+                {
+                    "ПИК VRAM",
+                    report.GpuMemorySamples > 0 &&
+                        report.GpuDedicatedTotalBytes > 0
+                        ? FormatBytesCompact(report.PeakGpuDedicatedUsageBytes) +
+                            " / " +
+                            FormatBytesCompact(report.GpuDedicatedTotalBytes)
+                        : "НЕТ ДАННЫХ"
+                },
+                new[]
+                {
+                    "ПИК PAGEFILE",
+                    report.PageFileAllocatedBytes > 0
+                        ? FormatBytesCompact(report.PeakPageFileUsedBytes) +
+                            " / " + FormatBytesCompact(report.PageFileAllocatedBytes)
+                        : "НЕТ ДАННЫХ"
+                }
+            });
+            metrics.Margin = new Thickness(0, 5, 0, 0);
+            section.Children.Add(metrics);
+            return section;
+        }
+
+        private FrameworkElement BuildPerformanceComparison(
+            BoostPerformanceComparison comparison)
+        {
+            var section = new StackPanel
+            {
+                Margin = new Thickness(0, 10, 0, 0)
+            };
+            section.Children.Add(MakeText(
+                "СРАВНЕНИЕ С ПРЕДЫДУЩИМ ЗАМЕРОМ",
+                10.5,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold));
+            var metrics = BuildResourceMetricGrid(new[]
+            {
+                new[]
+                {
+                    "СРЕДНИЙ FPS (↑ ЛУЧШЕ)",
+                    BoostSessionComparison.FormatSigned(
+                        comparison.AverageFpsDelta,
+                        string.Empty)
+                },
+                new[]
+                {
+                    "1% LOW (↑ ЛУЧШЕ)",
+                    BoostSessionComparison.FormatSigned(
+                        comparison.OnePercentLowFpsDelta,
+                        string.Empty)
+                },
+                new[]
+                {
+                    "P95 FRAME TIME (↓ ЛУЧШЕ)",
+                    BoostSessionComparison.FormatSigned(
+                        comparison.P95FrameTimeDeltaMs,
+                        " мс")
+                },
+                new[]
+                {
+                    "КАДРЫ > 50 МС (↓ ЛУЧШЕ)",
+                    (comparison.FramesOver50MsDelta > 0 ? "+" : string.Empty) +
+                        comparison.FramesOver50MsDelta.ToString(
+                            CultureInfo.CurrentCulture)
+                }
+            });
+            metrics.Margin = new Thickness(0, 5, 0, 0);
+            section.Children.Add(metrics);
+            return section;
+        }
+
+        private Grid BuildResourceMetricGrid(string[][] items)
+        {
+            var grid = new Grid
+            {
+                Background = Brushes.Transparent
+            };
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = new GridLength(1, GridUnitType.Star)
+            });
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = new GridLength(1, GridUnitType.Star)
+            });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            int count = Math.Min(4, items == null ? 0 : items.Length);
+            for (int index = 0; index < count; index++)
+            {
+                string[] item = items[index] ?? new string[0];
+                var cell = BuildInlineMetric(
+                    item.Length > 0 ? item[0] : string.Empty,
+                    item.Length > 1 ? item[1] : string.Empty,
+                    index % 2 == 1,
+                    index >= 2);
+                Grid.SetColumn(cell, index % 2);
+                Grid.SetRow(cell, index / 2);
+                grid.Children.Add(cell);
+            }
+            return grid;
+        }
+
+        private FrameworkElement BuildInlineMetric(
+            string title,
+            string value,
+            bool rightColumn,
+            bool secondRow)
+        {
+            var host = new Border
+            {
+                MinHeight = 47,
+                BorderBrush = new SolidColorBrush(DividerColor),
+                BorderThickness = new Thickness(
+                    rightColumn ? 1 : 0,
+                    secondRow ? 1 : 0,
+                    0,
+                    0),
+                Padding = new Thickness(
+                    rightColumn ? 10 : 0,
+                    secondRow ? 7 : 5,
+                    6,
+                    5)
+            };
+            var content = new StackPanel();
+            content.Children.Add(MakeText(
+                title,
+                8.5,
+                MutedColor,
+                semiboldFont,
+                FontWeights.Bold));
+            var valueText = MakeText(
+                value,
+                11.5,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold);
+            valueText.Margin = new Thickness(0, 2, 0, 0);
+            content.Children.Add(valueText);
+            host.Child = content;
+            return host;
         }
 
         private void UpdateBenchmarkProgressVisuals()
@@ -1369,6 +1895,212 @@ namespace MajesticBoost
             return row;
         }
 
+        private void RenderHistory()
+        {
+            subtitle.Text = "Последние 10 игровых сессий и их измерения.";
+            if (!string.IsNullOrWhiteSpace(exportMessageTitle))
+            {
+                pageContent.Children.Add(BuildExportNotice());
+            }
+
+            if (sessionHistory.Count == 0)
+            {
+                pageContent.Children.Add(MakeEmptyState(
+                    "ИСТОРИЯ ПОКА ПУСТА",
+                    "После игровой сессии здесь появятся длительность, состояние ресурсов и замеры FPS."));
+            }
+            else
+            {
+                int index = 0;
+                foreach (BoostSessionReport report in sessionHistory)
+                {
+                    Button row = BuildHistoryRow(report, index);
+                    pageContent.Children.Add(row);
+                    if (preferredFocusButton == null)
+                    {
+                        preferredFocusButton = row;
+                    }
+                    index++;
+                }
+            }
+
+            var export = MakeActionButton("ЭКСПОРТ ДИАГНОСТИКИ", false, false);
+            export.Width = 174;
+            export.Click += delegate { Raise(ExportDiagnosticsRequested); };
+            AutomationProperties.SetName(
+                export,
+                "Сохранить безопасный диагностический отчёт");
+            AutomationProperties.SetAutomationId(
+                export,
+                "MajesticBoost.Center.HistoryExport");
+            footerButtons.Children.Add(export);
+            if (preferredFocusButton == null)
+            {
+                preferredFocusButton = export;
+            }
+        }
+
+        private Button BuildHistoryRow(BoostSessionReport report, int index)
+        {
+            var background = new SolidColorBrush(BackgroundColor);
+            var button = new Button
+            {
+                MinHeight = 58,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Background = background,
+                BorderBrush = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(8, 4, 8, 4),
+                Cursor = Cursors.Hand,
+                Template = MakeFlatButtonTemplate(6)
+            };
+            KeyboardNavigation.SetTabIndex(button, 10 + index);
+            AutomationProperties.SetAutomationId(
+                button,
+                "MajesticBoost.Center.History." +
+                index.ToString(CultureInfo.InvariantCulture));
+
+            var content = new Grid();
+            content.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = new GridLength(1, GridUnitType.Star)
+            });
+            content.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = GridLength.Auto
+            });
+            content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            DateTime localStart = report.StartedUtc.ToLocalTime();
+            string game = string.IsNullOrWhiteSpace(report.GameName)
+                ? "Majestic / GTA V"
+                : report.GameName;
+            var title = MakeText(
+                localStart.ToString("dd.MM · HH:mm", CultureInfo.CurrentCulture) +
+                    "  —  " + game,
+                10,
+                TextColor,
+                semiboldFont,
+                FontWeights.Bold);
+            title.Margin = new Thickness(0, 4, 8, 0);
+            Grid.SetColumn(title, 0);
+            content.Children.Add(title);
+
+            string status = FormatSessionStatus(report);
+            Color statusColor = !string.IsNullOrWhiteSpace(report.GameCrashCode)
+                ? ErrorColor
+                : (string.Equals(
+                    report.WorstResourcePressure,
+                    DiagnosticPressureLevel.Critical.ToString(),
+                    StringComparison.OrdinalIgnoreCase)
+                    ? WarningColor
+                    : MutedColor);
+            var statusText = MakeText(
+                status,
+                9,
+                statusColor,
+                semiboldFont,
+                FontWeights.Bold);
+            statusText.Margin = new Thickness(8, 4, 0, 0);
+            statusText.HorizontalAlignment = HorizontalAlignment.Right;
+            Grid.SetColumn(statusText, 1);
+            content.Children.Add(statusText);
+
+            TimeSpan duration = (report.EndedUtc ?? DateTime.UtcNow) -
+                report.StartedUtc;
+            string detailText = "Сессия " + FormatDuration(duration);
+            if (!string.IsNullOrWhiteSpace(report.WorstResourcePressure))
+            {
+                detailText += " · ресурсы " +
+                    FormatPressure(report.WorstResourcePressure).ToLowerInvariant();
+            }
+            var detail = MakeText(
+                detailText,
+                9,
+                MutedColor,
+                regularFont,
+                FontWeights.Normal);
+            detail.Margin = new Thickness(0, 2, 8, 4);
+            Grid.SetColumn(detail, 0);
+            Grid.SetRow(detail, 1);
+            content.Children.Add(detail);
+
+            string performance = report.Performance != null &&
+                report.Performance.Available
+                ? report.Performance.AverageFps.ToString(
+                    "0.0",
+                    CultureInfo.CurrentCulture) + " FPS"
+                : "ОТКРЫТЬ";
+            var performanceText = MakeText(
+                performance,
+                9.5,
+                report.Performance != null && report.Performance.Available
+                    ? SuccessColor
+                    : SecondaryColor,
+                semiboldFont,
+                FontWeights.Bold);
+            performanceText.Margin = new Thickness(8, 2, 0, 4);
+            performanceText.HorizontalAlignment = HorizontalAlignment.Right;
+            Grid.SetColumn(performanceText, 1);
+            Grid.SetRow(performanceText, 1);
+            content.Children.Add(performanceText);
+
+            button.Content = content;
+            AutomationProperties.SetName(
+                button,
+                "Открыть отчёт сессии " +
+                localStart.ToString("dd.MM HH:mm", CultureInfo.CurrentCulture));
+            button.Click += delegate
+            {
+                sessionReport = report;
+                SwitchPage(CenterPage.Report);
+            };
+            button.MouseEnter += delegate
+            {
+                AnimateBrush(background, SurfaceColor, 180);
+            };
+            button.MouseLeave += delegate
+            {
+                AnimateBrush(background, BackgroundColor, 220);
+            };
+            return button;
+        }
+
+        private static string FormatSessionStatus(BoostSessionReport report)
+        {
+            if (report == null)
+            {
+                return "НЕТ ДАННЫХ";
+            }
+            if (!string.IsNullOrWhiteSpace(report.GameCrashCode) ||
+                string.Equals(
+                    report.Status,
+                    "GameCrashed",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return "ВЫЛЕТ";
+            }
+            if (string.Equals(report.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                return "АКТИВЕН";
+            }
+            if (string.Equals(report.Status, "Preparing", StringComparison.OrdinalIgnoreCase))
+            {
+                return "ПОДГОТОВКА";
+            }
+            if (string.Equals(report.Status, "Interrupted", StringComparison.OrdinalIgnoreCase))
+            {
+                return "ПРЕРВАНО";
+            }
+            if (string.Equals(report.Status, "Failed", StringComparison.OrdinalIgnoreCase))
+            {
+                return "ОШИБКА";
+            }
+            return "ЗАВЕРШЕНО";
+        }
+
         private void RenderSettings()
         {
             subtitle.Text = "Настройки игровой сессии применяются без перезагрузки.";
@@ -1417,6 +2149,9 @@ namespace MajesticBoost
             AutomationProperties.SetName(
                 restore,
                 "Открыть безопасное восстановление системных настроек");
+            AutomationProperties.SetAutomationId(
+                restore,
+                "MajesticBoost.Center.Restore");
             footerButtons.Children.Add(restore);
             preferredFocusButton = restore;
         }
@@ -1435,12 +2170,18 @@ namespace MajesticBoost
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Cursor = Cursors.Hand,
-                FocusVisualStyle = null,
                 Template = MakeTransparentCheckBoxTemplate(),
                 IsChecked = isChecked
             };
             AutomationProperties.SetName(toggle, title.ToLowerInvariant());
             AutomationProperties.SetHelpText(toggle, detail);
+            AutomationProperties.SetAutomationId(
+                toggle,
+                "MajesticBoost.Center.Setting." +
+                pageContent.Children.Count.ToString(CultureInfo.InvariantCulture));
+            KeyboardNavigation.SetTabIndex(
+                toggle,
+                10 + pageContent.Children.Count);
 
             var content = new Grid
             {
@@ -1449,7 +2190,10 @@ namespace MajesticBoost
                 ClipToBounds = false
             };
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
+            content.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = new GridLength(36 + ToggleSafeGutter)
+            });
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
@@ -1486,7 +2230,7 @@ namespace MajesticBoost
                 Background = trackBrush,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 4, 0),
+                Margin = new Thickness(0, 0, ToggleSafeGutter, 0),
                 UseLayoutRounding = true,
                 SnapsToDevicePixels = true,
                 ClipToBounds = false
@@ -1642,7 +2386,6 @@ namespace MajesticBoost
                 FontSize = 10,
                 FontWeight = FontWeights.Bold,
                 Cursor = Cursors.Hand,
-                FocusVisualStyle = null,
                 Template = MakeFlatButtonTemplate(6),
                 Content = text
             };
@@ -2004,6 +2747,117 @@ namespace MajesticBoost
                 glyph = "–";
                 color = MutedColor;
             }
+        }
+
+        private static string FormatPressure(string value)
+        {
+            DiagnosticPressureLevel pressure;
+            if (!Enum.TryParse(value, true, out pressure))
+            {
+                pressure = DiagnosticPressureLevel.Unavailable;
+            }
+            switch (pressure)
+            {
+                case DiagnosticPressureLevel.Normal:
+                    return "НОРМА";
+                case DiagnosticPressureLevel.Elevated:
+                    return "ПОВЫШЕННАЯ НАГРУЗКА";
+                case DiagnosticPressureLevel.Critical:
+                    return "КРИТИЧЕСКАЯ НАГРУЗКА";
+                default:
+                    return "НЕТ ДАННЫХ";
+            }
+        }
+
+        private static Color GetPressureColor(DiagnosticPressureLevel pressure)
+        {
+            switch (pressure)
+            {
+                case DiagnosticPressureLevel.Normal:
+                    return SuccessColor;
+                case DiagnosticPressureLevel.Elevated:
+                    return WarningColor;
+                case DiagnosticPressureLevel.Critical:
+                    return ErrorColor;
+                default:
+                    return MutedColor;
+            }
+        }
+
+        private static string TranslatePressureReason(DiagnosticSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return "Показатели ресурсов недоступны.";
+            }
+            if (snapshot.Pressure == DiagnosticPressureLevel.Critical)
+            {
+                if (snapshot.MemoryAvailable &&
+                    snapshot.CommitHeadroomBytes <=
+                        Math.Max(
+                            DiagnosticPressureClassifier.OneGibibyte,
+                            snapshot.CommitLimitBytes / 20))
+                {
+                    return "Запас commit почти исчерпан — проверьте файл подкачки и свободное место на системном диске.";
+                }
+                if (snapshot.GpuUsageAvailable &&
+                    snapshot.GpuTotalAvailable &&
+                    snapshot.GpuDedicatedTotalBytes > 0 &&
+                    (double)snapshot.GpuDedicatedUsageBytes /
+                        snapshot.GpuDedicatedTotalBytes >= 0.95)
+                {
+                    return "Системное использование видеопамяти близко к ёмкости выбранного адаптера — высокое качество текстур может вызвать статтеры.";
+                }
+                return "Свободной физической памяти осталось критически мало.";
+            }
+            if (snapshot.Pressure == DiagnosticPressureLevel.Elevated)
+            {
+                return "Запас ресурсов ниже рекомендуемого; закройте тяжёлые фоновые приложения перед игрой.";
+            }
+            if (snapshot.Pressure == DiagnosticPressureLevel.Normal)
+            {
+                return "Запас физической памяти и commit находится в норме.";
+            }
+            return "Часть показателей недоступна в этой версии Windows или драйвера.";
+        }
+
+        private static string FormatBytesCompact(long bytes)
+        {
+            if (bytes < 0)
+            {
+                return "—";
+            }
+            if (bytes >= 1073741824L)
+            {
+                return (bytes / 1073741824d).ToString(
+                    "0.0",
+                    CultureInfo.CurrentCulture) + " ГБ";
+            }
+            if (bytes >= 1048576L)
+            {
+                return (bytes / 1048576d).ToString(
+                    "0",
+                    CultureInfo.CurrentCulture) + " МБ";
+            }
+            return bytes > 0
+                ? (bytes / 1024d).ToString(
+                    "0",
+                    CultureInfo.CurrentCulture) + " КБ"
+                : "0 МБ";
+        }
+
+        private static string FormatUnavailablePageFile(
+            DiagnosticSnapshot snapshot)
+        {
+            if (snapshot != null &&
+                string.Equals(
+                    snapshot.PageFileError,
+                    "No active Windows page file was reported.",
+                    StringComparison.Ordinal))
+            {
+                return "НЕ АКТИВЕН";
+            }
+            return "НЕДОСТУПНО";
         }
 
         private static string FormatDuration(TimeSpan duration)

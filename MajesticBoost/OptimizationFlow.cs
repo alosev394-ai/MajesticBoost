@@ -1195,7 +1195,6 @@ namespace MajesticBoost
                 FontWeight = FontWeights.Bold,
                 Cursor = Cursors.Hand,
                 Focusable = true,
-                FocusVisualStyle = null,
                 RenderTransform = translate,
                 RenderTransformOrigin = new Point(0.5, 0.5),
                 Template = BuildRoundedButtonTemplate()

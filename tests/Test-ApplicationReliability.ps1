@@ -45,7 +45,7 @@ foreach ($required in @(
     'public long MinimumCommitHeadroomBytes;',
     'public long PeakGamePrivateBytes;',
     'public string GameCrashCode;',
-    '(version != 1 && version != 2)',
+    '(version != 1 && version != 2 && version != 3)',
     'public static void WriteAllTextAtomic('
 )) {
     if (-not $features.Contains($required)) {

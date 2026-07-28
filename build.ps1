@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$Configuration = 'Release'
+    [string]$Configuration = 'Release',
+    [switch]$PrepareSignedUpdate
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,7 +13,7 @@ $wpfRoot = Join-Path $frameworkRoot 'WPF'
 $compiler = Join-Path $frameworkRoot 'csc.exe'
 $workDirectory = Join-Path $projectRoot 'work'
 $distDirectory = Join-Path $projectRoot 'dist'
-$releaseVersion = '1.7.0'
+$releaseVersion = '1.8.0'
 $appOutput = Join-Path $workDirectory 'MajesticBoost.exe'
 $setupOutput = Join-Path $workDirectory "MajesticBoost-Setup-$releaseVersion.exe"
 $versionedSetupOutput = Join-Path $distDirectory "MajesticBoost-Setup-$releaseVersion.exe"
@@ -49,6 +50,7 @@ $appArguments = @(
     "/win32manifest:$projectRoot\MajesticBoost\app.manifest",
     '/reference:System.dll',
     '/reference:System.Core.dll',
+    '/reference:System.Management.dll',
     "/reference:$frameworkRoot\System.Xaml.dll",
     "/reference:$wpfRoot\WindowsBase.dll",
     "/reference:$wpfRoot\PresentationCore.dll",
@@ -56,6 +58,8 @@ $appArguments = @(
     "/out:$appOutput",
     "$projectRoot\MajesticBoost\Program.cs",
     "$projectRoot\MajesticBoost\BoostFeatures.cs",
+    "$projectRoot\MajesticBoost\DiagnosticsFeatures.cs",
+    "$projectRoot\MajesticBoost\SessionInsights.cs",
     "$projectRoot\MajesticBoost\BoostCenterOverlay.cs",
     "$projectRoot\MajesticBoost\PerformanceCapture.cs",
     "$projectRoot\MajesticBoost\OptimizationFlow.cs",
@@ -110,4 +114,41 @@ $hashLines = foreach ($hash in $hashes) {
     (Join-Path $distDirectory 'SHA256SUMS.txt'),
     ([string]::Join("`n", $hashLines) + "`n"),
     (New-Object Text.UTF8Encoding($false)))
+
+if ($PrepareSignedUpdate) {
+    $installer = Get-Item -LiteralPath $versionedSetupOutput
+    $installerHash = (
+        Get-FileHash -Algorithm SHA256 -LiteralPath $versionedSetupOutput
+    ).Hash
+    $manifestPath = Join-Path $projectRoot 'update-v2.json'
+    $signaturePath = Join-Path $projectRoot 'update-v2.json.sig'
+    $manifest = [string]::Join(
+        "`n",
+        @(
+            '{',
+            '  "schemaVersion": 1,',
+            ('  "version": "' + $releaseVersion + '",'),
+            ('  "installerUrl": "https://raw.githubusercontent.com/alosev394-ai/MajesticBoost/main/dist/MajesticBoost-Setup-' + $releaseVersion + '.exe",'),
+            ('  "sha256": "' + $installerHash + '",'),
+            ('  "size": ' + $installer.Length),
+            '}',
+            ''
+        ))
+    [IO.File]::WriteAllText(
+        $manifestPath,
+        $manifest,
+        (New-Object Text.UTF8Encoding($false)))
+
+    $signScript = Join-Path $projectRoot 'tools\Sign-UpdateManifest.ps1'
+    & powershell.exe `
+        -NoProfile `
+        -ExecutionPolicy Bypass `
+        -File $signScript `
+        -ManifestPath $manifestPath `
+        -SignaturePath $signaturePath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Signed update preparation failed with exit code $LASTEXITCODE."
+    }
+}
+
 $hashes | Format-Table -AutoSize

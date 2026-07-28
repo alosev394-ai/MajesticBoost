@@ -89,8 +89,11 @@ try {
 
     $bounds = $window.Current.BoundingRectangle
     $aspectRatio = $bounds.Height / $bounds.Width
-    if ($aspectRatio -lt 1.13 -or $aspectRatio -gt 1.20) {
+    if ($aspectRatio -lt 1.18 -or $aspectRatio -gt 1.22) {
         throw "Unexpected main-window aspect ratio: $aspectRatio ($($bounds.Width)x$($bounds.Height))."
+    }
+    if ($bounds.Width -lt 456 -or $bounds.Height -lt 548) {
+        throw "Main window is too small for the responsive safe areas: $($bounds.Width)x$($bounds.Height)."
     }
 
     Invoke-AutomationButton -Button $activateButton

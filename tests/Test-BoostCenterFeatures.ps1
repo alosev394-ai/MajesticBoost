@@ -17,7 +17,7 @@ $installer = [IO.File]::ReadAllText((Join-Path $projectRoot 'MajesticBoostInstal
 $build = [IO.File]::ReadAllText((Join-Path $projectRoot 'build.ps1'))
 
 foreach ($required in @(
-    'AssemblyVersion("1.7.0.0")',
+    'AssemblyVersion("1.8.0.0")',
     'AssemblyCompany("Silus Suspect")',
     'GetApplicationVersion() + "  BETA"',
     'MakeText(',
@@ -57,7 +57,7 @@ $windowControls = $program.Substring(
     $windowControlsStart,
     $titleStart - $windowControlsStart)
 foreach ($required in @(
-    'header.Margin = new Thickness(0)',
+    'Margin = new Thickness(0),',
     'center.HorizontalAlignment = HorizontalAlignment.Left',
     'center.VerticalAlignment = VerticalAlignment.Top',
     'header.Children.Add(center);',
@@ -108,20 +108,21 @@ $chromeButtonTemplate = $program.Substring(
     $chromeButtonTemplateStart,
     $makeTextStart - $chromeButtonTemplateStart)
 foreach ($required in @(
-    'FontSize = 17',
-    'RenderTransform = new TranslateTransform(0, -1)'
+    'FontSize = 19',
+    'HorizontalAlignment = HorizontalAlignment.Center',
+    'VerticalAlignment = VerticalAlignment.Center'
 )) {
     if (-not $centerButton.Contains($required)) {
         throw "The centered settings glyph contract is missing: $required"
     }
 }
 foreach ($required in @(
-    'glyphCanvas.Width = 30',
-    'glyphCanvas.Height = 30',
-    'Geometry.Parse("M 10,10 L 20,20 M 20,10 L 10,20")',
+    'glyphCanvas.Width = TitleControlSize',
+    'glyphCanvas.Height = TitleControlSize',
+    'Geometry.Parse("M 11,11 L 21,21 M 21,11 L 11,21")',
     'minimizeGlyph.Width = 16',
-    'Canvas.SetLeft(minimizeGlyph, 7)',
-    'Canvas.SetTop(minimizeGlyph, 20)'
+    'Canvas.SetLeft(minimizeGlyph, 8)',
+    'Canvas.SetTop(minimizeGlyph, 19)'
 )) {
     if (-not $windowButton.Contains($required)) {
         throw "The centered caption glyph contract is missing: $required"
@@ -187,6 +188,7 @@ foreach ($forbidden in @(
 foreach ($required in @(
     'CenterPage.Readiness',
     'CenterPage.Report',
+    'CenterPage.History',
     'CenterPage.Settings',
     'OpenReadiness',
     'OpenReport',
@@ -215,8 +217,9 @@ foreach ($required in @(
         throw "The Boost Center UI contract is missing: $required"
     }
 }
-if ($center -notmatch '(?s)AnimatePageVisual\(\s*pageScroller,.*?90,\s*EasingMode\.EaseIn' -or
-    $center -notmatch '(?s)AnimatePageVisual\(\s*pageScroller,.*?130,\s*EasingMode\.EaseOut') {
+if ($center -notmatch '(?s)AnimatePageVisual\(\s*pageScroller,.*?PageTransitionExitMilliseconds,\s*EasingMode\.EaseIn' -or
+    $center -notmatch '(?s)AnimatePageVisual\(\s*pageScroller,.*?PageTransitionEnterMilliseconds,\s*EasingMode\.EaseOut' -or
+    -not $center.Contains('PageTransitionTotalMilliseconds =')) {
     throw 'The Boost Center page transition timing contract is missing.'
 }
 
@@ -245,8 +248,8 @@ $mainToggleTemplate = $program.Substring(
     $mainToggleTemplateEnd - $mainToggleTemplateStart)
 foreach ($required in @(
     'content.HorizontalAlignment = HorizontalAlignment.Stretch',
-    'Width = new GridLength(44)',
-    'track.Margin = new Thickness(0, 0, 4, 0)',
+    'Width = new GridLength(36 + ToggleSafeGutter)',
+    'track.Margin = new Thickness(0, 0, ToggleSafeGutter, 0)',
     'knob.Margin = new Thickness(3, 0, 0, 0)',
     'content.UseLayoutRounding = true',
     'track.ClipToBounds = false'
@@ -262,9 +265,8 @@ if ($mainToggle.Contains('content.Width = 300') -or
     throw 'The main toggle template can still clip its rounded right edge.'
 }
 foreach ($required in @(
-    'Margin = new Thickness(0, 8, 4, 8)',
-    'Width = new GridLength(44)',
-    'Margin = new Thickness(0, 0, 4, 0)',
+    'Width = new GridLength(36 + ToggleSafeGutter)',
+    'Margin = new Thickness(0, 0, ToggleSafeGutter, 0)',
     'Margin = new Thickness(3, 0, 0, 0)',
     'new TranslateTransform(isChecked ? 14 : 0, 0)',
     'double targetX = active ? 14 : 0',

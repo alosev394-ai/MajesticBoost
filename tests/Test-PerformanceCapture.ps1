@@ -74,8 +74,10 @@ try {
         '/optimize+',
         '/reference:System.dll',
         '/reference:System.Core.dll',
+        '/reference:System.Management.dll',
         "/out:$harness",
         (Join-Path $projectRoot 'MajesticBoost\BoostFeatures.cs'),
+        (Join-Path $projectRoot 'MajesticBoost\DiagnosticsFeatures.cs'),
         (Join-Path $projectRoot 'MajesticBoost\PerformanceCapture.cs'),
         (Join-Path $PSScriptRoot 'PerformanceCaptureParserHarness.cs')
     )

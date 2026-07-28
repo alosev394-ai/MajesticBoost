@@ -82,10 +82,19 @@ try {
     $readiness = Wait-ForElement -Root $window -Name $readinessName -TimeoutMilliseconds 20000
     $report = Wait-ForElement -Root $window -Name $reportName -TimeoutMilliseconds 10000
     $settings = Wait-ForElement -Root $window -Name $settingsName -TimeoutMilliseconds 10000
+    foreach ($tab in @($readiness, $report, $settings)) {
+        if (-not $tab.Current.IsKeyboardFocusable) {
+            throw "Boost Center tab is not keyboard-focusable: $($tab.Current.Name)"
+        }
+    }
     Invoke-Element -Element $report
     [void](Wait-ForElement -Root $window -Name $benchmarkName -TimeoutMilliseconds 10000)
     Invoke-Element -Element $settings
-    [void](Wait-ForElement -Root $window -Name $autoBoostName -TimeoutMilliseconds 10000)
+    $autoBoost = Wait-ForElement -Root $window -Name $autoBoostName -TimeoutMilliseconds 10000
+    if (-not $autoBoost.Current.IsKeyboardFocusable) {
+        throw 'Boost Center setting toggle is not keyboard-focusable.'
+    }
+    [void]$autoBoost.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
     [void](Wait-ForElement -Root $window -Name $restoreName -TimeoutMilliseconds 10000)
 
     Invoke-Element -Element $report

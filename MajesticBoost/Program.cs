@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -15,6 +17,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
@@ -26,8 +29,8 @@ using System.Windows.Threading;
 [assembly: AssemblyCompany("Silus Suspect")]
 [assembly: AssemblyCopyright("© Silus Suspect")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.7.0.0")]
-[assembly: AssemblyFileVersion("1.7.0.0")]
+[assembly: AssemblyVersion("1.8.0.0")]
+[assembly: AssemblyFileVersion("1.8.0.0")]
 
 namespace MajesticBoost
 {
@@ -64,9 +67,8 @@ namespace MajesticBoost
                     }
 
                     var application = new Application();
-                    var focusVisualStyle = new Style(typeof(Control));
-                    focusVisualStyle.Setters.Add(new Setter(Control.TemplateProperty, null));
-                    application.Resources[SystemParameters.FocusVisualStyleKey] = focusVisualStyle;
+                    application.Resources[SystemParameters.FocusVisualStyleKey] =
+                        BuildKeyboardFocusVisualStyle();
                     application.ShutdownMode = ShutdownMode.OnMainWindowClose;
                     application.DispatcherUnhandledException += delegate(
                         object sender,
@@ -117,10 +119,94 @@ namespace MajesticBoost
                 }
             }
         }
+
+        private static Style BuildKeyboardFocusVisualStyle()
+        {
+            var style = new Style(typeof(Control));
+            var template = new ControlTemplate(typeof(Control));
+            var border = new FrameworkElementFactory(typeof(Border));
+            border.SetValue(
+                Border.BorderBrushProperty,
+                new SolidColorBrush(Color.FromRgb(232, 28, 90)));
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(5));
+            border.SetValue(Border.MarginProperty, new Thickness(2));
+            border.SetValue(UIElement.IsHitTestVisibleProperty, false);
+            border.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+            template.VisualTree = border;
+            style.Setters.Add(new Setter(Control.TemplateProperty, template));
+            return style;
+        }
     }
 
     internal sealed class BoostWindow : Window
     {
+        private const double BaseWindowWidth = 460;
+        private const double BaseWindowHeight = 552;
+        private const double ShellShadowMargin = 12;
+        private const double MainContentInset = 24;
+        private const double TitleControlSize = 32;
+        private const double PreferenceRowHeight = 38;
+        private const double ToggleSafeGutter = 12;
+        private const double CompactWindowHeight = 492;
+        private const double WorkAreaSafetyInset = 8;
+        private const int MonitorDefaultToNearest = 2;
+        private const int SwpNoActivate = 0x0010;
+        private const int SwpNoZOrder = 0x0004;
+        private const int WmDisplayChange = 0x007E;
+        private const int WmDpiChanged = 0x02E0;
+        private const int WmExitSizeMove = 0x0232;
+        private const int WmSettingChange = 0x001A;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeRectangle
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        private struct MonitorInformation
+        {
+            public int Size;
+            public NativeRectangle Monitor;
+            public NativeRectangle Work;
+            public int Flags;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(
+            IntPtr window,
+            int flags);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetMonitorInfo(
+            IntPtr monitor,
+            ref MonitorInformation information);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetWindowRect(
+            IntPtr window,
+            out NativeRectangle rectangle);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(
+            IntPtr window,
+            IntPtr insertAfter,
+            int x,
+            int y,
+            int width,
+            int height,
+            int flags);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr window);
+
         private sealed class PreferenceToggleVisuals
         {
             public SolidColorBrush TrackBrush;
@@ -196,26 +282,61 @@ namespace MajesticBoost
             CheckBeforeBoost = true
         };
         private BoostPreflightReport latestPreflight;
+        private DiagnosticSnapshot latestDiagnosticSnapshot;
         private BoostSessionReport currentSession;
         private BoostSessionReport lastSession;
+        private List<BoostSessionReport> sessionHistory =
+            new List<BoostSessionReport>();
         private CancellationTokenSource benchmarkCancellation;
         private PerformanceCaptureAttemptResult lastCaptureAttempt;
         private readonly Dictionary<int, TrackedGamePriority> trackedGamePriorities =
             new Dictionary<int, TrackedGamePriority>();
         private readonly bool demoMode;
+        private readonly double demoUiScale;
+        private readonly bool compactMainLayout;
+        private readonly bool scaleMainLayoutToWorkArea;
         private readonly string[] launchArguments;
+        private Viewbox monitorAdaptiveViewbox;
+        private HwndSource windowSource;
+        private IntPtr windowHandle;
+        private bool applyingMonitorBounds;
+        private bool monitorBoundsQueued;
 
         public BoostWindow(string[] args)
         {
             launchArguments = args ?? new string[0];
             demoMode = HasLaunchArgument(launchArguments, "--demo");
+            demoUiScale = demoMode
+                ? GetDemoUiScale(launchArguments)
+                : 1.0;
+            double targetWidth = BaseWindowWidth * demoUiScale;
+            double targetHeight = BaseWindowHeight * demoUiScale;
+            bool compactDemo = HasLaunchArgument(
+                launchArguments,
+                "--demo-compact");
+            bool ultraCompactDemo = HasLaunchArgument(
+                launchArguments,
+                "--demo-ultra-compact");
+            if (ultraCompactDemo)
+            {
+                targetHeight = 360;
+            }
+            else if (compactDemo)
+            {
+                targetHeight = CompactWindowHeight;
+            }
+            compactMainLayout =
+                targetHeight < BaseWindowHeight - 0.5;
+            scaleMainLayoutToWorkArea =
+                targetHeight < CompactWindowHeight - 0.5 ||
+                targetWidth < BaseWindowWidth - 0.5;
             Title = "Majestic Boost — Boost производительности";
-            Width = 460;
-            Height = 534;
-            MinWidth = 460;
-            MinHeight = 534;
-            MaxWidth = 460;
-            MaxHeight = 534;
+            Width = targetWidth;
+            Height = targetHeight;
+            MinWidth = Width;
+            MinHeight = Height;
+            MaxWidth = Width;
+            MaxHeight = Height;
             WindowStyle = WindowStyle.None;
             ResizeMode = ResizeMode.NoResize;
             AllowsTransparency = true;
@@ -226,9 +347,43 @@ namespace MajesticBoost
             SnapsToDevicePixels = true;
             FontFamily = LoadMajesticFontFamily();
             Icon = BuildWindowIcon();
+            AutomationProperties.SetName(this, "Majestic Boost");
+            AutomationProperties.SetAutomationId(this, "MajesticBoost.MainWindow");
 
-            Content = BuildShell();
+            FrameworkElement shell = BuildShell();
+            if (!demoMode)
+            {
+                shell.Width = BaseWindowWidth;
+                shell.Height = BaseWindowHeight;
+                monitorAdaptiveViewbox = new Viewbox
+                {
+                    Stretch = Stretch.Uniform,
+                    StretchDirection = StretchDirection.DownOnly,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    Child = shell
+                };
+                Content = monitorAdaptiveViewbox;
+            }
+            else if (scaleMainLayoutToWorkArea)
+            {
+                shell.Width = BaseWindowWidth;
+                shell.Height = CompactWindowHeight;
+                Content = new Viewbox
+                {
+                    Stretch = Stretch.Uniform,
+                    StretchDirection = StretchDirection.DownOnly,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = shell
+                };
+            }
+            else
+            {
+                Content = shell;
+            }
             Loaded += BoostWindowLoaded;
+            SourceInitialized += BoostWindowSourceInitialized;
             KeyDown += WindowKeyDown;
             PreviewMouseLeftButtonDown += WindowMouseLeftButtonDown;
             Closing += BoostWindowClosing;
@@ -237,8 +392,16 @@ namespace MajesticBoost
 
         private Grid BuildShell()
         {
-            var shell = new Grid();
-            shell.Margin = new Thickness(18);
+            var shell = new Grid
+            {
+                Margin = new Thickness(ShellShadowMargin * demoUiScale)
+            };
+            if (Math.Abs(demoUiScale - 1.0) > 0.001)
+            {
+                shell.LayoutTransform = new ScaleTransform(
+                    demoUiScale,
+                    demoUiScale);
+            }
 
             var frame = new Border();
             frame.CornerRadius = new CornerRadius(11);
@@ -257,10 +420,27 @@ namespace MajesticBoost
             var root = new Grid();
             root.Background = Brushes.Transparent;
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(48) });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(70) });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(188) });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            root.RowDefinitions.Add(new RowDefinition
+            {
+                Height = new GridLength(compactMainLayout ? 62 : 70)
+            });
+            root.RowDefinitions.Add(new RowDefinition
+            {
+                Height = new GridLength(compactMainLayout ? 172 : 190)
+            });
+            root.RowDefinitions.Add(new RowDefinition
+            {
+                Height = new GridLength(compactMainLayout ? 32 : 36)
+            });
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(114) });
+            root.RowDefinitions.Add(new RowDefinition
+            {
+                Height = new GridLength(1, GridUnitType.Star),
+                MinHeight = compactMainLayout ? 12 : MainContentInset
+            });
+            KeyboardNavigation.SetTabNavigation(
+                root,
+                KeyboardNavigationMode.Cycle);
             root.SizeChanged += delegate
             {
                 root.Clip = new RectangleGeometry(
@@ -275,10 +455,12 @@ namespace MajesticBoost
             root.Children.Add(controls);
 
             titleSection = BuildTitle();
+            titleSection.Margin = new Thickness(MainContentInset, 0, MainContentInset, 0);
             Grid.SetRow(titleSection, 1);
             root.Children.Add(titleSection);
 
             boostButtonSection = BuildBoostButton();
+            boostButtonSection.Margin = new Thickness(MainContentInset, 0, MainContentInset, 0);
             Grid.SetRow(boostButtonSection, 2);
             root.Children.Add(boostButtonSection);
             boostButton.IsEnabled = false;
@@ -287,6 +469,10 @@ namespace MajesticBoost
             caption.FontFamily = LoadMajesticSemiboldFontFamily();
             caption.HorizontalAlignment = HorizontalAlignment.Center;
             caption.VerticalAlignment = VerticalAlignment.Center;
+            caption.Margin = new Thickness(MainContentInset, 0, MainContentInset, 0);
+            AutomationProperties.SetName(caption, "Состояние Boost");
+            AutomationProperties.SetAutomationId(caption, "MajesticBoost.Status");
+            AutomationProperties.SetLiveSetting(caption, AutomationLiveSetting.Polite);
             Grid.SetRow(caption, 3);
             root.Children.Add(caption);
 
@@ -333,12 +519,14 @@ namespace MajesticBoost
                 }
             };
             boostCenterOverlay.BenchmarkRequested += BoostCenterBenchmarkRequested;
+            boostCenterOverlay.ExportDiagnosticsRequested +=
+                BoostCenterExportDiagnosticsRequested;
             boostCenterOverlay.IsVisibleChanged += delegate
             {
                 SetMainContentVisible(boostCenterOverlay.Visibility != Visibility.Visible);
             };
             Grid.SetRow(boostCenterOverlay, 1);
-            Grid.SetRowSpan(boostCenterOverlay, 4);
+            Grid.SetRowSpan(boostCenterOverlay, 5);
             Panel.SetZIndex(boostCenterOverlay, 50);
             root.Children.Add(boostCenterOverlay);
 
@@ -349,7 +537,7 @@ namespace MajesticBoost
                 LoadMajesticSemiboldFontFamily());
             optimizationOverlay.RequestApplicationClose += delegate { Close(); };
             Grid.SetRow(optimizationOverlay, 0);
-            Grid.SetRowSpan(optimizationOverlay, 5);
+            Grid.SetRowSpan(optimizationOverlay, 6);
             Panel.SetZIndex(optimizationOverlay, 100);
             root.Children.Add(optimizationOverlay);
 
@@ -360,7 +548,7 @@ namespace MajesticBoost
                 LoadMajesticSemiboldFontFamily());
             updateOverlay.RequestApplicationClose += delegate { Close(); };
             Grid.SetRow(updateOverlay, 0);
-            Grid.SetRowSpan(updateOverlay, 5);
+            Grid.SetRowSpan(updateOverlay, 6);
             Panel.SetZIndex(updateOverlay, 200);
             root.Children.Add(updateOverlay);
 
@@ -372,11 +560,19 @@ namespace MajesticBoost
             watermark.FontFamily = LoadMajesticSemiboldFontFamily();
             watermark.HorizontalAlignment = HorizontalAlignment.Right;
             watermark.VerticalAlignment = VerticalAlignment.Bottom;
-            watermark.Margin = new Thickness(0, 0, 12, 7);
+            watermark.Margin = new Thickness(
+                MainContentInset,
+                0,
+                MainContentInset,
+                MainContentInset);
             watermark.Opacity = 0.72;
             watermark.IsHitTestVisible = false;
+            AutomationProperties.SetName(watermark, "by Silus Suspect");
+            AutomationProperties.SetAutomationId(
+                watermark,
+                "MajesticBoost.Watermark");
             Grid.SetRow(watermark, 0);
-            Grid.SetRowSpan(watermark, 5);
+            Grid.SetRowSpan(watermark, 6);
             Panel.SetZIndex(watermark, 400);
             root.Children.Add(watermark);
 
@@ -385,12 +581,22 @@ namespace MajesticBoost
 
         private Grid BuildWindowControls()
         {
-            var header = new Grid();
-            header.Margin = new Thickness(0);
+            var header = new Grid
+            {
+                Margin = new Thickness(0),
+                Height = 48
+            };
+            AutomationProperties.SetAutomationId(
+                header,
+                "MajesticBoost.TitleBar");
 
             var center = MakeCenterButton();
             center.HorizontalAlignment = HorizontalAlignment.Left;
             center.VerticalAlignment = VerticalAlignment.Top;
+            KeyboardNavigation.SetTabIndex(center, 0);
+            AutomationProperties.SetAutomationId(
+                center,
+                "MajesticBoost.OpenCenter");
             center.Click += delegate
             {
                 if (boostCenterOverlay != null)
@@ -404,6 +610,9 @@ namespace MajesticBoost
                     boostCenterOverlay.SetSettings(centerSettings);
                     boostCenterOverlay.SetPreflight(latestPreflight);
                     boostCenterOverlay.SetSessionReport(currentSession ?? lastSession);
+                    boostCenterOverlay.SetDiagnosticSnapshot(
+                        latestDiagnosticSnapshot);
+                    boostCenterOverlay.SetSessionHistory(sessionHistory);
                     boostCenterOverlay.OpenReadiness(false);
                 }
             };
@@ -413,6 +622,7 @@ namespace MajesticBoost
             controls.Orientation = Orientation.Horizontal;
             controls.HorizontalAlignment = HorizontalAlignment.Right;
             controls.VerticalAlignment = VerticalAlignment.Top;
+            controls.Height = TitleControlSize;
 
             var version = MakeText(
                 GetApplicationVersion() + "  BETA",
@@ -424,13 +634,27 @@ namespace MajesticBoost
             version.RenderTransform = new TranslateTransform(0, 2);
             version.VerticalAlignment = VerticalAlignment.Center;
             version.Margin = new Thickness(0, 0, 10, 0);
+            AutomationProperties.SetName(
+                version,
+                "Версия приложения " + GetApplicationVersion() + " BETA");
+            AutomationProperties.SetAutomationId(
+                version,
+                "MajesticBoost.Version");
             controls.Children.Add(version);
 
             var minimize = MakeWindowButton("Свернуть", false);
+            KeyboardNavigation.SetTabIndex(minimize, 90);
+            AutomationProperties.SetAutomationId(
+                minimize,
+                "MajesticBoost.Minimize");
             minimize.Click += delegate { WindowState = WindowState.Minimized; };
             controls.Children.Add(minimize);
 
             var close = MakeWindowButton("Закрыть", true);
+            KeyboardNavigation.SetTabIndex(close, 91);
+            AutomationProperties.SetAutomationId(
+                close,
+                "MajesticBoost.Close");
             close.Click += delegate { Close(); };
             controls.Children.Add(close);
 
@@ -447,6 +671,9 @@ namespace MajesticBoost
             var firstLine = MakeText("BOOST", 28, "#FFF4F4F4", FontWeights.Bold);
             firstLine.HorizontalAlignment = HorizontalAlignment.Center;
             firstLine.Margin = new Thickness(0, 0, 0, -4);
+            AutomationProperties.SetAutomationId(
+                firstLine,
+                "MajesticBoost.Title");
             title.Children.Add(firstLine);
 
             var secondLine = MakeText("ПРОИЗВОДИТЕЛЬНОСТИ", 17, "#FFFFFFFF", FontWeights.Bold);
@@ -460,6 +687,10 @@ namespace MajesticBoost
         {
             var stage = new Grid();
             stage.ClipToBounds = false;
+            if (compactMainLayout)
+            {
+                stage.LayoutTransform = new ScaleTransform(0.9, 0.9);
+            }
 
             boostButton = new Button();
             boostButton.Width = 184;
@@ -469,10 +700,13 @@ namespace MajesticBoost
             boostButton.BorderThickness = new Thickness(0);
             boostButton.Background = Brushes.Transparent;
             boostButton.Cursor = Cursors.Hand;
-            boostButton.FocusVisualStyle = null;
             boostButton.Template = MakeTransparentButtonTemplate();
             AutomationProperties.SetName(boostButton, "Активировать Boost производительности");
             AutomationProperties.SetHelpText(boostButton, "Отключает лишние фоновые процессы и запускает Majestic.");
+            AutomationProperties.SetAutomationId(
+                boostButton,
+                "MajesticBoost.Activate");
+            KeyboardNavigation.SetTabIndex(boostButton, 10);
 
             boostSurface = new Border();
             boostSurface.Width = 178;
@@ -503,18 +737,42 @@ namespace MajesticBoost
             return stage;
         }
 
-        private StackPanel BuildPreferencePanel()
+        private Grid BuildPreferencePanel()
         {
             preferencesLoaded = false;
-            var panel = new StackPanel();
-            panel.Width = 300;
-            panel.HorizontalAlignment = HorizontalAlignment.Center;
-            panel.VerticalAlignment = VerticalAlignment.Top;
-            panel.Margin = new Thickness(0, 7, 0, 0);
+            var panel = new Grid
+            {
+                MaxWidth = 300,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Margin = new Thickness(
+                    MainContentInset,
+                    0,
+                    MainContentInset,
+                    0)
+            };
+            panel.RowDefinitions.Add(new RowDefinition
+            {
+                Height = new GridLength(PreferenceRowHeight)
+            });
+            panel.RowDefinitions.Add(new RowDefinition
+            {
+                Height = new GridLength(PreferenceRowHeight)
+            });
+            panel.RowDefinitions.Add(new RowDefinition
+            {
+                Height = new GridLength(PreferenceRowHeight)
+            });
 
             keepDiscordToggle = BuildPreferenceToggle("НЕ ЗАКРЫВАТЬ DISCORD");
             keepEpicToggle = BuildPreferenceToggle("НЕ ЗАКРЫВАТЬ EPIC GAMES");
             keepSteamToggle = BuildPreferenceToggle("НЕ ЗАКРЫВАТЬ STEAM");
+            KeyboardNavigation.SetTabIndex(keepDiscordToggle, 20);
+            KeyboardNavigation.SetTabIndex(keepEpicToggle, 21);
+            KeyboardNavigation.SetTabIndex(keepSteamToggle, 22);
+            Grid.SetRow(keepDiscordToggle, 0);
+            Grid.SetRow(keepEpicToggle, 1);
+            Grid.SetRow(keepSteamToggle, 2);
             panel.Children.Add(keepDiscordToggle);
             panel.Children.Add(keepEpicToggle);
             panel.Children.Add(keepSteamToggle);
@@ -530,28 +788,37 @@ namespace MajesticBoost
         private CheckBox BuildPreferenceToggle(string text)
         {
             var toggle = new CheckBox();
-            toggle.Width = 300;
-            toggle.Height = 30;
+            toggle.MinWidth = 252;
+            toggle.MaxWidth = 300;
+            toggle.Height = PreferenceRowHeight;
+            toggle.HorizontalAlignment = HorizontalAlignment.Stretch;
             toggle.Background = Brushes.Transparent;
             toggle.BorderThickness = new Thickness(0);
             toggle.Cursor = Cursors.Hand;
             toggle.HorizontalContentAlignment = HorizontalAlignment.Stretch;
             toggle.VerticalContentAlignment = VerticalAlignment.Center;
-            toggle.FocusVisualStyle = null;
             toggle.Template = MakeTransparentCheckBoxTemplate();
             AutomationProperties.SetName(toggle, text.ToLowerInvariant());
+            AutomationProperties.SetAutomationId(
+                toggle,
+                "MajesticBoost.Keep." +
+                text.Replace("НЕ ЗАКРЫВАТЬ ", string.Empty)
+                    .Replace(" ", string.Empty));
             AutomationProperties.SetHelpText(
                 toggle,
                 "Если включено, Majestic Boost не будет закрывать эту программу перед запуском игры.");
 
             var content = new Grid();
-            content.Height = 30;
+            content.Height = PreferenceRowHeight;
             content.HorizontalAlignment = HorizontalAlignment.Stretch;
             content.UseLayoutRounding = true;
             content.SnapsToDevicePixels = true;
             content.ClipToBounds = false;
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
+            content.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = new GridLength(36 + ToggleSafeGutter)
+            });
 
             var label = MakeText(text, 10.5, "#FFBDBDBD", FontWeights.SemiBold);
             label.FontFamily = LoadMajesticSemiboldFontFamily();
@@ -567,7 +834,7 @@ namespace MajesticBoost
             track.Background = trackBrush;
             track.HorizontalAlignment = HorizontalAlignment.Right;
             track.VerticalAlignment = VerticalAlignment.Center;
-            track.Margin = new Thickness(0, 0, 4, 0);
+            track.Margin = new Thickness(0, 0, ToggleSafeGutter, 0);
             track.UseLayoutRounding = true;
             track.SnapsToDevicePixels = true;
             track.ClipToBounds = false;
@@ -630,7 +897,7 @@ namespace MajesticBoost
                 ? Color.FromRgb(232, 28, 90)
                 : (toggle.IsMouseOver ? Color.FromRgb(52, 52, 52) : Color.FromRgb(37, 37, 37));
             double targetX = isChecked ? 14 : 0;
-            if (!animate)
+            if (!animate || !SystemParameters.ClientAreaAnimation)
             {
                 visuals.TrackBrush.BeginAnimation(SolidColorBrush.ColorProperty, null);
                 visuals.KnobTranslation.BeginAnimation(TranslateTransform.XProperty, null);
@@ -969,11 +1236,14 @@ namespace MajesticBoost
                 optimizationStatus = optimizationOverlay.GetOptimizationStatus();
             }
 
-            BoostPreflightReport report = await Task.Run(delegate
+            BoostPreflightReport report = null;
+            DiagnosticSnapshot diagnostic = null;
+            await Task.Run(delegate
             {
-                return BoostPreflightService.Run(
+                report = BoostPreflightService.Run(
                     AppDomain.CurrentDomain.BaseDirectory,
                     optimizationStatus);
+                diagnostic = DiagnosticSnapshotProvider.Capture();
             });
 
             if (generation != Interlocked.CompareExchange(ref preflightGeneration, 0, 0))
@@ -981,9 +1251,11 @@ namespace MajesticBoost
                 return;
             }
             latestPreflight = report;
+            latestDiagnosticSnapshot = diagnostic;
             if (boostCenterOverlay != null)
             {
                 boostCenterOverlay.SetPreflight(report);
+                boostCenterOverlay.SetDiagnosticSnapshot(diagnostic);
             }
 
             if (!forBoost)
@@ -1354,6 +1626,10 @@ namespace MajesticBoost
                 caption.Text = "НАЖМИ, ЧТОБЫ АКТИВИРОВАТЬ";
                 caption.Foreground = BrushFrom("#FF8E8E8E");
                 SetBoostAutomationState(false);
+                bool showCrashReport = string.Equals(
+                    deactivationSessionStatus,
+                    "GameCrashed",
+                    StringComparison.OrdinalIgnoreCase);
                 CompleteCurrentSession(
                     deactivationSessionStatus,
                     deactivationSessionReason);
@@ -1364,6 +1640,14 @@ namespace MajesticBoost
                 bool isHovered = boostButton.IsMouseOver;
                 SetRocketScaleImmediately(isHovered ? 1.08 : 1);
                 AnimateRocketColor(isHovered, 180);
+                if (showCrashReport && boostCenterOverlay != null)
+                {
+                    boostCenterOverlay.SetSessionReport(lastSession);
+                    boostCenterOverlay.SetDiagnosticSnapshot(
+                        latestDiagnosticSnapshot);
+                    boostCenterOverlay.SetSessionHistory(sessionHistory);
+                    boostCenterOverlay.OpenReport();
+                }
             };
             flightTranslation.BeginAnimation(TranslateTransform.XProperty, x);
             flightTranslation.BeginAnimation(TranslateTransform.YProperty, y);
@@ -1722,7 +2006,9 @@ namespace MajesticBoost
             }
 
             ActiveMemoryMaintenanceResult result = ActiveMemoryMaintenanceService.Run();
+            DiagnosticSnapshot diagnostic = DiagnosticSnapshotProvider.Capture();
             UpdateSessionMemoryTelemetry(result.Before);
+            UpdateSessionDiagnosticTelemetry(generation, diagnostic);
             if (!result.Attempted)
             {
                 return;
@@ -1790,6 +2076,42 @@ namespace MajesticBoost
                     currentSession.MinimumCommitHeadroomBytes,
                     snapshot.CommitHeadroomBytes);
             }
+        }
+
+        private void UpdateSessionDiagnosticTelemetry(
+            int generation,
+            DiagnosticSnapshot snapshot)
+        {
+            if (snapshot == null || !IsActiveMaintenanceGeneration(generation))
+            {
+                return;
+            }
+
+            lock (activeMaintenanceSync)
+            {
+                if (!IsActiveMaintenanceGeneration(generation))
+                {
+                    return;
+                }
+                latestDiagnosticSnapshot = snapshot;
+                if (currentSession != null)
+                {
+                    currentSession.ApplyDiagnosticSnapshot(snapshot);
+                }
+            }
+
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(delegate
+                {
+                    if (boostCenterOverlay != null)
+                    {
+                        boostCenterOverlay.SetDiagnosticSnapshot(snapshot);
+                    }
+                }));
+            }
+            catch (InvalidOperationException) { }
+            catch (TaskCanceledException) { }
         }
 
         private void UpdateGameMemoryTelemetry(
@@ -1981,6 +2303,7 @@ namespace MajesticBoost
                     BoostActionOutcome.Preserved);
             }
             SaveCurrentSession();
+            RefreshSessionHistory();
         }
 
         private void RecordSessionAction(
@@ -2111,6 +2434,38 @@ namespace MajesticBoost
             catch { }
         }
 
+        private void RefreshSessionHistory()
+        {
+            try
+            {
+                sessionHistory = DiagnosticSessionHistory.LoadRecent(
+                    DiagnosticSessionHistory.MaximumSessionCount);
+            }
+            catch
+            {
+                sessionHistory = new List<BoostSessionReport>();
+            }
+
+            if (currentSession != null &&
+                !sessionHistory.Any(item =>
+                    string.Equals(
+                        item.SessionId,
+                        currentSession.SessionId,
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                sessionHistory.Insert(0, currentSession);
+                if (sessionHistory.Count >
+                    DiagnosticSessionHistory.MaximumSessionCount)
+                {
+                    sessionHistory.RemoveAt(sessionHistory.Count - 1);
+                }
+            }
+            if (boostCenterOverlay != null)
+            {
+                boostCenterOverlay.SetSessionHistory(sessionHistory);
+            }
+        }
+
         private void CompleteCurrentSession(string status, string reason)
         {
             if (currentSession == null)
@@ -2153,6 +2508,7 @@ namespace MajesticBoost
             catch { }
             lastSession = currentSession;
             currentSession = null;
+            RefreshSessionHistory();
             if (boostCenterOverlay != null)
             {
                 boostCenterOverlay.SetSessionReport(lastSession);
@@ -2168,7 +2524,7 @@ namespace MajesticBoost
             return (bytes / 1073741824d).ToString("0.0") + " ГБ";
         }
 
-        private void StartGameWatcher()
+        private void StartGameWatcher(bool pollImmediately = true)
         {
             if (gameWatcherTimer == null)
             {
@@ -2179,7 +2535,10 @@ namespace MajesticBoost
                 gameWatcherTimer.Tick += delegate { PollGameWatcher(); };
             }
             gameWatcherTimer.Start();
-            PollGameWatcher();
+            if (pollImmediately)
+            {
+                PollGameWatcher();
+            }
         }
 
         private void PollGameWatcher()
@@ -2465,6 +2824,128 @@ namespace MajesticBoost
             return code.ToUpperInvariant().Replace("0X", "0x");
         }
 
+        private async void BoostCenterExportDiagnosticsRequested(
+            object sender,
+            EventArgs e)
+        {
+            if (boostCenterOverlay == null)
+            {
+                return;
+            }
+
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Сохранить диагностику Majestic Boost",
+                Filter = "Текстовый отчёт (*.txt)|*.txt",
+                DefaultExt = ".txt",
+                AddExtension = true,
+                OverwritePrompt = true,
+                FileName = "MajesticBoost-Diagnostic-" +
+                    DateTime.Now.ToString(
+                        "yyyyMMdd-HHmmss",
+                        CultureInfo.InvariantCulture) + ".txt"
+            };
+            bool? accepted = dialog.ShowDialog(this);
+            if (accepted != true)
+            {
+                return;
+            }
+
+            boostCenterOverlay.SetDiagnosticExportMessage(
+                "СОБИРАЕМ ДИАГНОСТИКУ",
+                "Получаем показатели Windows и удаляем персональные пути и секреты.",
+                false);
+            try
+            {
+                DiagnosticSnapshot snapshot = await Task.Run(
+                    delegate { return DiagnosticSnapshotProvider.Capture(); });
+                List<BoostSessionReport> reports = await Task.Run(
+                    delegate
+                    {
+                        return DiagnosticSessionHistory.LoadRecent(
+                            DiagnosticSessionHistory.MaximumSessionCount);
+                    });
+                lock (activeMaintenanceSync)
+                {
+                    if (currentSession != null)
+                    {
+                        currentSession.ApplyDiagnosticSnapshot(snapshot);
+                    }
+                    reports = MergeExportSessionSnapshot(
+                        reports,
+                        sessionHistory,
+                        currentSession);
+                }
+                string destination = dialog.FileName;
+                await Task.Run(delegate
+                {
+                    DiagnosticExportBuilder.WriteSafeReport(
+                        destination,
+                        snapshot,
+                        reports,
+                        "ApplicationVersion=" + GetApplicationVersion());
+                });
+
+                latestDiagnosticSnapshot = snapshot;
+                sessionHistory = reports;
+                boostCenterOverlay.SetDiagnosticSnapshot(snapshot);
+                boostCenterOverlay.SetSessionHistory(reports);
+                boostCenterOverlay.SetDiagnosticExportMessage(
+                    "ОТЧЁТ СОХРАНЁН",
+                    "Файл " + System.IO.Path.GetFileName(destination) +
+                        " готов — персональные пути и секреты удалены.",
+                    false);
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("Diagnostic export failed.", ex);
+                boostCenterOverlay.SetDiagnosticExportMessage(
+                    "НЕ УДАЛОСЬ СОХРАНИТЬ ОТЧЁТ",
+                    "Windows вернул ошибку " + ex.GetType().Name +
+                        ". Выберите другую доступную папку и повторите.",
+                    true);
+            }
+        }
+
+        private static List<BoostSessionReport> MergeExportSessionSnapshot(
+            IEnumerable<BoostSessionReport> storedReports,
+            IEnumerable<BoostSessionReport> inMemoryReports,
+            BoostSessionReport activeReport)
+        {
+            var merged = new Dictionary<string, BoostSessionReport>(
+                StringComparer.OrdinalIgnoreCase);
+            Action<IEnumerable<BoostSessionReport>> addReports = delegate(
+                IEnumerable<BoostSessionReport> source)
+            {
+                foreach (BoostSessionReport report in source ??
+                    Enumerable.Empty<BoostSessionReport>())
+                {
+                    if (report == null ||
+                        string.IsNullOrWhiteSpace(report.SessionId) ||
+                        merged.ContainsKey(report.SessionId))
+                    {
+                        continue;
+                    }
+                    merged.Add(report.SessionId, report.Clone());
+                }
+            };
+
+            if (activeReport != null &&
+                !string.IsNullOrWhiteSpace(activeReport.SessionId))
+            {
+                merged[activeReport.SessionId] = activeReport.Clone();
+            }
+            addReports(inMemoryReports);
+            addReports(storedReports);
+            return merged.Values
+                .OrderByDescending(delegate(BoostSessionReport report)
+                {
+                    return report.StartedUtc;
+                })
+                .Take(DiagnosticSessionHistory.MaximumSessionCount)
+                .ToList();
+        }
+
         private async void BoostCenterBenchmarkRequested(
             object sender,
             BoostBenchmarkRequestEventArgs e)
@@ -2582,6 +3063,7 @@ namespace MajesticBoost
             }
             BoostSessionReportStore.Save(report);
             lastSession = report;
+            RefreshSessionHistory();
             if (boostCenterOverlay != null)
             {
                 boostCenterOverlay.SetSessionReport(lastSession);
@@ -2685,6 +3167,9 @@ namespace MajesticBoost
                 boostCenterOverlay.SetSettings(centerSettings);
                 boostCenterOverlay.SetPreflight(latestPreflight);
                 boostCenterOverlay.SetSessionReport(currentSession ?? lastSession);
+                boostCenterOverlay.SetDiagnosticSnapshot(
+                    latestDiagnosticSnapshot);
+                boostCenterOverlay.SetSessionHistory(sessionHistory);
                 boostCenterOverlay.OpenSettings();
                 e.Handled = true;
                 return;
@@ -2706,8 +3191,299 @@ namespace MajesticBoost
             }
         }
 
+        private void BoostWindowSourceInitialized(object sender, EventArgs e)
+        {
+            if (demoMode)
+            {
+                return;
+            }
+
+            windowHandle = new WindowInteropHelper(this).Handle;
+            if (windowHandle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            windowSource = HwndSource.FromHwnd(windowHandle);
+            if (windowSource != null)
+            {
+                windowSource.AddHook(WindowMessageHook);
+            }
+            LocationChanged += BoostWindowLocationChanged;
+            ApplyMonitorWorkAreaBounds(true);
+        }
+
+        private IntPtr WindowMessageHook(
+            IntPtr window,
+            int message,
+            IntPtr wordParameter,
+            IntPtr longParameter,
+            ref bool handled)
+        {
+            if (message == WmDpiChanged ||
+                message == WmDisplayChange ||
+                message == WmSettingChange ||
+                message == WmExitSizeMove)
+            {
+                QueueMonitorWorkAreaBounds();
+            }
+            return IntPtr.Zero;
+        }
+
+        private void BoostWindowLocationChanged(object sender, EventArgs e)
+        {
+            if (applyingMonitorBounds ||
+                Mouse.LeftButton == MouseButtonState.Pressed)
+            {
+                return;
+            }
+            QueueMonitorWorkAreaBounds();
+        }
+
+        private void QueueMonitorWorkAreaBounds()
+        {
+            if (demoMode ||
+                windowHandle == IntPtr.Zero ||
+                monitorBoundsQueued)
+            {
+                return;
+            }
+
+            monitorBoundsQueued = true;
+            Dispatcher.BeginInvoke(
+                DispatcherPriority.Loaded,
+                new Action(delegate
+                {
+                    monitorBoundsQueued = false;
+                    if (Mouse.LeftButton == MouseButtonState.Pressed)
+                    {
+                        return;
+                    }
+                    ApplyMonitorWorkAreaBounds(false);
+                }));
+        }
+
+        private void ApplyMonitorWorkAreaBounds(bool centerOnMonitor)
+        {
+            if (demoMode ||
+                applyingMonitorBounds ||
+                windowHandle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            IntPtr monitor = MonitorFromWindow(
+                windowHandle,
+                MonitorDefaultToNearest);
+            if (monitor == IntPtr.Zero)
+            {
+                return;
+            }
+
+            var information = new MonitorInformation
+            {
+                Size = Marshal.SizeOf(typeof(MonitorInformation))
+            };
+            NativeRectangle current;
+            if (!GetMonitorInfo(monitor, ref information) ||
+                !GetWindowRect(windowHandle, out current))
+            {
+                return;
+            }
+
+            uint dpiX;
+            uint dpiY;
+            GetEffectiveWindowDpi(out dpiX, out dpiY);
+            int[] placement = CalculateMonitorPlacement(
+                information.Work.Left,
+                information.Work.Top,
+                information.Work.Right,
+                information.Work.Bottom,
+                dpiX,
+                dpiY,
+                current.Left,
+                current.Top,
+                centerOnMonitor);
+
+            applyingMonitorBounds = true;
+            try
+            {
+                double widthDip = placement[2] * 96.0 / dpiX;
+                double heightDip = placement[3] * 96.0 / dpiY;
+                MinWidth = 0;
+                MinHeight = 0;
+                MaxWidth = double.PositiveInfinity;
+                MaxHeight = double.PositiveInfinity;
+                Width = widthDip;
+                Height = heightDip;
+                MinWidth = widthDip;
+                MaxWidth = widthDip;
+                MinHeight = heightDip;
+                MaxHeight = heightDip;
+                SetWindowPos(
+                    windowHandle,
+                    IntPtr.Zero,
+                    placement[0],
+                    placement[1],
+                    placement[2],
+                    placement[3],
+                    SwpNoActivate | SwpNoZOrder);
+            }
+            finally
+            {
+                applyingMonitorBounds = false;
+            }
+        }
+
+        private void GetEffectiveWindowDpi(out uint dpiX, out uint dpiY)
+        {
+            uint dpi = 0;
+            try
+            {
+                dpi = GetDpiForWindow(windowHandle);
+            }
+            catch (EntryPointNotFoundException)
+            {
+                dpi = 0;
+            }
+
+            if (dpi >= 48 && dpi <= 768)
+            {
+                dpiX = dpi;
+                dpiY = dpi;
+                return;
+            }
+
+            PresentationSource source = PresentationSource.FromVisual(this);
+            if (source != null && source.CompositionTarget != null)
+            {
+                Matrix fromDevice = source.CompositionTarget.TransformFromDevice;
+                double x = Math.Abs(fromDevice.M11);
+                double y = Math.Abs(fromDevice.M22);
+                if (x > 0.001 && y > 0.001)
+                {
+                    dpiX = (uint)Math.Round(96.0 / x);
+                    dpiY = (uint)Math.Round(96.0 / y);
+                    return;
+                }
+            }
+
+            dpiX = 96;
+            dpiY = 96;
+        }
+
+        internal static int[] CalculateMonitorPlacement(
+            int workLeft,
+            int workTop,
+            int workRight,
+            int workBottom,
+            uint dpiX,
+            uint dpiY,
+            int currentLeft,
+            int currentTop,
+            bool centerOnMonitor)
+        {
+            if (dpiX < 48 || dpiX > 768)
+            {
+                dpiX = 96;
+            }
+            if (dpiY < 48 || dpiY > 768)
+            {
+                dpiY = 96;
+            }
+
+            long workWidth = Math.Max(1L, (long)workRight - workLeft);
+            long workHeight = Math.Max(1L, (long)workBottom - workTop);
+            int insetX = Math.Max(
+                0,
+                (int)Math.Round(WorkAreaSafetyInset * dpiX / 96.0));
+            int insetY = Math.Max(
+                0,
+                (int)Math.Round(WorkAreaSafetyInset * dpiY / 96.0));
+            long availableWidth = Math.Max(1L, workWidth - insetX * 2L);
+            long availableHeight = Math.Max(1L, workHeight - insetY * 2L);
+            double baseWidthPixels = BaseWindowWidth * dpiX / 96.0;
+            double baseHeightPixels = BaseWindowHeight * dpiY / 96.0;
+            double scale = Math.Min(
+                1.0,
+                Math.Min(
+                    availableWidth / baseWidthPixels,
+                    availableHeight / baseHeightPixels));
+            int width = Math.Max(
+                1,
+                (int)Math.Floor(baseWidthPixels * scale));
+            int height = Math.Max(
+                1,
+                (int)Math.Floor(baseHeightPixels * scale));
+
+            long minimumLeft = (long)workLeft + insetX;
+            long minimumTop = (long)workTop + insetY;
+            long maximumLeft = (long)workRight - insetX - width;
+            long maximumTop = (long)workBottom - insetY - height;
+            if (maximumLeft < minimumLeft)
+            {
+                minimumLeft = workLeft;
+                maximumLeft = (long)workRight - width;
+            }
+            if (maximumTop < minimumTop)
+            {
+                minimumTop = workTop;
+                maximumTop = (long)workBottom - height;
+            }
+
+            long left = centerOnMonitor
+                ? (long)workLeft + (workWidth - width) / 2L
+                : currentLeft;
+            long top = centerOnMonitor
+                ? (long)workTop + (workHeight - height) / 2L
+                : currentTop;
+            left = Math.Max(minimumLeft, Math.Min(maximumLeft, left));
+            top = Math.Max(minimumTop, Math.Min(maximumTop, top));
+            return new[]
+            {
+                ClampToInt32(left),
+                ClampToInt32(top),
+                width,
+                height
+            };
+        }
+
+        private static int ClampToInt32(long value)
+        {
+            if (value < int.MinValue)
+            {
+                return int.MinValue;
+            }
+            if (value > int.MaxValue)
+            {
+                return int.MaxValue;
+            }
+            return (int)value;
+        }
+
         private async void BoostWindowLoaded(object sender, RoutedEventArgs e)
         {
+            bool updateHealthProbe = HasLaunchArgument(
+                launchArguments,
+                UpdateHealthHandshake.ProbeArgument);
+            if (updateHealthProbe)
+            {
+                try
+                {
+                    await VerifyLocalStartupForUpdateAsync();
+                    UpdateHealthHandshake.CompleteReadyHandshakeIfRequested(
+                        launchArguments);
+                }
+                catch (Exception ex)
+                {
+                    CrashLog.Write(
+                        "Update health probe did not reach local application readiness.",
+                        ex);
+                }
+                Application.Current.Shutdown(0);
+                return;
+            }
+
             bool canContinue = true;
             if (updateOverlay != null)
             {
@@ -2744,10 +3520,12 @@ namespace MajesticBoost
                         ex);
                 }
             }
+            RefreshSessionHistory();
             if (boostCenterOverlay != null)
             {
                 boostCenterOverlay.SetSettings(centerSettings);
                 boostCenterOverlay.SetSessionReport(lastSession);
+                boostCenterOverlay.SetSessionHistory(sessionHistory);
             }
             QueuePreflight(false, false);
             StartGameWatcher();
@@ -2761,6 +3539,70 @@ namespace MajesticBoost
                      boostCenterOverlay != null)
             {
                 boostCenterOverlay.OpenReport();
+            }
+            else if (HasLaunchArgument(launchArguments, "--demo-history") &&
+                     boostCenterOverlay != null)
+            {
+                boostCenterOverlay.OpenHistory();
+            }
+        }
+
+        private async Task VerifyLocalStartupForUpdateAsync()
+        {
+            if (boostButton == null ||
+                boostCenterOverlay == null ||
+                optimizationOverlay == null ||
+                updateOverlay == null)
+            {
+                throw new InvalidOperationException(
+                    "The main window did not initialize its local UI services.");
+            }
+
+            BoostSessionReport probedLastSession = null;
+            List<BoostSessionReport> probedHistory = null;
+            BoostPreflightReport probedPreflight = null;
+            DiagnosticSnapshot probedDiagnostic = null;
+            string optimizationStatus =
+                optimizationOverlay.GetOptimizationStatus();
+
+            await Task.Run(delegate
+            {
+                probedLastSession = BoostSessionReportStore.LoadLast();
+                probedHistory = DiagnosticSessionHistory.LoadRecent(
+                    DiagnosticSessionHistory.MaximumSessionCount);
+                probedPreflight = BoostPreflightService.Run(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    optimizationStatus);
+                probedDiagnostic = DiagnosticSnapshotProvider.Capture();
+            });
+
+            lastSession = probedLastSession;
+            sessionHistory = probedHistory ?? new List<BoostSessionReport>();
+            latestPreflight = probedPreflight;
+            latestDiagnosticSnapshot = probedDiagnostic;
+            boostCenterOverlay.SetSettings(centerSettings);
+            boostCenterOverlay.SetPreflight(probedPreflight);
+            boostCenterOverlay.SetSessionReport(probedLastSession);
+            boostCenterOverlay.SetSessionHistory(sessionHistory);
+            boostCenterOverlay.SetDiagnosticSnapshot(probedDiagnostic);
+            boostCenterOverlay.OpenReadiness(false);
+            StartGameWatcher(false);
+            boostButton.IsEnabled = true;
+            UpdateLayout();
+
+            await Dispatcher.InvokeAsync(
+                delegate { },
+                DispatcherPriority.ApplicationIdle);
+            if (!IsLoaded ||
+                !IsVisible ||
+                ActualWidth <= 0 ||
+                ActualHeight <= 0 ||
+                !boostButton.IsEnabled ||
+                gameWatcherTimer == null ||
+                !gameWatcherTimer.IsEnabled)
+            {
+                throw new InvalidOperationException(
+                    "The application did not reach an objectively usable local state.");
             }
         }
 
@@ -2794,10 +3636,18 @@ namespace MajesticBoost
             }
             try { DragMove(); }
             catch (InvalidOperationException) { }
+            finally { QueueMonitorWorkAreaBounds(); }
         }
 
         private void WindowClosed(object sender, EventArgs e)
         {
+            LocationChanged -= BoostWindowLocationChanged;
+            if (windowSource != null)
+            {
+                windowSource.RemoveHook(WindowMessageHook);
+                windowSource = null;
+            }
+            windowHandle = IntPtr.Zero;
             bool sessionWasRunning =
                 boostActive ||
                 animationRunning ||
@@ -2874,20 +3724,45 @@ namespace MajesticBoost
             return false;
         }
 
+        private static double GetDemoUiScale(string[] arguments)
+        {
+            const string prefix = "--demo-ui-scale=";
+            foreach (string argument in arguments ?? new string[0])
+            {
+                if (argument == null ||
+                    !argument.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                double scale;
+                if (double.TryParse(
+                        argument.Substring(prefix.Length),
+                        NumberStyles.AllowDecimalPoint,
+                        CultureInfo.InvariantCulture,
+                        out scale) &&
+                    scale >= 1.0 &&
+                    scale <= 2.0)
+                {
+                    return scale;
+                }
+            }
+            return 1.0;
+        }
+
         private static Button MakeCenterButton()
         {
             var backgroundBrush = new SolidColorBrush(Color.FromArgb(0, 27, 27, 27));
             var glyphBrush = new SolidColorBrush(Color.FromRgb(139, 139, 139));
             var button = new Button
             {
-                Width = 30,
-                Height = 30,
+                Width = TitleControlSize,
+                Height = TitleControlSize,
                 Background = backgroundBrush,
                 Foreground = glyphBrush,
                 BorderThickness = new Thickness(0),
                 Cursor = Cursors.Hand,
                 ToolTip = "Центр Boost",
-                FocusVisualStyle = null,
                 Template = MakeChromeButtonTemplate()
             };
             AutomationProperties.SetName(button, "Открыть центр Boost");
@@ -2896,12 +3771,12 @@ namespace MajesticBoost
             {
                 Text = "\u2699",
                 FontFamily = new FontFamily("Segoe UI Symbol"),
-                FontSize = 17,
+                FontSize = 19,
                 FontWeight = FontWeights.Normal,
                 Foreground = glyphBrush,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                RenderTransform = new TranslateTransform(0, -1)
+                TextAlignment = TextAlignment.Center
             };
 
             var lift = new TranslateTransform();
@@ -2951,28 +3826,27 @@ namespace MajesticBoost
         private static Button MakeWindowButton(string accessibleName, bool isClose)
         {
             var button = new Button();
-            button.Width = 30;
-            button.Height = 30;
+            button.Width = TitleControlSize;
+            button.Height = TitleControlSize;
             var backgroundBrush = new SolidColorBrush(Color.FromArgb(0, 27, 27, 27));
             var glyphBrush = new SolidColorBrush(Color.FromRgb(139, 139, 139));
             button.Foreground = glyphBrush;
             button.Background = backgroundBrush;
             button.BorderThickness = new Thickness(0);
             button.Cursor = Cursors.Hand;
-            button.FocusVisualStyle = null;
             button.ToolTip = accessibleName;
             button.Template = MakeChromeButtonTemplate();
             AutomationProperties.SetName(button, accessibleName);
 
             var glyphCanvas = new Canvas();
-            glyphCanvas.Width = 30;
-            glyphCanvas.Height = 30;
+            glyphCanvas.Width = TitleControlSize;
+            glyphCanvas.Height = TitleControlSize;
             glyphCanvas.Background = Brushes.Transparent;
             glyphCanvas.IsHitTestVisible = false;
             if (isClose)
             {
                 var closeGlyph = new System.Windows.Shapes.Path();
-                closeGlyph.Data = Geometry.Parse("M 10,10 L 20,20 M 20,10 L 10,20");
+                closeGlyph.Data = Geometry.Parse("M 11,11 L 21,21 M 21,11 L 11,21");
                 closeGlyph.Stroke = glyphBrush;
                 closeGlyph.StrokeThickness = 2;
                 closeGlyph.StrokeStartLineCap = PenLineCap.Round;
@@ -2987,8 +3861,8 @@ namespace MajesticBoost
                 minimizeGlyph.RadiusX = 1;
                 minimizeGlyph.RadiusY = 1;
                 minimizeGlyph.Fill = glyphBrush;
-                Canvas.SetLeft(minimizeGlyph, 7);
-                Canvas.SetTop(minimizeGlyph, 20);
+                Canvas.SetLeft(minimizeGlyph, 8);
+                Canvas.SetTop(minimizeGlyph, 19);
                 glyphCanvas.Children.Add(minimizeGlyph);
             }
 

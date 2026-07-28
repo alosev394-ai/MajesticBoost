@@ -8,7 +8,9 @@ using System.Net;
 using System.Net.Cache;
 using System.Reflection;
 using System.Security;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,6 +24,618 @@ using System.Windows.Media.Animation;
 
 namespace MajesticBoost
 {
+    /// <summary>
+    /// Completes the installer health probe after the application has reached an
+    /// objectively usable startup point. The host must call
+    /// CompleteReadyHandshakeIfRequested once its main window and startup services
+    /// are initialized. A true return value means this process is a probe and must
+    /// exit immediately; false means this is a normal application launch.
+    /// </summary>
+    internal static class UpdateHealthHandshake
+    {
+        internal const string ProbeArgument = "--update-health-probe";
+        internal const string TransactionArgument = "--update-transaction";
+        internal const string TokenArgument = "--update-health-token";
+        internal const string OwnerArgument = "--update-health-owner";
+
+        private const string RollbackDirectoryName = "UpdateRollback";
+        private const string RequestFileName = "health.request";
+        private const string ReadyFileName = "ready.signal";
+        private const int MaximumControlFileBytes = 4096;
+        private const int MaximumFutureLifetimeMinutes = 10;
+
+        /// <summary>
+        /// Writes a one-shot authenticated ready signal when the launch arguments
+        /// describe a valid installer probe. The method deliberately returns true
+        /// even for a malformed probe request so an elevated probe never falls
+        /// through into the normal interactive application.
+        /// </summary>
+        internal static bool CompleteReadyHandshakeIfRequested(string[] arguments)
+        {
+            string transactionId;
+            string token;
+            string expectedOwnerSid;
+            bool probeRequested;
+            if (!TryReadProbeArguments(
+                    arguments,
+                    out probeRequested,
+                    out transactionId,
+                    out token,
+                    out expectedOwnerSid))
+            {
+                if (probeRequested)
+                {
+                    Log("Update health probe arguments were rejected.");
+                }
+                return probeRequested;
+            }
+            if (!probeRequested)
+            {
+                return false;
+            }
+
+            try
+            {
+                string currentSid = WindowsIdentity.GetCurrent().User.Value;
+                if (!string.Equals(
+                        currentSid,
+                        expectedOwnerSid,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new SecurityException(
+                        "The update health probe is running as another Windows user.");
+                }
+
+                string transactionDirectory = ResolveTransactionDirectory(transactionId);
+                ValidateProtectedTransactionDirectory(transactionDirectory);
+                Dictionary<string, string> request = ReadControlFile(
+                    Path.Combine(transactionDirectory, RequestFileName),
+                    MaximumControlFileBytes);
+                string currentVersion = GetCurrentVersionText();
+                ValidateHealthRequest(
+                    request,
+                    transactionId,
+                    token,
+                    currentSid,
+                    currentVersion);
+                WriteReadySignalAtomically(
+                    transactionDirectory,
+                    transactionId,
+                    token,
+                    currentSid,
+                    currentVersion);
+                Log("Update health probe signalled ready for transaction " +
+                    transactionId + ".");
+            }
+            catch (Exception exception)
+            {
+                // No ready file means the installer will fail closed and restore the
+                // previous version. Avoid throwing through application startup.
+                Log("Update health probe failed: " + DescribeException(exception));
+            }
+            return true;
+        }
+
+        private static bool TryReadProbeArguments(
+            string[] arguments,
+            out bool probeRequested,
+            out string transactionId,
+            out string token,
+            out string expectedOwnerSid)
+        {
+            probeRequested = false;
+            transactionId = null;
+            token = null;
+            expectedOwnerSid = null;
+            string[] values = arguments ?? new string[0];
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            bool unknownArgument = false;
+            for (int index = 0; index < values.Length; index++)
+            {
+                string argument = values[index] ?? string.Empty;
+                if (string.Equals(argument, ProbeArgument, StringComparison.OrdinalIgnoreCase))
+                {
+                    probeRequested = true;
+                    if (!seen.Add(ProbeArgument))
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+
+                string value;
+                if (TryReadNamedArgument(argument, TransactionArgument, out value))
+                {
+                    if (!seen.Add(TransactionArgument))
+                    {
+                        return false;
+                    }
+                    transactionId = value;
+                }
+                else if (TryReadNamedArgument(argument, TokenArgument, out value))
+                {
+                    if (!seen.Add(TokenArgument))
+                    {
+                        return false;
+                    }
+                    token = value;
+                }
+                else if (TryReadNamedArgument(argument, OwnerArgument, out value))
+                {
+                    if (!seen.Add(OwnerArgument))
+                    {
+                        return false;
+                    }
+                    expectedOwnerSid = value;
+                }
+                else
+                {
+                    unknownArgument = true;
+                }
+            }
+
+            SecurityIdentifier owner;
+            return !probeRequested ||
+                (!unknownArgument &&
+                 IsLowerHex(transactionId, 32) &&
+                 IsLowerHex(token, 64) &&
+                 !string.IsNullOrWhiteSpace(expectedOwnerSid) &&
+                 TryParseSid(expectedOwnerSid, out owner));
+        }
+
+        private static bool TryReadNamedArgument(
+            string argument,
+            string name,
+            out string value)
+        {
+            value = null;
+            string prefix = name + "=";
+            if (!argument.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            value = argument.Substring(prefix.Length);
+            return true;
+        }
+
+        private static bool TryParseSid(string value, out SecurityIdentifier sid)
+        {
+            sid = null;
+            try
+            {
+                sid = new SecurityIdentifier(value);
+                return string.Equals(
+                    sid.Value,
+                    value,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        private static string ResolveTransactionDirectory(string transactionId)
+        {
+            string commonData = Environment.GetFolderPath(
+                Environment.SpecialFolder.CommonApplicationData);
+            if (string.IsNullOrWhiteSpace(commonData) || !Path.IsPathRooted(commonData))
+            {
+                throw new DirectoryNotFoundException(
+                    "ProgramData is unavailable for the update health probe.");
+            }
+            string commonRoot = Path.GetFullPath(commonData);
+            string productRoot = Path.GetFullPath(Path.Combine(
+                commonRoot,
+                "MajesticBoost"));
+            string rollbackRoot = Path.GetFullPath(Path.Combine(
+                productRoot,
+                RollbackDirectoryName));
+            string transactionRoot = Path.GetFullPath(Path.Combine(
+                rollbackRoot,
+                transactionId));
+            if (!IsDirectChild(commonRoot, productRoot) ||
+                !IsDirectChild(productRoot, rollbackRoot) ||
+                !IsDirectChild(rollbackRoot, transactionRoot))
+            {
+                throw new SecurityException(
+                    "The update health path escaped its protected root.");
+            }
+            return transactionRoot;
+        }
+
+        private static bool IsDirectChild(string parent, string child)
+        {
+            string parentFull = Path.GetFullPath(parent).TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            string childFull = Path.GetFullPath(child).TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+            if (!childFull.StartsWith(parentFull, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            string relative = childFull.Substring(parentFull.Length);
+            return relative.Length > 0 &&
+                relative.IndexOf(Path.DirectorySeparatorChar) < 0 &&
+                relative.IndexOf(Path.AltDirectorySeparatorChar) < 0;
+        }
+
+        private static void ValidateProtectedTransactionDirectory(string path)
+        {
+            string current = path;
+            for (int depth = 0; depth < 3; depth++)
+            {
+                if (!Directory.Exists(current) ||
+                    (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw new SecurityException(
+                        "The update health directory is missing or redirected.");
+                }
+                current = Path.GetDirectoryName(current);
+            }
+
+            DirectorySecurity security = Directory.GetAccessControl(
+                path,
+                AccessControlSections.Access |
+                AccessControlSections.Owner);
+            if (!security.AreAccessRulesProtected)
+            {
+                throw new SecurityException(
+                    "The update health directory inherits an unsafe ACL.");
+            }
+            SecurityIdentifier owner = security.GetOwner(
+                typeof(SecurityIdentifier)) as SecurityIdentifier;
+            if (!IsPrivilegedSid(owner))
+            {
+                throw new SecurityException(
+                    "The update health directory has an unexpected owner.");
+            }
+
+            AuthorizationRuleCollection rules = security.GetAccessRules(
+                true,
+                true,
+                typeof(SecurityIdentifier));
+            const FileSystemRights writeRights =
+                FileSystemRights.WriteData |
+                FileSystemRights.CreateFiles |
+                FileSystemRights.AppendData |
+                FileSystemRights.CreateDirectories |
+                FileSystemRights.WriteAttributes |
+                FileSystemRights.WriteExtendedAttributes |
+                FileSystemRights.Delete |
+                FileSystemRights.DeleteSubdirectoriesAndFiles |
+                FileSystemRights.ChangePermissions |
+                FileSystemRights.TakeOwnership;
+            foreach (FileSystemAccessRule rule in rules)
+            {
+                SecurityIdentifier identity = rule.IdentityReference as SecurityIdentifier;
+                if (rule.AccessControlType == AccessControlType.Allow &&
+                    (rule.FileSystemRights & writeRights) != 0 &&
+                    !IsPrivilegedSid(identity))
+                {
+                    throw new SecurityException(
+                        "A non-privileged identity can modify the update health directory.");
+                }
+            }
+        }
+
+        private static bool IsPrivilegedSid(SecurityIdentifier sid)
+        {
+            if (sid == null)
+            {
+                return false;
+            }
+            return sid.IsWellKnown(WellKnownSidType.LocalSystemSid) ||
+                sid.IsWellKnown(WellKnownSidType.BuiltinAdministratorsSid);
+        }
+
+        private static Dictionary<string, string> ReadControlFile(
+            string path,
+            int maximumBytes)
+        {
+            if (!File.Exists(path) ||
+                (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new InvalidDataException(
+                    "The update health request is missing or redirected.");
+            }
+            byte[] payload;
+            using (var input = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read))
+            {
+                if (input.Length <= 0 || input.Length > maximumBytes)
+                {
+                    throw new InvalidDataException(
+                        "The update health request has an invalid size.");
+                }
+                payload = new byte[(int)input.Length];
+                int offset = 0;
+                while (offset < payload.Length)
+                {
+                    int read = input.Read(payload, offset, payload.Length - offset);
+                    if (read <= 0)
+                    {
+                        throw new EndOfStreamException();
+                    }
+                    offset += read;
+                }
+            }
+
+            string text = new UTF8Encoding(false, true).GetString(payload);
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+            string[] lines = text.Replace("\r\n", "\n").Split('\n');
+            foreach (string line in lines)
+            {
+                if (line.Length == 0)
+                {
+                    continue;
+                }
+                int separator = line.IndexOf('=');
+                if (separator <= 0 || separator == line.Length - 1)
+                {
+                    throw new InvalidDataException(
+                        "The update health request is malformed.");
+                }
+                string key = line.Substring(0, separator);
+                string value = line.Substring(separator + 1);
+                if (result.ContainsKey(key))
+                {
+                    throw new InvalidDataException(
+                        "The update health request contains a duplicate field.");
+                }
+                result.Add(key, value);
+            }
+            return result;
+        }
+
+        private static void ValidateHealthRequest(
+            Dictionary<string, string> request,
+            string transactionId,
+            string token,
+            string currentSid,
+            string currentVersion)
+        {
+            string format;
+            string requestTransaction;
+            string expectedHash;
+            string expectedSid;
+            string expectedVersion;
+            string expiresText;
+            if (request.Count != 6 ||
+                !request.TryGetValue("Format", out format) ||
+                !request.TryGetValue("Transaction", out requestTransaction) ||
+                !request.TryGetValue("TokenSha256", out expectedHash) ||
+                !request.TryGetValue("ExpectedSid", out expectedSid) ||
+                !request.TryGetValue("ExpectedVersion", out expectedVersion) ||
+                !request.TryGetValue("ExpiresUtcTicks", out expiresText) ||
+                !string.Equals(format, "1", StringComparison.Ordinal) ||
+                !string.Equals(
+                    requestTransaction,
+                    transactionId,
+                    StringComparison.Ordinal) ||
+                !string.Equals(expectedSid, currentSid, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(expectedVersion, currentVersion, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "The update health request does not match this process.");
+            }
+
+            string actualHash;
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                actualHash = BytesToHex(sha256.ComputeHash(
+                    HexToBytes(token)));
+            }
+            if (!FixedTimeEquals(actualHash, expectedHash))
+            {
+                throw new SecurityException("The update health token is invalid.");
+            }
+
+            long expiresTicks;
+            if (!long.TryParse(
+                    expiresText,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out expiresTicks))
+            {
+                throw new InvalidDataException(
+                    "The update health request expiry is invalid.");
+            }
+            DateTime expires = new DateTime(expiresTicks, DateTimeKind.Utc);
+            DateTime now = DateTime.UtcNow;
+            if (expires < now ||
+                expires > now.AddMinutes(MaximumFutureLifetimeMinutes))
+            {
+                throw new SecurityException(
+                    "The update health request is expired or has an unsafe lifetime.");
+            }
+        }
+
+        private static void WriteReadySignalAtomically(
+            string transactionDirectory,
+            string transactionId,
+            string token,
+            string currentSid,
+            string currentVersion)
+        {
+            string proof = ComputeReadyProof(
+                transactionId,
+                token,
+                currentSid,
+                currentVersion);
+            string payload =
+                "Format=1\n" +
+                "Transaction=" + transactionId + "\n" +
+                "ReadySid=" + currentSid + "\n" +
+                "ReadyVersion=" + currentVersion + "\n" +
+                "Proof=" + proof + "\n";
+            string readyPath = Path.Combine(transactionDirectory, ReadyFileName);
+            string temporaryPath = Path.Combine(
+                transactionDirectory,
+                ".ready-" + Guid.NewGuid().ToString("N") + ".tmp");
+            try
+            {
+                using (var output = new FileStream(
+                    temporaryPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    4096,
+                    FileOptions.WriteThrough))
+                using (var writer = new StreamWriter(
+                    output,
+                    new UTF8Encoding(false)))
+                {
+                    writer.Write(payload);
+                    writer.Flush();
+                    output.Flush(true);
+                }
+                File.Move(temporaryPath, readyPath);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                {
+                    try
+                    {
+                        File.Delete(temporaryPath);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+        }
+
+        private static string ComputeReadyProof(
+            string transactionId,
+            string token,
+            string sid,
+            string version)
+        {
+            byte[] key = HexToBytes(token);
+            byte[] payload = Encoding.UTF8.GetBytes(
+                "MajesticBoost.UpdateReady.v1\n" +
+                transactionId + "\n" +
+                sid + "\n" +
+                version);
+            using (var hmac = new HMACSHA256(key))
+            {
+                return BytesToHex(hmac.ComputeHash(payload));
+            }
+        }
+
+        private static string GetCurrentVersionText()
+        {
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+            if (version == null)
+            {
+                throw new InvalidOperationException(
+                    "The application version is unavailable.");
+            }
+            return version.ToString(4);
+        }
+
+        private static bool IsLowerHex(string text, int length)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length != length)
+            {
+                return false;
+            }
+            for (int index = 0; index < text.Length; index++)
+            {
+                char value = text[index];
+                if (!((value >= '0' && value <= '9') ||
+                    (value >= 'a' && value <= 'f')))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static byte[] HexToBytes(string text)
+        {
+            if (!IsLowerHex(text, 64))
+            {
+                throw new FormatException("The update health token is malformed.");
+            }
+            byte[] result = new byte[text.Length / 2];
+            for (int index = 0; index < result.Length; index++)
+            {
+                result[index] = byte.Parse(
+                    text.Substring(index * 2, 2),
+                    NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture);
+            }
+            return result;
+        }
+
+        private static string BytesToHex(byte[] bytes)
+        {
+            var builder = new StringBuilder(bytes.Length * 2);
+            foreach (byte value in bytes)
+            {
+                builder.Append(value.ToString("x2", CultureInfo.InvariantCulture));
+            }
+            return builder.ToString();
+        }
+
+        private static bool FixedTimeEquals(string left, string right)
+        {
+            if (left == null || right == null || left.Length != right.Length)
+            {
+                return false;
+            }
+            int difference = 0;
+            for (int index = 0; index < left.Length; index++)
+            {
+                difference |= left[index] ^ right[index];
+            }
+            return difference == 0;
+        }
+
+        private static string DescribeException(Exception exception)
+        {
+            string message = exception == null
+                ? "unknown error"
+                : (exception.Message ?? exception.GetType().Name);
+            message = message.Replace('\r', ' ').Replace('\n', ' ');
+            if (message.Length > 240)
+            {
+                message = message.Substring(0, 240);
+            }
+            return exception == null
+                ? message
+                : exception.GetType().Name + ": " + message;
+        }
+
+        private static void Log(string message)
+        {
+            try
+            {
+                string directory = Path.Combine(
+                    Environment.GetFolderPath(
+                        Environment.SpecialFolder.LocalApplicationData),
+                    "MajesticBoost");
+                Directory.CreateDirectory(directory);
+                File.AppendAllText(
+                    Path.Combine(directory, "update.log"),
+                    DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture) +
+                        "  " + message + Environment.NewLine,
+                    new UTF8Encoding(false));
+            }
+            catch
+            {
+            }
+        }
+    }
+
     internal sealed class UpdateRequiredEventArgs : EventArgs
     {
         public UpdateRequiredEventArgs(string currentVersion, string availableVersion)
@@ -2520,7 +3134,6 @@ namespace MajesticBoost
                 FontWeight = FontWeights.Bold,
                 Cursor = Cursors.Hand,
                 Focusable = true,
-                FocusVisualStyle = null,
                 RenderTransform = translate,
                 RenderTransformOrigin = new Point(0.5, 0.5),
                 Template = BuildRoundedButtonTemplate()

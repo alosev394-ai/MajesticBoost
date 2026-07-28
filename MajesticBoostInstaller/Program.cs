@@ -21,8 +21,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("Silus Suspect")]
 [assembly: AssemblyCopyright("© Silus Suspect")]
 [assembly: AssemblyProduct("Majestic Boost")]
-[assembly: AssemblyVersion("1.7.0.0")]
-[assembly: AssemblyFileVersion("1.7.0.0")]
+[assembly: AssemblyVersion("1.8.0.0")]
+[assembly: AssemblyFileVersion("1.8.0.0")]
 
 namespace MajesticBoostSetup
 {
@@ -35,6 +35,10 @@ namespace MajesticBoostSetup
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            if (InstallerEngine.TryRunUpdateRecoveryWatchdog(args))
+            {
+                return;
+            }
             bool scheduleCleanup = false;
 
             try
@@ -170,7 +174,7 @@ namespace MajesticBoostSetup
     internal static class InstallerEngine
     {
         public const string ProductName = "Majestic Boost";
-        public const string ProductVersion = "1.7.0";
+        public const string ProductVersion = "1.8.0";
         public static readonly string InstallDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             ProductName);
@@ -194,13 +198,176 @@ namespace MajesticBoostSetup
             AccessControlSections.Group;
         private const int OptimizationStatePointerMaximumBytes = 4096;
         private const int OptimizationStateMaximumBytes = 2 * 1024 * 1024;
+        private const string UpdateRollbackDirectoryName = "UpdateRollback";
+        private const string UpdateStateFileName = "state.dat";
+        private const string UpdateFileManifestName = "files.manifest";
+        private const string UpdateRegistrationSnapshotName = "registration.snapshot";
+        private const string UpdateHealthRequestName = "health.request";
+        private const string UpdateReadySignalName = "ready.signal";
+        private const string UpdateRecoveryExecutableName = "recovery.exe";
+        private const int UpdateControlFileMaximumBytes = 4096;
+        private const int UpdateSnapshotMaximumFiles = 512;
+        private const long UpdateSnapshotMaximumBytes = 536870912L;
+        private const int UpdateHealthTimeoutMilliseconds = 30000;
+        private const int UpdateHealthPollMilliseconds = 100;
+        private const int UpdateRecoveryParentWaitMilliseconds = 1800000;
+        private const string UpdateHealthProbeArgument = "--update-health-probe";
+        private const string UpdateTransactionArgument = "--update-transaction";
+        private const string UpdateHealthTokenArgument = "--update-health-token";
+        private const string UpdateHealthOwnerArgument = "--update-health-owner";
+
+        private enum UpdateRollbackStatus
+        {
+            Preparing,
+            Prepared,
+            Installing,
+            AwaitingReady,
+            RollingBack,
+            RolledBack,
+            Committed
+        }
+
+        private sealed class UpdateRollbackState
+        {
+            public string TransactionId;
+            public UpdateRollbackStatus Status;
+            public string PreviousVersion;
+            public string ExpectedVersion;
+            public string ExpectedSid;
+        }
+
+        private sealed class UpdateRollbackTransaction
+        {
+            public string Id;
+            public string RootDirectory;
+            public string RecoveryExecutablePath;
+            public Process RecoveryWatchdog;
+            public UpdateRollbackState State;
+            public PostInstallRegistrationSnapshot Registration;
+        }
+
+        private sealed class SnapshotFileEntry
+        {
+            public string RelativePath;
+            public long Length;
+            public string Sha256;
+        }
+
+        private sealed class UpdateRolledBackException : InvalidOperationException
+        {
+            public UpdateRolledBackException(string message)
+                : base(message)
+            {
+            }
+        }
 
         public static void Install(bool createDesktopShortcut, Action<int, string> progress = null)
         {
             using (FileStream systemTransactionGuard =
                 AcquireSystemTransactionGuard("установку или обновление"))
             {
-                InstallWithSystemTransactionGuard(createDesktopShortcut, progress);
+                RecoverInterruptedUpdateTransactions(false);
+                if (File.Exists(InstalledExe))
+                {
+                    InstallUpdateWithHealthRollback(
+                        createDesktopShortcut,
+                        progress);
+                }
+                else
+                {
+                    InstallWithSystemTransactionGuard(createDesktopShortcut, progress);
+                }
+            }
+        }
+
+        private static void InstallUpdateWithHealthRollback(
+            bool createDesktopShortcut,
+            Action<int, string> progress)
+        {
+            StopInstalledApplication();
+            ReportProgress(progress, 1, "Сохранение предыдущей версии");
+            UpdateRollbackTransaction transaction = CreateUpdateRollbackTransaction();
+            Process watchdog = null;
+            bool committed = false;
+            try
+            {
+                watchdog = transaction.RecoveryWatchdog;
+                if (watchdog == null)
+                {
+                    throw new InvalidOperationException(
+                        "The update recovery watchdog is unavailable.");
+                }
+                SetUpdateRollbackStatus(transaction, UpdateRollbackStatus.Installing);
+                Action<int, string> boundedProgress = progress == null
+                    ? null
+                    : new Action<int, string>(delegate(int percent, string stage)
+                    {
+                        ReportProgress(
+                            progress,
+                            Math.Min(90, Math.Max(2, percent * 9 / 10)),
+                            stage);
+                    });
+                InstallWithSystemTransactionGuard(
+                    createDesktopShortcut,
+                    boundedProgress);
+
+                ReportProgress(progress, 92, "Проверка запуска новой версии");
+                string token = CreateCryptographicToken();
+                WriteHealthRequest(transaction, token);
+                SetUpdateRollbackStatus(transaction, UpdateRollbackStatus.AwaitingReady);
+                if (!LaunchAndWaitForUpdateHealth(transaction, token))
+                {
+                    SetUpdateRollbackStatus(transaction, UpdateRollbackStatus.RollingBack);
+                    RestoreUpdateRollbackTransaction(transaction);
+                    SetUpdateRollbackStatus(transaction, UpdateRollbackStatus.RolledBack);
+                    TryDeleteUpdateTransaction(transaction.RootDirectory);
+                    LaunchInstalledApplication();
+                    throw new UpdateRolledBackException(
+                        "Новая версия не подтвердила готовность. " +
+                        "Предыдущая версия автоматически восстановлена и запущена.");
+                }
+
+                SetUpdateRollbackStatus(transaction, UpdateRollbackStatus.Committed);
+                committed = true;
+                TryDeleteUpdateTransaction(transaction.RootDirectory);
+                ReportProgress(progress, 100, "Обновление проверено");
+            }
+            catch
+            {
+                if (!committed &&
+                    transaction.State.Status != UpdateRollbackStatus.RolledBack)
+                {
+                    try
+                    {
+                        SetUpdateRollbackStatus(
+                            transaction,
+                            UpdateRollbackStatus.RollingBack);
+                        RestoreUpdateRollbackTransaction(transaction);
+                        SetUpdateRollbackStatus(
+                            transaction,
+                            UpdateRollbackStatus.RolledBack);
+                        TryDeleteUpdateTransaction(transaction.RootDirectory);
+                    }
+                    catch
+                    {
+                        // Keep the protected snapshot and RollingBack marker. The
+                        // watchdog or the next installer invocation will retry.
+                    }
+                }
+                throw;
+            }
+            finally
+            {
+                if (watchdog != null)
+                {
+                    watchdog.Dispose();
+                }
+                else if (!string.IsNullOrWhiteSpace(
+                    transaction.RecoveryExecutablePath))
+                {
+                    TryDeleteIfExists(
+                        transaction.RecoveryExecutablePath);
+                }
             }
         }
 
@@ -365,6 +532,2095 @@ namespace MajesticBoostSetup
             catch
             {
                 // A stale temporary setup is harmless and can be removed later.
+            }
+        }
+
+        public static bool TryRunUpdateRecoveryWatchdog(string[] arguments)
+        {
+            string transactionId;
+            int parentProcessId;
+            bool recoveryRequested = false;
+            foreach (string argument in arguments ?? new string[0])
+            {
+                if (string.Equals(
+                        argument,
+                        "/update-recovery",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    recoveryRequested = true;
+                    break;
+                }
+            }
+            if (!TryParseRecoveryArguments(
+                    arguments,
+                    out transactionId,
+                    out parentProcessId))
+            {
+                return recoveryRequested;
+            }
+
+            try
+            {
+                try
+                {
+                    using (Process parent = Process.GetProcessById(parentProcessId))
+                    {
+                        parent.WaitForExit(UpdateRecoveryParentWaitMilliseconds);
+                    }
+                }
+                catch (ArgumentException)
+                {
+                    // The parent already exited.
+                }
+                catch (InvalidOperationException)
+                {
+                    // The parent already exited.
+                }
+
+                FileStream guard = null;
+                Stopwatch guardTimer = Stopwatch.StartNew();
+                while (guard == null && guardTimer.ElapsedMilliseconds < 60000)
+                {
+                    try
+                    {
+                        guard = AcquireSystemTransactionGuard(
+                            "автоматическое восстановление обновления");
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        System.Threading.Thread.Sleep(250);
+                    }
+                }
+                if (guard == null)
+                {
+                    throw new IOException(
+                        "The recovery watchdog could not acquire the system transaction lock.");
+                }
+                using (guard)
+                {
+                    RecoverOneUpdateTransaction(
+                        ResolveUpdateTransactionDirectory(transactionId),
+                        true);
+                }
+            }
+            catch (Exception exception)
+            {
+                TryLogRecoveryFailure(transactionId, exception);
+            }
+            finally
+            {
+                ScheduleRecoveryExecutableSelfDelete();
+            }
+            return true;
+        }
+
+        private static bool TryParseRecoveryArguments(
+            string[] arguments,
+            out string transactionId,
+            out int parentProcessId)
+        {
+            transactionId = null;
+            parentProcessId = 0;
+            string[] values = arguments ?? new string[0];
+            if (values.Length != 3 ||
+                !string.Equals(
+                    values[0],
+                    "/update-recovery",
+                    StringComparison.OrdinalIgnoreCase) ||
+                !IsLowerHex(values[1], 32) ||
+                !int.TryParse(
+                    values[2],
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out parentProcessId) ||
+                parentProcessId <= 0)
+            {
+                return false;
+            }
+            transactionId = values[1];
+            return true;
+        }
+
+        private static UpdateRollbackTransaction CreateUpdateRollbackTransaction()
+        {
+            string rollbackRoot = EnsureSecureUpdateRollbackRoot();
+            string transactionId = Guid.NewGuid().ToString("N");
+            string transactionDirectory = Path.Combine(
+                rollbackRoot,
+                transactionId);
+            CreateSecureDirectory(transactionDirectory);
+            ValidateSecureDirectory(transactionDirectory);
+
+            UpdateRollbackTransaction transaction = null;
+            try
+            {
+                transaction = new UpdateRollbackTransaction
+                {
+                    Id = transactionId,
+                    RootDirectory = transactionDirectory,
+                    State = new UpdateRollbackState
+                    {
+                        TransactionId = transactionId,
+                        Status = UpdateRollbackStatus.Preparing,
+                        PreviousVersion = ReadInstalledVersion(),
+                        ExpectedVersion = ProductVersion + ".0",
+                        ExpectedSid = WindowsIdentity.GetCurrent().User.Value
+                    }
+                };
+                WriteUpdateState(transaction);
+                transaction.RecoveryExecutablePath = Path.Combine(
+                    rollbackRoot,
+                    "." + transactionId + "-" + UpdateRecoveryExecutableName);
+                File.Copy(
+                    Application.ExecutablePath,
+                    transaction.RecoveryExecutablePath,
+                    false);
+                ValidateFileNotReparse(transaction.RecoveryExecutablePath);
+                transaction.RecoveryWatchdog =
+                    StartUpdateRecoveryWatchdog(transaction);
+                string filesDirectory = Path.Combine(
+                    transactionDirectory,
+                    "snapshot",
+                    "files");
+                Directory.CreateDirectory(Path.GetDirectoryName(filesDirectory));
+                Directory.CreateDirectory(filesDirectory);
+                ValidateDirectoryTreeWithoutReparse(
+                    Path.Combine(transactionDirectory, "snapshot"));
+                CreateFileSnapshot(
+                    InstallDirectory,
+                    filesDirectory,
+                    Path.Combine(
+                        transactionDirectory,
+                        UpdateFileManifestName));
+
+                transaction.Registration = CapturePostInstallRegistration();
+                WriteRegistrationSnapshot(
+                    transaction.Registration,
+                    Path.Combine(
+                        transactionDirectory,
+                        UpdateRegistrationSnapshotName));
+                ValidateUpdateSnapshot(transactionDirectory);
+                SetUpdateRollbackStatus(
+                    transaction,
+                    UpdateRollbackStatus.Prepared);
+                return transaction;
+            }
+            catch
+            {
+                TryDeleteUpdateTransaction(transactionDirectory);
+                if (transaction != null &&
+                    transaction.RecoveryWatchdog != null)
+                {
+                    transaction.RecoveryWatchdog.Dispose();
+                }
+                if (transaction != null &&
+                    !string.IsNullOrWhiteSpace(
+                        transaction.RecoveryExecutablePath))
+                {
+                    TryDeleteIfExists(
+                        transaction.RecoveryExecutablePath);
+                }
+                throw;
+            }
+        }
+
+        private static string ReadInstalledVersion()
+        {
+            FileVersionInfo version = FileVersionInfo.GetVersionInfo(InstalledExe);
+            string value = (version.FileVersion ?? string.Empty).Trim();
+            Version parsed;
+            if (!Version.TryParse(value, out parsed))
+            {
+                throw new InvalidDataException(
+                    "The previous application version is invalid.");
+            }
+            return parsed.ToString(4);
+        }
+
+        private static string EnsureSecureUpdateRollbackRoot()
+        {
+            string commonData = Environment.GetFolderPath(
+                Environment.SpecialFolder.CommonApplicationData);
+            if (string.IsNullOrWhiteSpace(commonData) ||
+                !Path.IsPathRooted(commonData))
+            {
+                throw new DirectoryNotFoundException(
+                    "ProgramData is unavailable for update recovery.");
+            }
+            string commonRoot = Path.GetFullPath(commonData);
+            ValidateDirectoryNoReparse(commonRoot, true);
+            string productRoot = Path.GetFullPath(Path.Combine(
+                commonRoot,
+                "MajesticBoost"));
+            if (!IsDirectChildPath(commonRoot, productRoot))
+            {
+                throw new IOException(
+                    "The update recovery product root escaped ProgramData.");
+            }
+            if (File.Exists(productRoot))
+            {
+                throw new IOException(
+                    "A file occupies the update recovery product root.");
+            }
+            if (!Directory.Exists(productRoot))
+            {
+                Directory.CreateDirectory(productRoot);
+            }
+            ValidateDirectoryNoReparse(productRoot, true);
+
+            string rollbackRoot = Path.GetFullPath(Path.Combine(
+                productRoot,
+                UpdateRollbackDirectoryName));
+            if (!IsDirectChildPath(productRoot, rollbackRoot))
+            {
+                throw new IOException(
+                    "The update recovery root escaped its protected parent.");
+            }
+            if (!Directory.Exists(rollbackRoot))
+            {
+                CreateSecureDirectory(rollbackRoot);
+            }
+            ValidateSecureDirectory(rollbackRoot);
+            return rollbackRoot;
+        }
+
+        private static string ResolveUpdateTransactionDirectory(
+            string transactionId)
+        {
+            if (!IsLowerHex(transactionId, 32))
+            {
+                throw new InvalidDataException(
+                    "The update transaction identifier is invalid.");
+            }
+            string rollbackRoot = EnsureSecureUpdateRollbackRoot();
+            string transactionDirectory = Path.GetFullPath(Path.Combine(
+                rollbackRoot,
+                transactionId));
+            if (!IsDirectChildPath(rollbackRoot, transactionDirectory))
+            {
+                throw new IOException(
+                    "The update transaction escaped the rollback root.");
+            }
+            return transactionDirectory;
+        }
+
+        private static DirectorySecurity CreateUpdateRollbackSecurity()
+        {
+            var security = new DirectorySecurity();
+            security.SetAccessRuleProtection(true, false);
+            var administrators = new SecurityIdentifier(
+                WellKnownSidType.BuiltinAdministratorsSid,
+                null);
+            var system = new SecurityIdentifier(
+                WellKnownSidType.LocalSystemSid,
+                null);
+            security.SetOwner(administrators);
+            security.SetGroup(administrators);
+            const InheritanceFlags inheritance =
+                InheritanceFlags.ContainerInherit |
+                InheritanceFlags.ObjectInherit;
+            security.AddAccessRule(new FileSystemAccessRule(
+                administrators,
+                FileSystemRights.FullControl,
+                inheritance,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            security.AddAccessRule(new FileSystemAccessRule(
+                system,
+                FileSystemRights.FullControl,
+                inheritance,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            return security;
+        }
+
+        private static void CreateSecureDirectory(string path)
+        {
+            if (File.Exists(path))
+            {
+                throw new IOException(
+                    "A file occupies a protected update recovery path.");
+            }
+            if (Directory.Exists(path))
+            {
+                throw new IOException(
+                    "The protected update recovery directory already exists.");
+            }
+            Directory.CreateDirectory(path, CreateUpdateRollbackSecurity());
+            ValidateSecureDirectory(path);
+        }
+
+        private static void ValidateSecureDirectory(string path)
+        {
+            ValidateDirectoryNoReparse(path, true);
+            DirectorySecurity security = Directory.GetAccessControl(
+                path,
+                AccessControlSections.Access |
+                AccessControlSections.Owner);
+            if (!security.AreAccessRulesProtected)
+            {
+                throw new System.Security.SecurityException(
+                    "The update recovery directory inherits permissions.");
+            }
+            SecurityIdentifier owner = security.GetOwner(
+                typeof(SecurityIdentifier)) as SecurityIdentifier;
+            if (!IsPrivilegedSid(owner))
+            {
+                throw new System.Security.SecurityException(
+                    "The update recovery directory has an unexpected owner.");
+            }
+
+            AuthorizationRuleCollection rules = security.GetAccessRules(
+                true,
+                true,
+                typeof(SecurityIdentifier));
+            const FileSystemRights writes =
+                FileSystemRights.WriteData |
+                FileSystemRights.CreateFiles |
+                FileSystemRights.AppendData |
+                FileSystemRights.CreateDirectories |
+                FileSystemRights.WriteAttributes |
+                FileSystemRights.WriteExtendedAttributes |
+                FileSystemRights.Delete |
+                FileSystemRights.DeleteSubdirectoriesAndFiles |
+                FileSystemRights.ChangePermissions |
+                FileSystemRights.TakeOwnership;
+            foreach (FileSystemAccessRule rule in rules)
+            {
+                SecurityIdentifier identity =
+                    rule.IdentityReference as SecurityIdentifier;
+                if (rule.AccessControlType == AccessControlType.Allow &&
+                    (rule.FileSystemRights & writes) != 0 &&
+                    !IsPrivilegedSid(identity))
+                {
+                    throw new System.Security.SecurityException(
+                        "A non-privileged identity can modify update recovery data.");
+                }
+            }
+        }
+
+        private static bool IsPrivilegedSid(SecurityIdentifier sid)
+        {
+            return sid != null &&
+                (sid.IsWellKnown(WellKnownSidType.LocalSystemSid) ||
+                 sid.IsWellKnown(WellKnownSidType.BuiltinAdministratorsSid));
+        }
+
+        private static void ValidateDirectoryNoReparse(
+            string path,
+            bool required)
+        {
+            if (!Directory.Exists(path))
+            {
+                if (File.Exists(path) || required)
+                {
+                    throw new DirectoryNotFoundException(
+                        "A protected update directory is unavailable.");
+                }
+                return;
+            }
+            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException(
+                    "A protected update directory is a reparse point.");
+            }
+        }
+
+        private static void ValidateDirectoryTreeWithoutReparse(string root)
+        {
+            EnumerateFilesSafely(root);
+        }
+
+        private static List<string> EnumerateFilesSafely(string root)
+        {
+            string fullRoot = Path.GetFullPath(root);
+            ValidateDirectoryNoReparse(fullRoot, true);
+            var files = new List<string>();
+            var pending = new Stack<string>();
+            pending.Push(fullRoot);
+            while (pending.Count > 0)
+            {
+                string current = pending.Pop();
+                ValidateDirectoryNoReparse(current, true);
+                foreach (string childDirectory in Directory.GetDirectories(
+                    current,
+                    "*",
+                    SearchOption.TopDirectoryOnly))
+                {
+                    ValidateDirectoryNoReparse(childDirectory, true);
+                    pending.Push(childDirectory);
+                }
+                foreach (string childFile in Directory.GetFiles(
+                    current,
+                    "*",
+                    SearchOption.TopDirectoryOnly))
+                {
+                    ValidateFileNotReparse(childFile);
+                    files.Add(childFile);
+                }
+            }
+            return files;
+        }
+
+        private static void ValidateFileNotReparse(string path)
+        {
+            if (!File.Exists(path) ||
+                (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException(
+                    "A protected update file is missing or redirected.");
+            }
+        }
+
+        private static void SetUpdateRollbackStatus(
+            UpdateRollbackTransaction transaction,
+            UpdateRollbackStatus status)
+        {
+            transaction.State.Status = status;
+            WriteUpdateState(transaction);
+        }
+
+        private static void WriteUpdateState(UpdateRollbackTransaction transaction)
+        {
+            string content =
+                "Format=1\n" +
+                "Transaction=" + transaction.State.TransactionId + "\n" +
+                "Status=" + transaction.State.Status + "\n" +
+                "PreviousVersion=" + transaction.State.PreviousVersion + "\n" +
+                "ExpectedVersion=" + transaction.State.ExpectedVersion + "\n" +
+                "ExpectedSid=" + transaction.State.ExpectedSid + "\n";
+            WriteTextAtomically(
+                Path.Combine(
+                    transaction.RootDirectory,
+                    UpdateStateFileName),
+                content);
+        }
+
+        private static UpdateRollbackState ReadUpdateState(
+            string transactionDirectory)
+        {
+            Dictionary<string, string> values = ReadControlFile(
+                Path.Combine(transactionDirectory, UpdateStateFileName),
+                UpdateControlFileMaximumBytes);
+            string format;
+            string transactionId;
+            string statusText;
+            string previousVersion;
+            string expectedVersion;
+            string expectedSid;
+            UpdateRollbackStatus status;
+            Version previousParsed;
+            Version expectedParsed;
+            SecurityIdentifier sid;
+            if (values.Count != 6 ||
+                !values.TryGetValue("Format", out format) ||
+                !values.TryGetValue("Transaction", out transactionId) ||
+                !values.TryGetValue("Status", out statusText) ||
+                !values.TryGetValue("PreviousVersion", out previousVersion) ||
+                !values.TryGetValue("ExpectedVersion", out expectedVersion) ||
+                !values.TryGetValue("ExpectedSid", out expectedSid) ||
+                !string.Equals(format, "1", StringComparison.Ordinal) ||
+                !IsLowerHex(transactionId, 32) ||
+                !Enum.TryParse(statusText, false, out status) ||
+                !Enum.IsDefined(typeof(UpdateRollbackStatus), status) ||
+                !string.Equals(
+                    statusText,
+                    status.ToString(),
+                    StringComparison.Ordinal) ||
+                !Version.TryParse(previousVersion, out previousParsed) ||
+                !Version.TryParse(expectedVersion, out expectedParsed) ||
+                previousParsed.Revision < 0 ||
+                expectedParsed.Revision < 0 ||
+                !string.Equals(
+                    previousParsed.ToString(4),
+                    previousVersion,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    expectedParsed.ToString(4),
+                    expectedVersion,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "The update rollback state is invalid.");
+            }
+            try
+            {
+                sid = new SecurityIdentifier(expectedSid);
+            }
+            catch (ArgumentException exception)
+            {
+                throw new InvalidDataException(
+                    "The update rollback owner SID is invalid.",
+                    exception);
+            }
+            if (!string.Equals(
+                    sid.Value,
+                    expectedSid,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(
+                    Path.GetFileName(transactionDirectory),
+                    transactionId,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "The update rollback state does not match its directory.");
+            }
+            return new UpdateRollbackState
+            {
+                TransactionId = transactionId,
+                Status = status,
+                PreviousVersion = previousVersion,
+                ExpectedVersion = expectedVersion,
+                ExpectedSid = expectedSid
+            };
+        }
+
+        private static void WriteTextAtomically(string path, string content)
+        {
+            string directory = Path.GetDirectoryName(path);
+            string temporary = Path.Combine(
+                directory,
+                ".control-" + Guid.NewGuid().ToString("N") + ".tmp");
+            string discarded = Path.Combine(
+                directory,
+                ".control-" + Guid.NewGuid().ToString("N") + ".old");
+            try
+            {
+                using (var output = new FileStream(
+                    temporary,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    4096,
+                    FileOptions.WriteThrough))
+                using (var writer = new StreamWriter(
+                    output,
+                    new UTF8Encoding(false)))
+                {
+                    writer.Write(content);
+                    writer.Flush();
+                    output.Flush(true);
+                }
+                if (File.Exists(path))
+                {
+                    File.Replace(temporary, path, discarded, true);
+                    DeleteIfExists(discarded);
+                }
+                else
+                {
+                    File.Move(temporary, path);
+                }
+            }
+            finally
+            {
+                TryDeleteIfExists(temporary);
+                TryDeleteIfExists(discarded);
+            }
+        }
+
+        private static Dictionary<string, string> ReadControlFile(
+            string path,
+            int maximumBytes)
+        {
+            ValidateFileNotReparse(path);
+            byte[] bytes;
+            using (var input = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read))
+            {
+                if (input.Length <= 0 || input.Length > maximumBytes)
+                {
+                    throw new InvalidDataException(
+                        "An update control file has an invalid size.");
+                }
+                bytes = new byte[(int)input.Length];
+                int offset = 0;
+                while (offset < bytes.Length)
+                {
+                    int read = input.Read(bytes, offset, bytes.Length - offset);
+                    if (read <= 0)
+                    {
+                        throw new EndOfStreamException();
+                    }
+                    offset += read;
+                }
+            }
+            string text = new UTF8Encoding(false, true).GetString(bytes);
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (string line in text.Replace("\r\n", "\n").Split('\n'))
+            {
+                if (line.Length == 0)
+                {
+                    continue;
+                }
+                int separator = line.IndexOf('=');
+                if (separator <= 0 || separator == line.Length - 1)
+                {
+                    throw new InvalidDataException(
+                        "An update control file is malformed.");
+                }
+                string key = line.Substring(0, separator);
+                if (result.ContainsKey(key))
+                {
+                    throw new InvalidDataException(
+                        "An update control file contains a duplicate field.");
+                }
+                result.Add(key, line.Substring(separator + 1));
+            }
+            return result;
+        }
+
+        private static void CreateFileSnapshot(
+            string sourceDirectory,
+            string snapshotDirectory,
+            string manifestPath)
+        {
+            string sourceRoot = Path.GetFullPath(sourceDirectory);
+            string snapshotRoot = Path.GetFullPath(snapshotDirectory);
+            ValidateDirectoryTreeWithoutReparse(sourceRoot);
+            ValidateDirectoryTreeWithoutReparse(snapshotRoot);
+
+            var entries = new List<SnapshotFileEntry>();
+            long totalBytes = 0;
+            foreach (string sourcePath in EnumerateFilesSafely(sourceRoot))
+            {
+                ValidateFileNotReparse(sourcePath);
+                string relativePath = GetSafeRelativePath(sourceRoot, sourcePath);
+                string destinationPath = ResolveSnapshotFile(
+                    snapshotRoot,
+                    relativePath);
+                string destinationDirectory = Path.GetDirectoryName(destinationPath);
+                if (!Directory.Exists(destinationDirectory))
+                {
+                    Directory.CreateDirectory(destinationDirectory);
+                }
+                ValidateDirectoryTreeWithoutReparse(snapshotRoot);
+                var sourceInfo = new FileInfo(sourcePath);
+                totalBytes += sourceInfo.Length;
+                if (entries.Count >= UpdateSnapshotMaximumFiles ||
+                    totalBytes > UpdateSnapshotMaximumBytes)
+                {
+                    throw new InvalidDataException(
+                        "The previous installation is too large to snapshot safely.");
+                }
+                File.Copy(sourcePath, destinationPath, false);
+                ValidateFileNotReparse(destinationPath);
+                var entry = new SnapshotFileEntry
+                {
+                    RelativePath = relativePath,
+                    Length = sourceInfo.Length,
+                    Sha256 = ComputeFileSha256(destinationPath)
+                };
+                entries.Add(entry);
+            }
+            if (entries.Count == 0)
+            {
+                throw new InvalidDataException(
+                    "The previous installation snapshot is empty.");
+            }
+            entries.Sort(delegate(SnapshotFileEntry left, SnapshotFileEntry right)
+            {
+                return StringComparer.OrdinalIgnoreCase.Compare(
+                    left.RelativePath,
+                    right.RelativePath);
+            });
+            WriteFileManifest(manifestPath, entries);
+        }
+
+        private static string GetSafeRelativePath(string root, string path)
+        {
+            string fullRoot = Path.GetFullPath(root).TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            string fullPath = Path.GetFullPath(path);
+            if (!fullPath.StartsWith(
+                    fullRoot,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new IOException(
+                    "A snapshot file escaped the installation directory.");
+            }
+            string relative = fullPath.Substring(fullRoot.Length);
+            ValidateRelativeSnapshotPath(relative);
+            return relative;
+        }
+
+        private static void ValidateRelativeSnapshotPath(string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath) ||
+                relativePath.Length > 512 ||
+                Path.IsPathRooted(relativePath) ||
+                relativePath.IndexOf(':') >= 0 ||
+                relativePath.IndexOf('\0') >= 0)
+            {
+                throw new InvalidDataException(
+                    "A snapshot contains an invalid relative path.");
+            }
+            string normalized = relativePath.Replace(
+                Path.AltDirectorySeparatorChar,
+                Path.DirectorySeparatorChar);
+            foreach (string part in normalized.Split(Path.DirectorySeparatorChar))
+            {
+                if (part.Length == 0 ||
+                    string.Equals(part, ".", StringComparison.Ordinal) ||
+                    string.Equals(part, "..", StringComparison.Ordinal))
+                {
+                    throw new InvalidDataException(
+                        "A snapshot contains path traversal.");
+                }
+            }
+        }
+
+        private static string ResolveSnapshotFile(
+            string snapshotRoot,
+            string relativePath)
+        {
+            ValidateRelativeSnapshotPath(relativePath);
+            string root = Path.GetFullPath(snapshotRoot).TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+            string candidate = Path.GetFullPath(Path.Combine(root, relativePath));
+            string prefix = root + Path.DirectorySeparatorChar;
+            if (!candidate.StartsWith(
+                    prefix,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    "A snapshot path escaped its root.");
+            }
+            return candidate;
+        }
+
+        private static void WriteFileManifest(
+            string path,
+            IList<SnapshotFileEntry> entries)
+        {
+            var text = new StringBuilder("MajesticBoostFiles1\n");
+            foreach (SnapshotFileEntry entry in entries)
+            {
+                text.Append(Convert.ToBase64String(
+                    Encoding.UTF8.GetBytes(entry.RelativePath)));
+                text.Append('|');
+                text.Append(entry.Length.ToString(CultureInfo.InvariantCulture));
+                text.Append('|');
+                text.Append(entry.Sha256);
+                text.Append('\n');
+            }
+            WriteTextAtomically(path, text.ToString());
+        }
+
+        private static List<SnapshotFileEntry> ReadFileManifest(string path)
+        {
+            ValidateFileNotReparse(path);
+            FileInfo info = new FileInfo(path);
+            if (info.Length <= 0 || info.Length > 262144)
+            {
+                throw new InvalidDataException(
+                    "The update file manifest has an invalid size.");
+            }
+            string text = File.ReadAllText(path, new UTF8Encoding(false, true));
+            string[] lines = text.Replace("\r\n", "\n").Split('\n');
+            if (lines.Length < 3 ||
+                !string.Equals(
+                    lines[0],
+                    "MajesticBoostFiles1",
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "The update file manifest is invalid.");
+            }
+            var entries = new List<SnapshotFileEntry>();
+            var unique = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            long totalBytes = 0;
+            for (int index = 1; index < lines.Length; index++)
+            {
+                if (lines[index].Length == 0)
+                {
+                    continue;
+                }
+                string[] fields = lines[index].Split('|');
+                if (fields.Length != 3)
+                {
+                    throw new InvalidDataException(
+                        "The update file manifest entry is invalid.");
+                }
+                long length;
+                byte[] relativeBytes;
+                try
+                {
+                    relativeBytes = Convert.FromBase64String(fields[0]);
+                }
+                catch (FormatException exception)
+                {
+                    throw new InvalidDataException(
+                        "The update file manifest path is invalid.",
+                        exception);
+                }
+                string relativePath =
+                    new UTF8Encoding(false, true).GetString(relativeBytes);
+                if (!long.TryParse(
+                        fields[1],
+                        NumberStyles.None,
+                        CultureInfo.InvariantCulture,
+                        out length) ||
+                    length < 0 ||
+                    !IsLowerHex(fields[2], 64))
+                {
+                    throw new InvalidDataException(
+                        "The update file manifest entry is invalid.");
+                }
+                ValidateRelativeSnapshotPath(relativePath);
+                if (!unique.Add(relativePath))
+                {
+                    throw new InvalidDataException(
+                        "The update file manifest contains a duplicate path.");
+                }
+                totalBytes += length;
+                if (entries.Count >= UpdateSnapshotMaximumFiles ||
+                    totalBytes > UpdateSnapshotMaximumBytes)
+                {
+                    throw new InvalidDataException(
+                        "The update file manifest exceeds its limits.");
+                }
+                entries.Add(new SnapshotFileEntry
+                {
+                    RelativePath = relativePath,
+                    Length = length,
+                    Sha256 = fields[2]
+                });
+            }
+            if (entries.Count == 0)
+            {
+                throw new InvalidDataException(
+                    "The update file manifest is empty.");
+            }
+            return entries;
+        }
+
+        private static List<SnapshotFileEntry> ValidateUpdateSnapshot(
+            string transactionDirectory)
+        {
+            ValidateSecureDirectory(transactionDirectory);
+            string snapshotRoot = Path.Combine(
+                transactionDirectory,
+                "snapshot",
+                "files");
+            List<SnapshotFileEntry> entries = ValidateFileSnapshotAtPaths(
+                snapshotRoot,
+                Path.Combine(
+                    transactionDirectory,
+                    UpdateFileManifestName));
+            ValidateFileNotReparse(Path.Combine(
+                transactionDirectory,
+                UpdateRegistrationSnapshotName));
+            return entries;
+        }
+
+        private static List<SnapshotFileEntry> ValidateFileSnapshotAtPaths(
+            string snapshotRoot,
+            string manifestPath)
+        {
+            snapshotRoot = Path.GetFullPath(snapshotRoot);
+            ValidateDirectoryTreeWithoutReparse(snapshotRoot);
+            List<SnapshotFileEntry> entries = ReadFileManifest(manifestPath);
+            var expected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (SnapshotFileEntry entry in entries)
+            {
+                string path = ResolveSnapshotFile(
+                    snapshotRoot,
+                    entry.RelativePath);
+                ValidateFileNotReparse(path);
+                var info = new FileInfo(path);
+                if (info.Length != entry.Length ||
+                    !FixedTimeEquals(
+                        ComputeFileSha256(path),
+                        entry.Sha256))
+                {
+                    throw new InvalidDataException(
+                        "The previous installation snapshot is corrupt.");
+                }
+                expected.Add(Path.GetFullPath(path));
+            }
+            foreach (string actual in EnumerateFilesSafely(snapshotRoot))
+            {
+                if (!expected.Contains(Path.GetFullPath(actual)))
+                {
+                    throw new InvalidDataException(
+                        "The previous installation snapshot contains an unexpected file.");
+                }
+            }
+            return entries;
+        }
+
+        private static string ComputeFileSha256(string path)
+        {
+            using (var input = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read))
+            using (SHA256 hash = SHA256.Create())
+            {
+                return BytesToLowerHex(hash.ComputeHash(input));
+            }
+        }
+
+        private static void RestoreFileSnapshot(
+            string transactionDirectory,
+            string installDirectory)
+        {
+            string snapshotRoot = Path.Combine(
+                transactionDirectory,
+                "snapshot",
+                "files");
+            RestoreFileSnapshotAtPaths(
+                snapshotRoot,
+                Path.Combine(
+                    transactionDirectory,
+                    UpdateFileManifestName),
+                installDirectory,
+                Path.GetFileName(transactionDirectory));
+        }
+
+        private static void RestoreFileSnapshotAtPaths(
+            string snapshotRoot,
+            string manifestPath,
+            string installDirectory,
+            string transactionId)
+        {
+            if (!IsLowerHex(transactionId, 32))
+            {
+                throw new InvalidDataException(
+                    "The update restore transaction identifier is invalid.");
+            }
+            List<SnapshotFileEntry> entries =
+                ValidateFileSnapshotAtPaths(snapshotRoot, manifestPath);
+            string installRoot = Path.GetFullPath(installDirectory).TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+            string installParent = Path.GetDirectoryName(installRoot);
+            string restoreStage = installRoot + ".restore-" + transactionId;
+            string failedStage = installRoot + ".failed-" + transactionId;
+            if (!IsDirectChildPath(installParent, restoreStage) ||
+                !IsDirectChildPath(installParent, failedStage))
+            {
+                throw new IOException(
+                    "The update restore stage escaped the installation parent.");
+            }
+            TryDeleteValidatedTree(restoreStage, installParent);
+            Directory.CreateDirectory(restoreStage);
+            ValidateDirectoryNoReparse(restoreStage, true);
+            try
+            {
+                foreach (SnapshotFileEntry entry in entries)
+                {
+                    string source = ResolveSnapshotFile(
+                        snapshotRoot,
+                        entry.RelativePath);
+                    string destination = ResolveSnapshotFile(
+                        restoreStage,
+                        entry.RelativePath);
+                    string directory = Path.GetDirectoryName(destination);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    File.Copy(source, destination, false);
+                    if (new FileInfo(destination).Length != entry.Length ||
+                        !FixedTimeEquals(
+                            ComputeFileSha256(destination),
+                            entry.Sha256))
+                    {
+                        throw new InvalidDataException(
+                            "The staged rollback copy failed verification.");
+                    }
+                }
+                ValidateDirectoryTreeWithoutReparse(restoreStage);
+
+                TryDeleteValidatedTree(failedStage, installParent);
+                if (Directory.Exists(installRoot))
+                {
+                    ValidateDirectoryTreeWithoutReparse(installRoot);
+                    Directory.Move(installRoot, failedStage);
+                }
+                else if (File.Exists(installRoot))
+                {
+                    throw new IOException(
+                        "A file occupies the installation directory.");
+                }
+
+                try
+                {
+                    Directory.Move(restoreStage, installRoot);
+                }
+                catch
+                {
+                    if (!Directory.Exists(installRoot) &&
+                        Directory.Exists(failedStage))
+                    {
+                        Directory.Move(failedStage, installRoot);
+                    }
+                    throw;
+                }
+                TryDeleteValidatedTree(failedStage, installParent);
+            }
+            finally
+            {
+                TryDeleteValidatedTree(restoreStage, installParent);
+            }
+        }
+
+        private static void TryDeleteValidatedTree(
+            string path,
+            string expectedParent)
+        {
+            try
+            {
+                string fullPath = Path.GetFullPath(path);
+                if (!IsDirectChildPath(expectedParent, fullPath))
+                {
+                    return;
+                }
+                if (Directory.Exists(fullPath))
+                {
+                    ValidateDirectoryTreeWithoutReparse(fullPath);
+                    Directory.Delete(fullPath, true);
+                }
+                else if (File.Exists(fullPath))
+                {
+                    ValidateFileNotReparse(fullPath);
+                    File.Delete(fullPath);
+                }
+            }
+            catch
+            {
+                // Cleanup never widens the rollback target.
+            }
+        }
+
+        private static void WriteRegistrationSnapshot(
+            PostInstallRegistrationSnapshot snapshot,
+            string path)
+        {
+            string temporary = Path.Combine(
+                Path.GetDirectoryName(path),
+                ".registration-" + Guid.NewGuid().ToString("N") + ".tmp");
+            try
+            {
+                using (var output = new FileStream(
+                    temporary,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    65536,
+                    FileOptions.WriteThrough))
+                using (var writer = new BinaryWriter(
+                    output,
+                    new UTF8Encoding(false)))
+                {
+                    writer.Write("MajesticBoostRegistration1");
+                    WriteShortcutSnapshot(writer, snapshot.StartMenuShortcut);
+                    WriteShortcutSnapshot(writer, snapshot.DesktopShortcut);
+                    writer.Write(snapshot.StartMenuDirectoryExisted);
+                    WriteRegistrySnapshot(writer, snapshot.UninstallKey, 0);
+                    WriteRegistrySnapshot(writer, snapshot.AppPathsKey, 0);
+                    writer.Flush();
+                    output.Flush(true);
+                }
+                File.Move(temporary, path);
+            }
+            finally
+            {
+                TryDeleteIfExists(temporary);
+            }
+        }
+
+        private static PostInstallRegistrationSnapshot ReadRegistrationSnapshot(
+            string path)
+        {
+            ValidateFileNotReparse(path);
+            var info = new FileInfo(path);
+            if (info.Length <= 0 || info.Length > 2 * 1024 * 1024)
+            {
+                throw new InvalidDataException(
+                    "The registration rollback snapshot has an invalid size.");
+            }
+            using (var input = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read))
+            using (var reader = new BinaryReader(
+                input,
+                new UTF8Encoding(false, true)))
+            {
+                if (!string.Equals(
+                        reader.ReadString(),
+                        "MajesticBoostRegistration1",
+                        StringComparison.Ordinal))
+                {
+                    throw new InvalidDataException(
+                        "The registration rollback snapshot has an invalid header.");
+                }
+                var snapshot = new PostInstallRegistrationSnapshot
+                {
+                    StartMenuShortcut = ReadShortcutSnapshot(reader),
+                    DesktopShortcut = ReadShortcutSnapshot(reader),
+                    StartMenuDirectoryExisted = reader.ReadBoolean(),
+                    UninstallKey = ReadRegistrySnapshot(reader, 0),
+                    AppPathsKey = ReadRegistrySnapshot(reader, 0)
+                };
+                ValidateRegistrationSnapshot(snapshot);
+                if (input.Position != input.Length)
+                {
+                    throw new InvalidDataException(
+                        "The registration rollback snapshot has trailing data.");
+                }
+                return snapshot;
+            }
+        }
+
+        private static void WriteShortcutSnapshot(
+            BinaryWriter writer,
+            ShortcutSnapshot snapshot)
+        {
+            writer.Write(snapshot != null);
+            if (snapshot == null)
+            {
+                return;
+            }
+            writer.Write(snapshot.Path ?? string.Empty);
+            writer.Write(snapshot.Existed);
+            writer.Write((int)snapshot.Attributes);
+            writer.Write(snapshot.LastWriteTimeUtc.Ticks);
+            byte[] contents = snapshot.Contents ?? new byte[0];
+            if (contents.Length > 1024 * 1024)
+            {
+                throw new InvalidDataException(
+                    "A shortcut rollback snapshot is too large.");
+            }
+            writer.Write(contents.Length);
+            writer.Write(contents);
+        }
+
+        private static ShortcutSnapshot ReadShortcutSnapshot(BinaryReader reader)
+        {
+            if (!reader.ReadBoolean())
+            {
+                return null;
+            }
+            string path = reader.ReadString();
+            bool existed = reader.ReadBoolean();
+            FileAttributes attributes = (FileAttributes)reader.ReadInt32();
+            long lastWriteTicks = reader.ReadInt64();
+            int length = reader.ReadInt32();
+            if (length < 0 || length > 1024 * 1024)
+            {
+                throw new InvalidDataException(
+                    "A shortcut rollback snapshot is too large.");
+            }
+            byte[] contents = ReadExactly(reader, length);
+            if (!existed && contents.Length != 0)
+            {
+                throw new InvalidDataException(
+                    "A missing shortcut has unexpected snapshot bytes.");
+            }
+            if ((attributes & (
+                    FileAttributes.ReparsePoint |
+                    FileAttributes.Directory |
+                    FileAttributes.Device)) != 0 ||
+                lastWriteTicks < DateTime.MinValue.Ticks ||
+                lastWriteTicks > DateTime.MaxValue.Ticks)
+            {
+                throw new InvalidDataException(
+                    "A shortcut rollback snapshot has invalid metadata.");
+            }
+            return new ShortcutSnapshot
+            {
+                Path = path,
+                Existed = existed,
+                Contents = contents,
+                Attributes = attributes,
+                LastWriteTimeUtc = new DateTime(
+                    lastWriteTicks,
+                    DateTimeKind.Utc)
+            };
+        }
+
+        private static void WriteRegistrySnapshot(
+            BinaryWriter writer,
+            RegistryKeySnapshot snapshot,
+            int depth)
+        {
+            if (depth > 16)
+            {
+                throw new InvalidDataException(
+                    "The registry rollback snapshot is too deep.");
+            }
+            writer.Write(snapshot != null);
+            if (snapshot == null)
+            {
+                return;
+            }
+            writer.Write(snapshot.Name ?? string.Empty);
+            writer.Write(snapshot.Existed);
+            writer.Write(snapshot.Values.Count);
+            foreach (RegistryValueSnapshot value in snapshot.Values)
+            {
+                writer.Write(value.Name ?? string.Empty);
+                writer.Write((int)value.Kind);
+                WriteRegistryValue(writer, value.Kind, value.Value);
+            }
+            writer.Write(snapshot.Children.Count);
+            foreach (RegistryKeySnapshot child in snapshot.Children)
+            {
+                WriteRegistrySnapshot(writer, child, depth + 1);
+            }
+        }
+
+        private static RegistryKeySnapshot ReadRegistrySnapshot(
+            BinaryReader reader,
+            int depth)
+        {
+            if (depth > 16)
+            {
+                throw new InvalidDataException(
+                    "The registry rollback snapshot is too deep.");
+            }
+            if (!reader.ReadBoolean())
+            {
+                return null;
+            }
+            var snapshot = new RegistryKeySnapshot
+            {
+                Name = reader.ReadString(),
+                Existed = reader.ReadBoolean()
+            };
+            int valueCount = reader.ReadInt32();
+            if (valueCount < 0 || valueCount > 256)
+            {
+                throw new InvalidDataException(
+                    "The registry rollback snapshot has too many values.");
+            }
+            for (int index = 0; index < valueCount; index++)
+            {
+                string name = reader.ReadString();
+                RegistryValueKind kind = (RegistryValueKind)reader.ReadInt32();
+                snapshot.Values.Add(new RegistryValueSnapshot
+                {
+                    Name = name,
+                    Kind = kind,
+                    Value = ReadRegistryValue(reader, kind)
+                });
+            }
+            int childCount = reader.ReadInt32();
+            if (childCount < 0 || childCount > 128)
+            {
+                throw new InvalidDataException(
+                    "The registry rollback snapshot has too many child keys.");
+            }
+            for (int index = 0; index < childCount; index++)
+            {
+                snapshot.Children.Add(
+                    ReadRegistrySnapshot(reader, depth + 1));
+            }
+            return snapshot;
+        }
+
+        private static void WriteRegistryValue(
+            BinaryWriter writer,
+            RegistryValueKind kind,
+            object value)
+        {
+            switch (kind)
+            {
+                case RegistryValueKind.String:
+                case RegistryValueKind.ExpandString:
+                    writer.Write(value as string ?? string.Empty);
+                    break;
+                case RegistryValueKind.DWord:
+                    writer.Write(Convert.ToInt32(
+                        value,
+                        CultureInfo.InvariantCulture));
+                    break;
+                case RegistryValueKind.QWord:
+                    writer.Write(Convert.ToInt64(
+                        value,
+                        CultureInfo.InvariantCulture));
+                    break;
+                case RegistryValueKind.MultiString:
+                    string[] strings = value as string[];
+                    if (strings == null || strings.Length > 256)
+                    {
+                        throw new InvalidDataException(
+                            "A multi-string registry value is invalid.");
+                    }
+                    writer.Write(strings.Length);
+                    foreach (string item in strings)
+                    {
+                        writer.Write(item ?? string.Empty);
+                    }
+                    break;
+                case RegistryValueKind.Binary:
+                case RegistryValueKind.None:
+                case RegistryValueKind.Unknown:
+                    byte[] bytes = value as byte[];
+                    if (bytes == null || bytes.Length > 1024 * 1024)
+                    {
+                        throw new InvalidDataException(
+                            "A binary registry value is invalid.");
+                    }
+                    writer.Write(bytes.Length);
+                    writer.Write(bytes);
+                    break;
+                default:
+                    throw new InvalidDataException(
+                        "An unsupported registry value kind was captured.");
+            }
+        }
+
+        private static object ReadRegistryValue(
+            BinaryReader reader,
+            RegistryValueKind kind)
+        {
+            switch (kind)
+            {
+                case RegistryValueKind.String:
+                case RegistryValueKind.ExpandString:
+                    return reader.ReadString();
+                case RegistryValueKind.DWord:
+                    return reader.ReadInt32();
+                case RegistryValueKind.QWord:
+                    return reader.ReadInt64();
+                case RegistryValueKind.MultiString:
+                    int count = reader.ReadInt32();
+                    if (count < 0 || count > 256)
+                    {
+                        throw new InvalidDataException(
+                            "A multi-string registry snapshot is invalid.");
+                    }
+                    string[] strings = new string[count];
+                    for (int index = 0; index < count; index++)
+                    {
+                        strings[index] = reader.ReadString();
+                    }
+                    return strings;
+                case RegistryValueKind.Binary:
+                case RegistryValueKind.None:
+                case RegistryValueKind.Unknown:
+                    int length = reader.ReadInt32();
+                    if (length < 0 || length > 1024 * 1024)
+                    {
+                        throw new InvalidDataException(
+                            "A binary registry snapshot is invalid.");
+                    }
+                    return ReadExactly(reader, length);
+                default:
+                    throw new InvalidDataException(
+                        "An unsupported registry value kind was restored.");
+            }
+        }
+
+        private static byte[] ReadExactly(BinaryReader reader, int length)
+        {
+            byte[] value = reader.ReadBytes(length);
+            if (value.Length != length)
+            {
+                throw new EndOfStreamException();
+            }
+            return value;
+        }
+
+        private static void ValidateRegistrationSnapshot(
+            PostInstallRegistrationSnapshot snapshot)
+        {
+            string expectedStartMenu = Path.GetFullPath(Path.Combine(
+                Environment.GetFolderPath(
+                    Environment.SpecialFolder.CommonPrograms),
+                ProductName,
+                ProductName + ".lnk"));
+            string expectedDesktop = Path.GetFullPath(Path.Combine(
+                Environment.GetFolderPath(
+                    Environment.SpecialFolder.DesktopDirectory),
+                ProductName + ".lnk"));
+            if (snapshot == null ||
+                snapshot.StartMenuShortcut == null ||
+                snapshot.DesktopShortcut == null ||
+                !string.Equals(
+                    Path.GetFullPath(snapshot.StartMenuShortcut.Path),
+                    expectedStartMenu,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(
+                    Path.GetFullPath(snapshot.DesktopShortcut.Path),
+                    expectedDesktop,
+                    StringComparison.OrdinalIgnoreCase) ||
+                snapshot.UninstallKey == null ||
+                snapshot.AppPathsKey == null ||
+                !string.Equals(
+                    snapshot.UninstallKey.Name,
+                    UninstallRegistryPath,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    snapshot.AppPathsKey.Name,
+                    AppPathsRegistryPath,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "The registration rollback snapshot targets an unexpected path.");
+            }
+            ValidateRegistrySnapshotTree(snapshot.UninstallKey, true, 0);
+            ValidateRegistrySnapshotTree(snapshot.AppPathsKey, true, 0);
+        }
+
+        private static void ValidateRegistrySnapshotTree(
+            RegistryKeySnapshot snapshot,
+            bool root,
+            int depth)
+        {
+            if (snapshot == null || depth > 16 ||
+                string.IsNullOrEmpty(snapshot.Name))
+            {
+                throw new InvalidDataException(
+                    "The registry rollback snapshot is invalid.");
+            }
+            if (!root &&
+                (snapshot.Name.IndexOf('\\') >= 0 ||
+                 snapshot.Name.IndexOf('/') >= 0 ||
+                 string.Equals(snapshot.Name, ".", StringComparison.Ordinal) ||
+                 string.Equals(snapshot.Name, "..", StringComparison.Ordinal)))
+            {
+                throw new InvalidDataException(
+                    "The registry rollback snapshot contains path traversal.");
+            }
+            var valueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (RegistryValueSnapshot value in snapshot.Values)
+            {
+                if (value == null ||
+                    !valueNames.Add(value.Name ?? string.Empty))
+                {
+                    throw new InvalidDataException(
+                        "The registry rollback snapshot contains duplicate values.");
+                }
+            }
+            var childNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (RegistryKeySnapshot child in snapshot.Children)
+            {
+                if (child == null || !childNames.Add(child.Name))
+                {
+                    throw new InvalidDataException(
+                        "The registry rollback snapshot contains duplicate keys.");
+                }
+                ValidateRegistrySnapshotTree(child, false, depth + 1);
+            }
+        }
+
+        private static Process StartUpdateRecoveryWatchdog(
+            UpdateRollbackTransaction transaction)
+        {
+            string recoveryPath = transaction.RecoveryExecutablePath;
+            if (string.IsNullOrWhiteSpace(recoveryPath))
+            {
+                recoveryPath = Path.Combine(
+                    Path.GetDirectoryName(transaction.RootDirectory),
+                    "." + transaction.Id + "-" + UpdateRecoveryExecutableName);
+            }
+            ValidateFileNotReparse(recoveryPath);
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = recoveryPath,
+                Arguments = "/update-recovery " + transaction.Id + " " +
+                    Process.GetCurrentProcess().Id.ToString(
+                        CultureInfo.InvariantCulture),
+                WorkingDirectory = Path.GetDirectoryName(recoveryPath),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                ErrorDialog = false
+            };
+            Process watchdog = Process.Start(startInfo);
+            if (watchdog == null)
+            {
+                throw new InvalidOperationException(
+                    "The update recovery watchdog could not be started.");
+            }
+            return watchdog;
+        }
+
+        private static void WriteHealthRequest(
+            UpdateRollbackTransaction transaction,
+            string token)
+        {
+            string tokenHash;
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                tokenHash = BytesToLowerHex(
+                    sha256.ComputeHash(HexToBytes(token)));
+            }
+            string content =
+                "Format=1\n" +
+                "Transaction=" + transaction.Id + "\n" +
+                "TokenSha256=" + tokenHash + "\n" +
+                "ExpectedSid=" + transaction.State.ExpectedSid + "\n" +
+                "ExpectedVersion=" + transaction.State.ExpectedVersion + "\n" +
+                "ExpiresUtcTicks=" +
+                    DateTime.UtcNow.AddMinutes(2).Ticks.ToString(
+                        CultureInfo.InvariantCulture) + "\n";
+            WriteTextAtomically(
+                Path.Combine(
+                    transaction.RootDirectory,
+                    UpdateHealthRequestName),
+                content);
+        }
+
+        private static bool LaunchAndWaitForUpdateHealth(
+            UpdateRollbackTransaction transaction,
+            string token)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = InstalledExe,
+                Arguments =
+                    UpdateHealthProbeArgument + " " +
+                    UpdateTransactionArgument + "=" + transaction.Id + " " +
+                    UpdateHealthTokenArgument + "=" + token + " " +
+                    UpdateHealthOwnerArgument + "=" +
+                        transaction.State.ExpectedSid,
+                WorkingDirectory = InstallDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = false,
+                ErrorDialog = false
+            };
+            Process probe = Process.Start(startInfo);
+            if (probe == null)
+            {
+                return false;
+            }
+            try
+            {
+                Stopwatch timer = Stopwatch.StartNew();
+                while (timer.ElapsedMilliseconds <
+                    UpdateHealthTimeoutMilliseconds)
+                {
+                    bool invalidSignal;
+                    if (TryValidateReadySignal(
+                            transaction.RootDirectory,
+                            transaction.Id,
+                            token,
+                            transaction.State.ExpectedSid,
+                            transaction.State.ExpectedVersion,
+                            out invalidSignal))
+                    {
+                        if (!probe.WaitForExit(3000))
+                        {
+                            try
+                            {
+                                probe.Kill();
+                            }
+                            catch
+                            {
+                            }
+                        }
+                        return true;
+                    }
+                    if (invalidSignal || probe.HasExited)
+                    {
+                        return false;
+                    }
+                    System.Threading.Thread.Sleep(
+                        UpdateHealthPollMilliseconds);
+                }
+                return false;
+            }
+            finally
+            {
+                if (!probe.HasExited)
+                {
+                    try
+                    {
+                        probe.Kill();
+                        probe.WaitForExit(3000);
+                    }
+                    catch
+                    {
+                    }
+                }
+                probe.Dispose();
+            }
+        }
+
+        private static bool TryValidateReadySignal(
+            string transactionDirectory,
+            string transactionId,
+            string token,
+            string expectedSid,
+            string expectedVersion,
+            out bool invalidSignal)
+        {
+            invalidSignal = false;
+            string path = Path.Combine(
+                transactionDirectory,
+                UpdateReadySignalName);
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+            try
+            {
+                Dictionary<string, string> values = ReadControlFile(
+                    path,
+                    UpdateControlFileMaximumBytes);
+                string format;
+                string signalTransaction;
+                string readySid;
+                string readyVersion;
+                string proof;
+                if (values.Count != 5 ||
+                    !values.TryGetValue("Format", out format) ||
+                    !values.TryGetValue(
+                        "Transaction",
+                        out signalTransaction) ||
+                    !values.TryGetValue("ReadySid", out readySid) ||
+                    !values.TryGetValue("ReadyVersion", out readyVersion) ||
+                    !values.TryGetValue("Proof", out proof) ||
+                    !string.Equals(format, "1", StringComparison.Ordinal) ||
+                    !string.Equals(
+                        signalTransaction,
+                        transactionId,
+                        StringComparison.Ordinal) ||
+                    !string.Equals(
+                        readySid,
+                        expectedSid,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(
+                        readyVersion,
+                        expectedVersion,
+                        StringComparison.Ordinal) ||
+                    !IsLowerHex(proof, 64))
+                {
+                    invalidSignal = true;
+                    return false;
+                }
+                string expectedProof = ComputeReadyProof(
+                    transactionId,
+                    token,
+                    expectedSid,
+                    expectedVersion);
+                if (!FixedTimeEquals(proof, expectedProof))
+                {
+                    invalidSignal = true;
+                    return false;
+                }
+                return true;
+            }
+            catch
+            {
+                invalidSignal = true;
+                return false;
+            }
+        }
+
+        private static string ComputeReadyProof(
+            string transactionId,
+            string token,
+            string sid,
+            string version)
+        {
+            byte[] payload = Encoding.UTF8.GetBytes(
+                "MajesticBoost.UpdateReady.v1\n" +
+                transactionId + "\n" +
+                sid + "\n" +
+                version);
+            using (var hmac = new HMACSHA256(HexToBytes(token)))
+            {
+                return BytesToLowerHex(hmac.ComputeHash(payload));
+            }
+        }
+
+        private static string CreateCryptographicToken()
+        {
+            byte[] value = new byte[32];
+            using (RandomNumberGenerator generator =
+                RandomNumberGenerator.Create())
+            {
+                generator.GetBytes(value);
+            }
+            return BytesToLowerHex(value);
+        }
+
+        private static byte[] HexToBytes(string text)
+        {
+            if (!IsLowerHex(text, 64))
+            {
+                throw new InvalidDataException(
+                    "The update health token is invalid.");
+            }
+            byte[] bytes = new byte[text.Length / 2];
+            for (int index = 0; index < bytes.Length; index++)
+            {
+                bytes[index] = byte.Parse(
+                    text.Substring(index * 2, 2),
+                    NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture);
+            }
+            return bytes;
+        }
+
+        private static string BytesToLowerHex(byte[] bytes)
+        {
+            var result = new StringBuilder(bytes.Length * 2);
+            foreach (byte value in bytes)
+            {
+                result.Append(value.ToString(
+                    "x2",
+                    CultureInfo.InvariantCulture));
+            }
+            return result.ToString();
+        }
+
+        private static bool IsLowerHex(string text, int length)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length != length)
+            {
+                return false;
+            }
+            foreach (char value in text)
+            {
+                if (!((value >= '0' && value <= '9') ||
+                    (value >= 'a' && value <= 'f')))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool FixedTimeEquals(string left, string right)
+        {
+            if (left == null || right == null ||
+                left.Length != right.Length)
+            {
+                return false;
+            }
+            int difference = 0;
+            for (int index = 0; index < left.Length; index++)
+            {
+                difference |= left[index] ^ right[index];
+            }
+            return difference == 0;
+        }
+
+        private static void RecoverInterruptedUpdateTransactions(
+            bool launchAfterRollback)
+        {
+            string rollbackRoot = EnsureSecureUpdateRollbackRoot();
+            bool restored = false;
+            foreach (string transactionDirectory in Directory.GetDirectories(
+                rollbackRoot,
+                "*",
+                SearchOption.TopDirectoryOnly))
+            {
+                string transactionId = Path.GetFileName(
+                    transactionDirectory);
+                if (!IsLowerHex(transactionId, 32) ||
+                    !IsDirectChildPath(
+                        rollbackRoot,
+                        transactionDirectory))
+                {
+                    throw new InvalidDataException(
+                        "The update rollback root contains an unexpected directory.");
+                }
+                restored |= RecoverOneUpdateTransaction(
+                    transactionDirectory,
+                    false);
+            }
+            PruneStaleRecoveryExecutables(rollbackRoot);
+            if (restored && launchAfterRollback)
+            {
+                LaunchInstalledApplication();
+            }
+        }
+
+        private static void PruneStaleRecoveryExecutables(
+            string rollbackRoot)
+        {
+            foreach (string candidate in Directory.GetFiles(
+                rollbackRoot,
+                ".*-recovery.exe",
+                SearchOption.TopDirectoryOnly))
+            {
+                try
+                {
+                    string name = Path.GetFileName(candidate);
+                    Match match = Regex.Match(
+                        name,
+                        @"^\.([0-9a-f]{32})-recovery\.exe$",
+                        RegexOptions.IgnoreCase |
+                        RegexOptions.CultureInvariant);
+                    if (!match.Success ||
+                        !IsDirectChildPath(rollbackRoot, candidate) ||
+                        Directory.Exists(Path.Combine(
+                            rollbackRoot,
+                            match.Groups[1].Value)))
+                    {
+                        continue;
+                    }
+                    ValidateFileNotReparse(candidate);
+                    File.Delete(candidate);
+                }
+                catch
+                {
+                    // A running watchdog will remove itself after its parent exits.
+                }
+            }
+        }
+
+        private static bool RecoverOneUpdateTransaction(
+            string transactionDirectory,
+            bool launchAfterRollback)
+        {
+            if (!Directory.Exists(transactionDirectory))
+            {
+                return false;
+            }
+            ValidateSecureDirectory(transactionDirectory);
+            string statePath = Path.Combine(
+                transactionDirectory,
+                UpdateStateFileName);
+            if (!File.Exists(statePath))
+            {
+                ValidateDirectoryTreeWithoutReparse(transactionDirectory);
+                if (Directory.GetDirectories(
+                        transactionDirectory,
+                        "*",
+                        SearchOption.TopDirectoryOnly).Length == 0)
+                {
+                    bool onlyTemporaryControlFiles = true;
+                    foreach (string file in Directory.GetFiles(
+                        transactionDirectory,
+                        "*",
+                        SearchOption.TopDirectoryOnly))
+                    {
+                        if (!Regex.IsMatch(
+                                Path.GetFileName(file),
+                                @"^\.control-[0-9a-f]{32}\.(tmp|old)$",
+                                RegexOptions.IgnoreCase |
+                                RegexOptions.CultureInvariant))
+                        {
+                            onlyTemporaryControlFiles = false;
+                            break;
+                        }
+                    }
+                    if (onlyTemporaryControlFiles)
+                    {
+                        TryDeleteUpdateTransaction(transactionDirectory);
+                        return false;
+                    }
+                }
+                throw new InvalidDataException(
+                    "An update rollback transaction is missing its durable state.");
+            }
+            UpdateRollbackState state = ReadUpdateState(
+                transactionDirectory);
+            if (state.Status == UpdateRollbackStatus.Preparing)
+            {
+                // No installed file is touched before Prepared is persisted.
+                TryDeleteUpdateTransaction(transactionDirectory);
+                if (launchAfterRollback)
+                {
+                    LaunchInstalledApplication();
+                }
+                return false;
+            }
+            if (state.Status == UpdateRollbackStatus.Committed ||
+                state.Status == UpdateRollbackStatus.RolledBack)
+            {
+                TryDeleteUpdateTransaction(transactionDirectory);
+                return false;
+            }
+
+            var transaction = new UpdateRollbackTransaction
+            {
+                Id = state.TransactionId,
+                RootDirectory = transactionDirectory,
+                State = state
+            };
+            SetUpdateRollbackStatus(
+                transaction,
+                UpdateRollbackStatus.RollingBack);
+            RestoreUpdateRollbackTransaction(transaction);
+            SetUpdateRollbackStatus(
+                transaction,
+                UpdateRollbackStatus.RolledBack);
+            TryDeleteUpdateTransaction(transactionDirectory);
+            if (launchAfterRollback)
+            {
+                LaunchInstalledApplication();
+            }
+            return true;
+        }
+
+        private static void RestoreUpdateRollbackTransaction(
+            UpdateRollbackTransaction transaction)
+        {
+            // Validate every durable recovery asset before touching the installed
+            // directory or registration.
+            ValidateUpdateSnapshot(transaction.RootDirectory);
+            ValidateSnapshotApplicationIdentity(transaction);
+            PostInstallRegistrationSnapshot registration =
+                ReadRegistrationSnapshot(Path.Combine(
+                    transaction.RootDirectory,
+                    UpdateRegistrationSnapshotName));
+            StopInstalledApplication();
+            RestoreFileSnapshot(
+                transaction.RootDirectory,
+                InstallDirectory);
+            RestorePostInstallRegistration(registration);
+        }
+
+        private static void ValidateSnapshotApplicationIdentity(
+            UpdateRollbackTransaction transaction)
+        {
+            string snapshotApplication = Path.Combine(
+                transaction.RootDirectory,
+                "snapshot",
+                "files",
+                "MajesticBoost.exe");
+            ValidateFileNotReparse(snapshotApplication);
+            FileVersionInfo version = FileVersionInfo.GetVersionInfo(
+                snapshotApplication);
+            Version actualVersion;
+            Version expectedVersion;
+            if (!string.Equals(
+                    version.ProductName,
+                    ProductName,
+                    StringComparison.Ordinal) ||
+                !Version.TryParse(
+                    (version.FileVersion ?? string.Empty).Trim(),
+                    out actualVersion) ||
+                !Version.TryParse(
+                    transaction.State.PreviousVersion,
+                    out expectedVersion) ||
+                actualVersion != expectedVersion)
+            {
+                throw new InvalidDataException(
+                    "The rollback snapshot does not contain the expected previous application.");
+            }
+        }
+
+        private static void TryDeleteUpdateTransaction(
+            string transactionDirectory)
+        {
+            try
+            {
+                string rollbackRoot = Path.GetDirectoryName(
+                    Path.GetFullPath(transactionDirectory));
+                if (!IsLowerHex(
+                        Path.GetFileName(transactionDirectory),
+                        32) ||
+                    !IsDirectChildPath(
+                        rollbackRoot,
+                        transactionDirectory))
+                {
+                    return;
+                }
+                ValidateSecureDirectory(transactionDirectory);
+                ValidateDirectoryTreeWithoutReparse(transactionDirectory);
+                Directory.Delete(transactionDirectory, true);
+            }
+            catch
+            {
+                // A terminal marker makes a leftover directory harmless. The next
+                // installer or watchdog invocation will retry bounded cleanup.
+            }
+        }
+
+        private static void TryLogRecoveryFailure(
+            string transactionId,
+            Exception exception)
+        {
+            try
+            {
+                string directory = ResolveUpdateTransactionDirectory(
+                    transactionId);
+                if (!Directory.Exists(directory))
+                {
+                    return;
+                }
+                ValidateSecureDirectory(directory);
+                File.AppendAllText(
+                    Path.Combine(directory, "recovery.log"),
+                    DateTime.UtcNow.ToString(
+                        "o",
+                        CultureInfo.InvariantCulture) +
+                        "  " + exception.GetType().Name + ": " +
+                        (exception.Message ?? string.Empty)
+                            .Replace('\r', ' ')
+                            .Replace('\n', ' ') +
+                        Environment.NewLine,
+                    new UTF8Encoding(false));
+            }
+            catch
+            {
+            }
+        }
+
+        private static void ScheduleRecoveryExecutableSelfDelete()
+        {
+            try
+            {
+                string executablePath = Path.GetFullPath(
+                    Application.ExecutablePath);
+                string rollbackRoot = Path.GetFullPath(
+                    Path.GetDirectoryName(executablePath));
+                string fileName = Path.GetFileName(executablePath);
+                if (!Regex.IsMatch(
+                        fileName,
+                        @"^\.[0-9a-f]{32}-recovery\.exe$",
+                        RegexOptions.IgnoreCase |
+                        RegexOptions.CultureInvariant) ||
+                    !string.Equals(
+                        Path.GetFileName(rollbackRoot),
+                        UpdateRollbackDirectoryName,
+                        StringComparison.Ordinal))
+                {
+                    return;
+                }
+                int processId = Process.GetCurrentProcess().Id;
+                string encodedPath = Convert.ToBase64String(
+                    Encoding.UTF8.GetBytes(executablePath));
+                string command =
+                    "$ErrorActionPreference='SilentlyContinue';" +
+                    "Wait-Process -Id " +
+                    processId.ToString(CultureInfo.InvariantCulture) +
+                    " -ErrorAction SilentlyContinue;" +
+                    "$p=[Text.Encoding]::UTF8.GetString(" +
+                    "[Convert]::FromBase64String('" + encodedPath + "'));" +
+                    "$n=[IO.Path]::GetFileName($p);" +
+                    "if($n -match '^\\.[0-9a-f]{32}-recovery\\.exe$'){" +
+                    "[IO.File]::Delete($p)}";
+                var info = new ProcessStartInfo
+                {
+                    FileName = Path.Combine(
+                        Environment.SystemDirectory,
+                        @"WindowsPowerShell\v1.0\powershell.exe"),
+                    Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden " +
+                        "-EncodedCommand " +
+                        Convert.ToBase64String(
+                            Encoding.Unicode.GetBytes(command)),
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                Process cleanup = Process.Start(info);
+                if (cleanup != null)
+                {
+                    cleanup.Dispose();
+                }
+            }
+            catch
+            {
             }
         }
 
@@ -767,6 +3023,7 @@ namespace MajesticBoostSetup
                 using (FileStream systemTransactionGuard =
                     AcquireSystemTransactionGuard("удаление"))
                 {
+                RecoverInterruptedUpdateTransactions(false);
                 EnsureUninstallStateAllowsRemoval();
                 StopInstalledApplication();
 
@@ -912,13 +3169,27 @@ namespace MajesticBoostSetup
 
         private static ShortcutSnapshot CaptureShortcut(string path)
         {
+            string directory = Path.GetDirectoryName(
+                Path.GetFullPath(path));
+            if (!Directory.Exists(directory) ||
+                !IsPathFreeOfReparsePoints(directory))
+            {
+                throw new IOException(
+                    "A shortcut directory is missing or redirected.");
+            }
             var snapshot = new ShortcutSnapshot
             {
-                Path = path,
+                Path = Path.GetFullPath(path),
                 Existed = File.Exists(path)
             };
             if (snapshot.Existed)
             {
+                ValidateFileNotReparse(snapshot.Path);
+                if (new FileInfo(snapshot.Path).Length > 1024 * 1024)
+                {
+                    throw new InvalidDataException(
+                        "An existing shortcut is too large to snapshot safely.");
+                }
                 snapshot.Contents = File.ReadAllBytes(path);
                 snapshot.Attributes = File.GetAttributes(path);
                 snapshot.LastWriteTimeUtc = File.GetLastWriteTimeUtc(path);
@@ -1031,8 +3302,14 @@ namespace MajesticBoostSetup
             {
                 Directory.CreateDirectory(directory);
             }
+            if (!IsPathFreeOfReparsePoints(directory))
+            {
+                throw new IOException(
+                    "A shortcut directory is redirected.");
+            }
             if (File.Exists(snapshot.Path))
             {
+                ValidateFileNotReparse(snapshot.Path);
                 File.SetAttributes(snapshot.Path, FileAttributes.Normal);
             }
             File.WriteAllBytes(snapshot.Path, snapshot.Contents);
